@@ -1,0 +1,15 @@
+/venv
+/db.sqlite3
+/clientes/__pycache__
+/config/__pycache__
+/core/__pycache__
+/finanzas/__pycache__
+/inventario/__pycache__
+/pedidos/__pycache__
+/proveedores/__pycache__
+/clientes/migrations/__pycache__
+/inventario/migrations/__pycache__
+/pedidos/migrations/__pycache__
+/proveedores/migrations/__pycache__
+/core/migrations/__pycache__
+/finanzas/migrations/__pycache__
