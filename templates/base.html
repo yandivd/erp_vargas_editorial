@@ -76,9 +76,9 @@
             {% comment %} <a href="{% url 'proveedores:lista' %}">
                 <i class="bi bi-truck"></i> Proveedores
             </a> {% endcomment %}
-            {% comment %} <a href="{% url 'finanzas:caja' %}">
+            <a href="{% url 'finanzas:caja' %}" class="{% if 'finanzas' in request.resolver_match.namespace %}active{% endif %}">
                 <i class="bi bi-cash-stack"></i> Caja
-            </a> {% endcomment %}
+            </a>
             {% comment %} <a href="{% url 'finanzas:activos' %}">
                 <i class="bi bi-hdd-stack"></i> Activos fijos
             </a> {% endcomment %}
