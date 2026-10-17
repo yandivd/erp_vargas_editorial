@@ -1,9 +1,37 @@
 from django.contrib import admin
+from .models import Pedido, HistorialEstado, ServicioExterno, Book, Estado
+from .services import ServicioPedido
 
-from pedidos.services import ServicioPedido
-from .models import Pedido, HistorialEstado
+
+# ==========================================
+# ADMIN DE LIBROS (BOOK)
+# ==========================================
+@admin.register(Book)
+class BookAdmin(admin.ModelAdmin):
+    list_display = ('titulo', 'autor', 'paginas',)
+    search_fields = ('titulo', 'autor')
+    # list_filter = ('tipo_tapa',)
 
 
+# ==========================================
+# ADMIN DE ESTADOS
+# ==========================================
+@admin.register(Estado)
+class EstadoAdmin(admin.ModelAdmin):
+    # El primer campo (colored_name) será el enlace. 
+    # Luego ponemos orden, es_final y activo (estos sí son editables)
+    list_display = ('colored_name', 'orden', 'es_final', 'activo')
+    list_editable = ('orden', 'es_final', 'activo')
+    ordering = ('orden',)
+    
+    def colored_name(self, obj):
+        return obj.colored_name()
+    colored_name.short_description = 'Nombre'
+
+
+# ==========================================
+# ADMIN DE PEDIDOS
+# ==========================================
 class HistorialEstadoInline(admin.TabularInline):
     model = HistorialEstado
     extra = 0
@@ -13,19 +41,20 @@ class HistorialEstadoInline(admin.TabularInline):
 @admin.register(Pedido)
 class PedidoAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'titulo_libro', 'cliente', 'paginas', 'precio_venta',
+        'id', 'get_titulo_libro', 'cliente', 'get_paginas', 'precio_venta',
         'anticipo_recibido', 'saldo_pendiente', 'estado',
         'fecha_entrega_prometida', 'esta_atrasado'
     )
     list_filter = ('estado', 'lleva_scotch', 'lleva_esquineros')
-    search_fields = ('titulo_libro', 'autor', 'cliente__nombre')
+    search_fields = ('libro__titulo', 'libro__autor', 'cliente__nombre')
     readonly_fields = ('fecha_pedido', 'saldo_pendiente')
     inlines = [HistorialEstadoInline]
+    autocomplete_fields = ['libro'] # Útil si tienes muchos libros
 
     fieldsets = (
         ('Datos del libro', {
-            'fields': ('cliente', 'titulo_libro', 'autor', 'paginas', 'cantidad',
-                       'lleva_scotch', 'lleva_esquineros', 'tipo_tapa')
+            'fields': ('cliente', 'libro', 'cantidad',
+                       'lleva_scotch', 'lleva_esquineros')
         }),
         ('Precio y pagos', {
             'fields': ('precio_venta', 'anticipo_requerido', 'anticipo_recibido', 'saldo_pendiente')
@@ -41,6 +70,15 @@ class PedidoAdmin(admin.ModelAdmin):
             'fields': ('notas',)
         }),
     )
+    
+    # Columnas personalizadas para leer datos desde 'libro'
+    @admin.display(description='Libro')
+    def get_titulo_libro(self, obj):
+        return obj.libro.titulo
+
+    @admin.display(description='Páginas')
+    def get_paginas(self, obj):
+        return obj.libro.paginas
     
     actions = ['accion_cambiar_a_impreso', 'accion_cambiar_a_entregado']
     
@@ -62,26 +100,31 @@ class PedidoAdmin(admin.ModelAdmin):
             anterior = Pedido.objects.get(pk=obj.pk)
             if anterior.estado != obj.estado:
                 super().save_model(request, obj, form, change)
+                # Aquí pasamos obj.estado.nombre en lugar del objeto entero
                 ServicioPedido.cambiar_estado(
-                    obj, obj.estado, usuario=request.user.username,
+                    obj, obj.estado.nombre, usuario=request.user.username,
                     notas='Cambio desde admin'
                 )
                 return
         super().save_model(request, obj, form, change)
 
 
+# ==========================================
+# ADMIN DE HISTORIAL
+# ==========================================
 @admin.register(HistorialEstado)
 class HistorialEstadoAdmin(admin.ModelAdmin):
     list_display = ('pedido', 'estado_anterior', 'estado_nuevo', 'fecha', 'usuario')
-    list_filter = ('estado_nuevo',)
-
-from .models import Pedido, HistorialEstado, ServicioExterno
+    list_filter = ('estado_nuevo', 'estado_anterior')
 
 
+# ==========================================
+# ADMIN DE SERVICIOS EXTERNOS
+# ==========================================
 @admin.register(ServicioExterno)
 class ServicioExternoAdmin(admin.ModelAdmin):
     list_display = ('pedido', 'tipo', 'proveedor', 'monto', 'estado',
                     'fecha_solicitud', 'fecha_recepcion', 'fecha_pago')
     list_filter = ('tipo', 'estado', 'proveedor')
-    search_fields = ('pedido__titulo_libro', 'proveedor__nombre')
+    search_fields = ('pedido__libro__titulo', 'proveedor__nombre')
     readonly_fields = ('fecha_solicitud',)

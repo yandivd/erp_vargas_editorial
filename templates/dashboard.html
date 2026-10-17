@@ -38,9 +38,12 @@
             <h5>Pedidos por estado</h5>
             <ul class="list-group list-group-flush">
                 {% for item in pedidos_por_estado %}
-                <li class="list-group-item d-flex justify-content-between">
-                    <span>{{ item.estado }}</span>
-                    <span class="badge bg-primary">{{ item.total }}</span>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>
+                        <span class="badge me-2" style="background-color: {{ item.estado__color }};">&nbsp;</span>
+                        {{ item.estado__nombre }}
+                    </span>
+                    <span class="badge bg-secondary">{{ item.total }}</span>
                 </li>
                 {% empty %}
                 <li class="list-group-item text-muted">Sin pedidos activos</li>

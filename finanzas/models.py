@@ -32,7 +32,7 @@ class MovimientoCaja(models.Model):
     fecha = models.DateTimeField(auto_now_add=True)
     pedido = models.ForeignKey(Pedido, on_delete=models.SET_NULL, null=True, blank=True)
     proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL, null=True, blank=True)
-    clientes = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True)
+    cliente = models.ForeignKey(Cliente, on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         verbose_name = 'Movimiento de caja'

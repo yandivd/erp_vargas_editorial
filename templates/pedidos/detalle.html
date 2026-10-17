@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">Pedido #{{ pedido.id }} — {{ pedido.titulo_libro }}</h2>
+    <h2 class="mb-0">Pedido #{{ pedido.id }} — {{ pedido.libro.titulo }}</h2>
     <a href="{% url 'pedidos:lista' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
 </div>
 
@@ -15,15 +15,15 @@
             <div class="row">
                 <div class="col-md-6">
                     <p><strong>Cliente:</strong> {{ pedido.cliente.nombre }}</p>
-                    <p><strong>Autor:</strong> {{ pedido.autor }}</p>
-                    <p><strong>Páginas:</strong> {{ pedido.paginas }}</p>
+                    <p><strong>Autor:</strong> {{ pedido.libro.autor|default:"—" }}</p>
+                    <p><strong>Páginas:</strong> {{ pedido.libro.paginas }}</p>
                     <p><strong>Cantidad:</strong> {{ pedido.cantidad }}</p>
                 </div>
                 <div class="col-md-6">
                     <p><strong>Precio:</strong> ${{ pedido.precio_venta|floatformat:2 }}</p>
                     <p><strong>Anticipo:</strong> ${{ pedido.anticipo_recibido|floatformat:2 }}</p>
                     <p><strong>Saldo:</strong> ${{ pedido.saldo_pendiente|floatformat:2 }}</p>
-                    <p><strong>Estado:</strong> <span class="badge bg-primary">{{ pedido.estado }}</span></p>
+                    <p><strong>Estado:</strong> <span class="badge" style="background-color: {{ pedido.estado.color }}">{{ pedido.estado.nombre }}</span></p>
                 </div>
             </div>
         </div>
@@ -68,7 +68,7 @@
                 {% for h in pedido.historial.all %}
                 <li class="mb-2">
                     <small class="text-muted">{{ h.fecha|date:"d/m/Y H:i" }}</small><br>
-                    <strong>{{ h.estado_anterior }}</strong> → <strong>{{ h.estado_nuevo }}</strong>
+                    <strong>{{ h.estado_anterior.nombre|default:"—" }}</strong> → <strong>{{ h.estado_nuevo.nombre }}</strong>
                     {% if h.notas %}<br><small>{{ h.notas }}</small>{% endif %}
                 </li>
                 {% empty %}
@@ -84,29 +84,15 @@
             <form method="post" action="{% url 'pedidos:cambiar_estado' pedido.id %}">
                 {% csrf_token %}
                 <select name="estado" class="form-select mb-2">
-                    {% for value, label in estados %}
-                    <option value="{{ value }}" {% if pedido.estado == value %}selected{% endif %}>{{ label }}</option>
+                    {% for e in estados %}
+                    <option value="{{ e.nombre }}" {% if pedido.estado.id == e.id %}selected{% endif %}>{{ e.nombre }}</option>
                     {% endfor %}
                 </select>
                 <input type="text" name="notas" class="form-control mb-2" placeholder="Notas (opcional)">
-                <button class="btn btn-primary w-100">Cambiar estado</button>
+                <button class="btn btn-primary w-100">Avanzar estado</button>
             </form>
         </div>
-        {% if pedido.estado == 'Borrador' %}
-        <div class="card card-kpi p-3 mb-3 border-warning">
-            <h5><i class="bi bi-exclamation-triangle text-warning"></i> Pedido en borrador</h5>
-            <p class="text-muted small">
-                Este pedido todavía no está confirmado. No cuenta como pedido activo.
-            </p>
-            <form method="post" action="{% url 'pedidos:confirmar' pedido.id %}">
-                {% csrf_token %}
-                <button class="btn btn-warning w-100">
-                    <i class="bi bi-check-lg"></i> Cliente confirmó, pasar a pendiente de anticipo
-                </button>
-            </form>
-        </div>
-        {% endif %}
-        {% if pedido.estado == 'Pendiente de anticipo' or pedido.estado == 'Anticipo recibido' %}
+
         <div class="card card-kpi p-3 mb-3">
             <h5>Registrar anticipo</h5>
             <form method="post" action="{% url 'pedidos:registrar_anticipo' pedido.id %}">
@@ -115,12 +101,10 @@
                 <select name="metodo" class="form-select mb-2">
                     <option value="EFECTIVO">Efectivo</option>
                     <option value="TRANSFERENCIA">Transferencia</option>
-                    <option value="TARJETA">Tarjeta</option>
                 </select>
                 <button class="btn btn-success w-100">Registrar</button>
             </form>
         </div>
-        {% endif %}
     </div>
 </div>
 {% endblock %}
