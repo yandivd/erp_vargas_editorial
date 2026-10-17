@@ -56,9 +56,9 @@ class ServicioFinanzas:
         )
         
         # Actualizar el pedido
-        pedido.anticipo_recibido += monto  # Lo que llevas cobrado en total
-        pedido.saldo_pendiente -= monto    # Lo que resta por cobrar
-        pedido.save()
+        pedido.anticipo_recibido += monto
+        pedido.saldo_pendiente -= monto
+        pedido.save() # <-- ESTO ES VITAL PARA QUE SE GUARDE
         
         return mov
     

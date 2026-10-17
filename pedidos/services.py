@@ -119,10 +119,15 @@ class ServicioPedido:
         # Acciones automáticas
         if nuevo_estado.nombre == 'Impreso':
             ServicioPedido.consumir_materiales(pedido)
+            
         elif nuevo_estado.nombre == 'Pendiente a Portada':
             ServicioPedido.crear_servicio_portada(pedido)
+            
         elif nuevo_estado.nombre == 'Pendiente a Encuadernado':
             ServicioPedido.crear_servicio_encuadernado(pedido)
+            
+        elif nuevo_estado.nombre == 'Entregado':
+            ServicioPedido.cobrar_saldo(pedido)
 
         return pedido
 
@@ -158,3 +163,12 @@ class ServicioPedido:
                 pedido=pedido, proveedor=proveedor, tipo='ENCUADERNADO',
                 monto=monto, estado='SOLICITADO'
             )
+
+    @staticmethod
+    def cobrar_saldo(pedido):
+        """Al entregar, registra el cobro del saldo en caja si queda pendiente."""
+        from finanzas.services import ServicioFinanzas
+        
+        # Solo cobramos si hay algo pendiente
+        if pedido.saldo_pendiente > 0:
+            ServicioFinanzas.registrar_saldo(pedido, monto=pedido.saldo_pendiente)
