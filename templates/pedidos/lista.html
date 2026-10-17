@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}Pedidos - ERP Libros{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0"><i class="bi bi-journal-text"></i> Pedidos</h2>
+    <a href="/admin/pedidos/pedido/add/" class="btn btn-success">
+        <i class="bi bi-plus-lg"></i> Nuevo pedido
+    </a>
+</div>
+
+<div class="card card-kpi p-3 mb-3">
+    <form method="get" class="row g-2">
+        <div class="col-md-5">
+            <input type="text" name="q" class="form-control" placeholder="Buscar por título, autor o cliente" value="{{ busqueda }}">
+        </div>
+        <div class="col-md-4">
+            <select name="estado" class="form-select">
+                <option value="">Todos los estados</option>
+                {% for value, label in estados %}
+                <option value="{{ value }}" {% if estado_actual == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Filtrar</button>
+        </div>
+    </form>
+</div>
+
+<div class="card card-kpi">
+    <table class="table table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>#</th>
+                <th>Título</th>
+                <th>Cliente</th>
+                <th>Páginas</th>
+                <th>Precio</th>
+                <th>Anticipo</th>
+                <th>Saldo</th>
+                <th>Estado</th>
+                <th>Entrega</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in pedidos %}
+            <tr>
+                <td>{{ p.id }}</td>
+                <td><strong>{{ p.titulo_libro }}</strong><br><small class="text-muted">{{ p.autor }}</small></td>
+                <td>{{ p.cliente.nombre }}</td>
+                <td>{{ p.paginas }}</td>
+                <td>${{ p.precio_venta|floatformat:0 }}</td>
+                <td>${{ p.anticipo_recibido|floatformat:0 }}</td>
+                <td>${{ p.saldo_pendiente|floatformat:0 }}</td>
+                <td>
+                    <span class="badge bg-secondary estado-badge">{{ p.estado }}</span>
+                    {% if p.esta_atrasado %}
+                    <span class="badge bg-danger estado-badge">Atrasado</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if p.fecha_entrega_prometida %}
+                    {{ p.fecha_entrega_prometida|date:"d/m/Y" }}
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'pedidos:detalle' p.id %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="10" class="text-center text-muted py-4">No hay pedidos</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

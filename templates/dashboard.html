@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - ERP Libros{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-speedometer2"></i> Dashboard</h2>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card card-kpi p-3">
+            <small class="text-muted">Pedidos pendientes</small>
+            <h3 class="mb-0">{{ pedidos_pendientes }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-kpi p-3">
+            <small class="text-muted">Pedidos últimos 30 días</small>
+            <h3 class="mb-0">{{ pedidos_mes }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-kpi p-3">
+            <small class="text-muted">Saldo en caja</small>
+            <h3 class="mb-0 text-success">${{ saldo_caja|floatformat:2 }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-kpi p-3">
+            <small class="text-muted">Por cobrar</small>
+            <h3 class="mb-0 text-warning">${{ por_cobrar|floatformat:2 }}</h3>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card card-kpi p-3">
+            <h5>Pedidos por estado</h5>
+            <ul class="list-group list-group-flush">
+                {% for item in pedidos_por_estado %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>{{ item.estado }}</span>
+                    <span class="badge bg-primary">{{ item.total }}</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted">Sin pedidos activos</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card card-kpi p-3">
+            <h5>Pedidos atrasados</h5>
+            {% if pedidos_atrasados %}
+            <ul class="list-group list-group-flush">
+                {% for p in pedidos_atrasados %}
+                <li class="list-group-item">
+                    <a href="{% url 'pedidos:detalle' p.id %}">#{{ p.id }} {{ p.titulo_libro }}</a>
+                    <small class="text-danger">({{ p.cliente.nombre }})</small>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted mb-0">Ningún pedido atrasado</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-3">
+    <div class="col-md-6">
+        <div class="card card-kpi p-3">
+            <h5>Materiales con stock bajo</h5>
+            {% if materiales_bajos %}
+            <ul class="list-group list-group-flush">
+                {% for m in materiales_bajos %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>{{ m.nombre }}</span>
+                    <span class="badge bg-danger">{{ m.stock_actual }} {{ m.unidad_medida }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted mb-0">Todo el inventario OK</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card card-kpi p-3">
+            <h5>Acciones rápidas</h5>
+            <div class="d-grid gap-2">
+                <a href="{% url 'pedidos:lista' %}" class="btn btn-primary">
+                    <i class="bi bi-journal-text"></i> Ver pedidos
+                </a>
+                <a href="/admin/pedidos/pedido/add/" class="btn btn-success">
+                    <i class="bi bi-plus-lg"></i> Nuevo pedido
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row g-3 mt-3">
+    <div class="col-md-6">
+        <div class="card card-kpi p-3">
+            <h5>
+                <i class="bi bi-file-earmark-text text-warning"></i>
+                Borradores sin confirmar
+                {% if total_borradores %}
+                <span class="badge bg-warning text-dark">{{ total_borradores }}</span>
+                {% endif %}
+            </h5>
+            {% if borradores %}
+            <ul class="list-group list-group-flush">
+                {% for b in borradores %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{% url 'pedidos:detalle' b.id %}">
+                            #{{ b.id }} {{ b.titulo_libro }}
+                        </a>
+                        <br>
+                        <small class="text-muted">
+                            {{ b.cliente.nombre }} — hace {{ b.fecha_pedido|timesince }}
+                        </small>
+                    </div>
+                    <a href="{% url 'pedidos:detalle' b.id %}" class="btn btn-sm btn-outline-primary">
+                        Ver
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-muted mb-0">Sin borradores pendientes</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

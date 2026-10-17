@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block title %}Pedido #{{ pedido.id }} - ERP Libros{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Pedido #{{ pedido.id }} — {{ pedido.titulo_libro }}</h2>
+    <a href="{% url 'pedidos:lista' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-8">
+        <div class="card card-kpi p-3 mb-3">
+            <h5>Datos del libro</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Cliente:</strong> {{ pedido.cliente.nombre }}</p>
+                    <p><strong>Autor:</strong> {{ pedido.autor }}</p>
+                    <p><strong>Páginas:</strong> {{ pedido.paginas }}</p>
+                    <p><strong>Cantidad:</strong> {{ pedido.cantidad }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Precio:</strong> ${{ pedido.precio_venta|floatformat:2 }}</p>
+                    <p><strong>Anticipo:</strong> ${{ pedido.anticipo_recibido|floatformat:2 }}</p>
+                    <p><strong>Saldo:</strong> ${{ pedido.saldo_pendiente|floatformat:2 }}</p>
+                    <p><strong>Estado:</strong> <span class="badge bg-primary">{{ pedido.estado }}</span></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card card-kpi p-3 mb-3">
+            <h5>Desglose de costos estimados</h5>
+            <table class="table table-sm">
+                <tr><td>Papel</td><td class="text-end">${{ costo.costo_papel }}</td></tr>
+                <tr><td>Tinta</td><td class="text-end">${{ costo.costo_tinta }}</td></tr>
+                <tr><td>Pegamento</td><td class="text-end">${{ costo.costo_pegamento }}</td></tr>
+                <tr><td>Scotch</td><td class="text-end">${{ costo.costo_scotch }}</td></tr>
+                <tr><td>Portada</td><td class="text-end">${{ costo.costo_portada }}</td></tr>
+                <tr><td>Encuadernación</td><td class="text-end">${{ costo.costo_encuadernacion }}</td></tr>
+                <tr><td>Electricidad</td><td class="text-end">${{ costo.costo_electricidad }}</td></tr>
+                <tr><td>Diseño</td><td class="text-end">${{ costo.costo_diseno }}</td></tr>
+                <tr class="table-light"><td><strong>Costo total</strong></td><td class="text-end"><strong>${{ costo.costo_total }}</strong></td></tr>
+            </table>
+        </div>
+
+        {% if pedido.servicios_externos.all %}
+        <div class="card card-kpi p-3 mb-3">
+            <h5>Servicios externos</h5>
+            <table class="table table-sm">
+                <thead><tr><th>Tipo</th><th>Proveedor</th><th>Monto</th><th>Estado</th></tr></thead>
+                <tbody>
+                    {% for s in pedido.servicios_externos.all %}
+                    <tr>
+                        <td>{{ s.get_tipo_display }}</td>
+                        <td>{{ s.proveedor.nombre }}</td>
+                        <td>${{ s.monto|floatformat:2 }}</td>
+                        <td><span class="badge bg-info">{{ s.estado }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <div class="card card-kpi p-3">
+            <h5>Historial de estados</h5>
+            <ul class="list-unstyled mb-0">
+                {% for h in pedido.historial.all %}
+                <li class="mb-2">
+                    <small class="text-muted">{{ h.fecha|date:"d/m/Y H:i" }}</small><br>
+                    <strong>{{ h.estado_anterior }}</strong> → <strong>{{ h.estado_nuevo }}</strong>
+                    {% if h.notas %}<br><small>{{ h.notas }}</small>{% endif %}
+                </li>
+                {% empty %}
+                <li class="text-muted">Sin cambios registrados</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card card-kpi p-3 mb-3">
+            <h5>Cambiar estado</h5>
+            <form method="post" action="{% url 'pedidos:cambiar_estado' pedido.id %}">
+                {% csrf_token %}
+                <select name="estado" class="form-select mb-2">
+                    {% for value, label in estados %}
+                    <option value="{{ value }}" {% if pedido.estado == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" name="notas" class="form-control mb-2" placeholder="Notas (opcional)">
+                <button class="btn btn-primary w-100">Cambiar estado</button>
+            </form>
+        </div>
+        {% if pedido.estado == 'Borrador' %}
+        <div class="card card-kpi p-3 mb-3 border-warning">
+            <h5><i class="bi bi-exclamation-triangle text-warning"></i> Pedido en borrador</h5>
+            <p class="text-muted small">
+                Este pedido todavía no está confirmado. No cuenta como pedido activo.
+            </p>
+            <form method="post" action="{% url 'pedidos:confirmar' pedido.id %}">
+                {% csrf_token %}
+                <button class="btn btn-warning w-100">
+                    <i class="bi bi-check-lg"></i> Cliente confirmó, pasar a pendiente de anticipo
+                </button>
+            </form>
+        </div>
+        {% endif %}
+        {% if pedido.estado == 'Pendiente de anticipo' or pedido.estado == 'Anticipo recibido' %}
+        <div class="card card-kpi p-3 mb-3">
+            <h5>Registrar anticipo</h5>
+            <form method="post" action="{% url 'pedidos:registrar_anticipo' pedido.id %}">
+                {% csrf_token %}
+                <input type="number" name="monto" class="form-control mb-2" placeholder="Monto" step="0.01" required>
+                <select name="metodo" class="form-select mb-2">
+                    <option value="EFECTIVO">Efectivo</option>
+                    <option value="TRANSFERENCIA">Transferencia</option>
+                    <option value="TARJETA">Tarjeta</option>
+                </select>
+                <button class="btn btn-success w-100">Registrar</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,7 +1,7 @@
 from django.db import models
 
 
-class clientes(models.Model):
+class Cliente(models.Model):
     nombre = models.CharField(max_length=200)
     telefono = models.CharField(max_length=50, blank=True)
     email = models.EmailField(blank=True)
@@ -10,8 +10,8 @@ class clientes(models.Model):
     fecha_registro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = 'clientes'
-        verbose_name_plural = 'clientes'
+        verbose_name = 'Cliente'
+        verbose_name_plural = 'Clientes'
         ordering = ['nombre']
 
     def __str__(self):

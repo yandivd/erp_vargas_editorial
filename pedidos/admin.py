@@ -1,4 +1,6 @@
 from django.contrib import admin
+
+from pedidos.services import ServicioPedido
 from .models import Pedido, HistorialEstado
 
 
@@ -11,18 +13,18 @@ class HistorialEstadoInline(admin.TabularInline):
 @admin.register(Pedido)
 class PedidoAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'titulo_libro', 'clientes', 'paginas', 'precio_venta',
+        'id', 'titulo_libro', 'cliente', 'paginas', 'precio_venta',
         'anticipo_recibido', 'saldo_pendiente', 'estado',
         'fecha_entrega_prometida', 'esta_atrasado'
     )
     list_filter = ('estado', 'lleva_scotch', 'lleva_esquineros')
-    search_fields = ('titulo_libro', 'autor', 'clientes__nombre')
+    search_fields = ('titulo_libro', 'autor', 'cliente__nombre')
     readonly_fields = ('fecha_pedido', 'saldo_pendiente')
     inlines = [HistorialEstadoInline]
 
     fieldsets = (
         ('Datos del libro', {
-            'fields': ('clientes', 'titulo_libro', 'autor', 'paginas', 'cantidad',
+            'fields': ('cliente', 'titulo_libro', 'autor', 'paginas', 'cantidad',
                        'lleva_scotch', 'lleva_esquineros', 'tipo_tapa')
         }),
         ('Precio y pagos', {
@@ -39,6 +41,33 @@ class PedidoAdmin(admin.ModelAdmin):
             'fields': ('notas',)
         }),
     )
+    
+    actions = ['accion_cambiar_a_impreso', 'accion_cambiar_a_entregado']
+    
+    @admin.action(description='Marcar como Impreso (consume materiales)')
+    def accion_cambiar_a_impreso(self, request, queryset):
+        for pedido in queryset:
+            ServicioPedido.cambiar_estado(pedido, 'Impreso', usuario=request.user.username)
+        self.message_user(request, f'{queryset.count()} pedidos marcados como Impresos.')
+    
+    @admin.action(description='Marcar como Entregado')
+    def accion_cambiar_a_entregado(self, request, queryset):
+        for pedido in queryset:
+            ServicioPedido.cambiar_estado(pedido, 'Entregado', usuario=request.user.username)
+        self.message_user(request, f'{queryset.count()} pedidos entregados.')
+    
+    def save_model(self, request, obj, form, change):
+        """Detecta si cambió el estado y ejecuta la lógica."""
+        if change:
+            anterior = Pedido.objects.get(pk=obj.pk)
+            if anterior.estado != obj.estado:
+                super().save_model(request, obj, form, change)
+                ServicioPedido.cambiar_estado(
+                    obj, obj.estado, usuario=request.user.username,
+                    notas='Cambio desde admin'
+                )
+                return
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(HistorialEstado)

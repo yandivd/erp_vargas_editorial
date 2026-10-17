@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-from clientes.models import clientes
+from clientes.models import Cliente
 
 
 class Pedido(models.Model):
@@ -24,7 +24,7 @@ class Pedido(models.Model):
     ]
 
     # Datos del libro
-    clientes = models.ForeignKey(clientes, on_delete=models.PROTECT, related_name='pedidos')
+    cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name='pedidos')
     titulo_libro = models.CharField(max_length=200)
     autor = models.CharField(max_length=200, blank=True)
     paginas = models.PositiveIntegerField()
@@ -60,7 +60,7 @@ class Pedido(models.Model):
         ordering = ['-fecha_pedido']
 
     def __str__(self):
-        return f"#{self.id} - {self.titulo_libro} ({self.clientes.nombre})"
+        return f"#{self.id} - {self.titulo_libro} ({self.cliente.nombre})"
 
     def save(self, *args, **kwargs):
         # Calcular saldo automáticamente
