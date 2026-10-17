@@ -30,6 +30,10 @@ class Material(models.Model):
     def stock_bajo(self):
         return self.stock_actual <= self.stock_minimo
 
+    @property
+    def valor_inventario(self):
+        return self.stock_actual * self.costo_promedio
+
 
 class MovimientoInventario(models.Model):
     TIPO_CHOICES = [

@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block title %}Historial de {{ material.nombre }} - ERP Libros{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0"><i class="bi bi-clock-history"></i> Historial: {{ material.nombre }}</h2>
+    <div>
+        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalAjuste">
+            <i class="bi bi-exclamation-triangle"></i> Registrar Merma
+        </button>
+        <a href="{% url 'inventario:lista' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card card-kpi p-3">
+            <small class="text-muted">Stock Actual</small>
+            <h3 class="mb-0">{{ material.stock_actual|floatformat:2 }} {{ material.unidad_medida }}</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-kpi p-3">
+            <small class="text-muted">Costo Promedio</small>
+            <h3 class="mb-0">${{ material.costo_promedio|floatformat:2 }}</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-kpi p-3">
+            <small class="text-muted">Valor en Inventario</small>
+            <h3 class="mb-0">${{ material.valor_inventario|floatformat:2 }}</h3>
+        </div>
+    </div>
+</div>
+
+<div class="card card-kpi">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Movimiento</th>
+                    <th>Cantidad</th>
+                    <th>Costo Unit.</th>
+                    <th>Costo Total</th>
+                    <th>Motivo / Pedido</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mov in movimientos %}
+                <tr>
+                    <td>{{ mov.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        {% if mov.tipo == 'ENTRADA' %}
+                            <span class="badge bg-success">Entrada</span>
+                        {% elif mov.tipo == 'SALIDA' %}
+                            <span class="badge bg-danger">Salida</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Ajuste</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ mov.cantidad|floatformat:2 }}</td>
+                    <td>${{ mov.costo_unitario|floatformat:2 }}</td>
+                    <td>${{ mov.costo_total|floatformat:2 }}</td>
+                    <td>
+                        {{ mov.motivo }}
+                        {% if mov.pedido %}
+                            <br><small><a href="{% url 'pedidos:detalle' mov.pedido.id %}">Ver Pedido #{{ mov.pedido.id }}</a></small>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No hay movimientos</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Ajuste / Merma -->
+<div class="modal fade" id="modalAjuste" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'inventario:ajuste' material.id %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Registrar Merma</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">Usa esto si un material se dañó, se manchó o se usó para pruebas. Esto restará el stock y registrará la pérdida.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Cantidad perdida ({{ material.unidad_medida }}) *</label>
+                        <input type="number" name="cantidad" class="form-control" step="0.01" min="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Motivo</label>
+                        <input type="text" name="motivo" class="form-control" value="Merma / Daño" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">Registrar Salida</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

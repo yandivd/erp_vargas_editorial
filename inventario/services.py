@@ -33,63 +33,66 @@ class ServicioInventario:
     
     @staticmethod
     def consumir_materiales_pedido(pedido):
-        """
-        Descuenta automáticamente los materiales que necesita un pedido.
-        Se llama cuando el pedido pasa a estado 'Impreso' (o el que definas).
-        """
+        """Descuenta automáticamente los materiales, aplicando el % de merma."""
         from pedidos.services import CosteadorPedido
+        from core.models import Parametro
+        import math
         
         costo = CosteadorPedido(pedido).calcular()
         movimientos = []
         
-        # Hojas
+        # Leemos el factor de merma (si no existe, usamos 5% por defecto)
+        merma = float(Parametro.get('factor_merma', 0.05))
+        
+        # --- HOJAS ---
         material_hojas = Material.objects.filter(nombre__iexact='hojas', activo=True).first()
         if material_hojas and costo['hojas'] > 0:
+            hojas_con_merma = math.ceil(costo['hojas'] * (1 + merma)) # Redondeamos hacia arriba
             mov = ServicioInventario.registrar_consumo(
-                material_hojas, costo['hojas'], pedido,
-                motivo=f'Impresión de {pedido.titulo_libro}'
+                material_hojas, hojas_con_merma, pedido,
+                motivo=f'Impresión: {pedido.libro.titulo} (+{int(merma*100)}% merma)'
             )
             movimientos.append(mov)
         
-        # Tinta (en ml)
+        # --- TINTA ---
         material_tinta = Material.objects.filter(nombre__iexact='tinta', activo=True).first()
         if material_tinta:
-            # Calcular ml consumidos según el rendimiento
-            from core.models import Parametro
             rinde = Decimal(str(Parametro.get('rinde_tinta_paginas', 35000)))
             ml_por_pagina = Decimal('1000') / rinde if rinde else 0
             ml_consumidos = Decimal(pedido.paginas) * ml_por_pagina
-            if ml_consumidos > 0:
+            ml_con_merma = ml_consumidos * Decimal(str(1 + merma))
+            
+            if ml_con_merma > 0:
                 mov = ServicioInventario.registrar_consumo(
-                    material_tinta, ml_consumidos, pedido,
-                    motivo=f'Tinta para {pedido.titulo_libro}'
+                    material_tinta, ml_con_merma, pedido,
+                    motivo=f'Tinta: {pedido.libro.titulo} (+{int(merma*100)}% merma)'
                 )
                 movimientos.append(mov)
         
-        # Pegamento (en pomos)
+        # --- PEGAMENTO ---
         material_pegamento = Material.objects.filter(nombre__iexact='pegamento', activo=True).first()
         if material_pegamento:
-            from core.models import Parametro
             rinde = Decimal(str(Parametro.get('rinde_pegamento_lomos', 70)))
             pomos_por_lomo = Decimal('1') / rinde if rinde else 0
-            if pomos_por_lomo > 0:
+            pomos_con_merma = pomos_por_lomo * Decimal(str(1 + merma))
+            
+            if pomos_con_merma > 0:
                 mov = ServicioInventario.registrar_consumo(
-                    material_pegamento, pomos_por_lomo, pedido,
-                    motivo=f'Pegamento para {pedido.titulo_libro}'
+                    material_pegamento, pomos_con_merma, pedido,
+                    motivo=f'Pegamento: {pedido.libro.titulo} (+{int(merma*100)}% merma)'
                 )
                 movimientos.append(mov)
-        
-        # Scotch (opcional)
+                
+        # --- SCOTCH (opcional, no suele llevar merma) ---
         if pedido.lleva_scotch:
             material_scotch = Material.objects.filter(nombre__iexact='scotch', activo=True).first()
             if material_scotch:
-                from core.models import Parametro
                 rinde = Decimal(str(Parametro.get('rinde_scotch_libros', 30)))
                 rollos_por_libro = Decimal('1') / rinde if rinde else 0
                 if rollos_por_libro > 0:
                     mov = ServicioInventario.registrar_consumo(
                         material_scotch, rollos_por_libro, pedido,
-                        motivo=f'Scotch para {pedido.titulo_libro}'
+                        motivo=f'Scotch: {pedido.libro.titulo}'
                     )
                     movimientos.append(mov)
         

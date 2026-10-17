@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+
+{% block title %}Inventario - ERP Libros{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0"><i class="bi bi-box-seam"></i> Inventario de Materiales</h2>
+    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCompra">
+        <i class="bi bi-cart-plus"></i> Registrar Compra
+    </button>
+</div>
+
+<div class="card card-kpi">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Material</th>
+                    <th>Stock Actual</th>
+                    <th>Costo Promedio</th>
+                    <th>Valor en Inventario</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in materiales %}
+                <tr>
+                    <td><strong>{{ m.nombre }}</strong></td>
+                    <td>
+                        {{ m.stock_actual|floatformat:2 }} {{ m.unidad_medida }}
+                    </td>
+                    <td>${{ m.costo_promedio|floatformat:2 }}</td>
+                    <td>${{ m.valor_inventario|floatformat:2 }}</td>
+                    <td>
+                        {% if m.stock_bajo %}
+                            <span class="badge bg-danger">Stock Bajo</span>
+                        {% else %}
+                            <span class="badge bg-success">Suficiente</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'inventario:detalle' m.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-clock-history"></i> Historial
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No hay materiales registrados</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Registrar Compra -->
+<div class="modal fade" id="modalCompra" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-cart-plus"></i> Registrar Compra</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formCompra">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div id="compra-errors" class="alert alert-danger d-none"></div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Material *</label>
+                        <select name="material_id" class="form-select" required>
+                            <option value="">Selecciona un material...</option>
+                            {% for m in materiales %}
+                            <option value="{{ m.id }}">{{ m.nombre }} ({{ m.unidad_medida }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Cantidad comprada *</label>
+                            <input type="number" name="cantidad" class="form-control" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Costo Total ($) *</label>
+                            <input type="number" name="costo_total" class="form-control" step="0.01" min="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Proveedor / Notas</label>
+                        <input type="text" name="notas" class="form-control" placeholder="Ej: Papelería Central">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Guardar Compra</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('formCompra');
+    if (!form) return;
+
+    const errorsDiv = document.getElementById('compra-errors');
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const formData = new FormData(form);
+        errorsDiv.classList.add('d-none');
+
+        fetch('{% url "inventario:comprar_modal" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {'X-CSRFToken': formData.get('csrfmiddlewaretoken')}
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                window.location.reload();
+            } else {
+                errorsDiv.textContent = data.error || 'Error al guardar la compra.';
+                errorsDiv.classList.remove('d-none');
+            }
+        })
+        .catch(err => {
+            errorsDiv.textContent = 'Error de conexión.';
+            errorsDiv.classList.remove('d-none');
+            console.error(err);
+        });
+    });
+});
+</script>
+{% endblock %}
