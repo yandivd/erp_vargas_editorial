@@ -1,140 +1,171 @@
 {% extends 'base.html' %}
-
 {% block title %}Dashboard - ERP Libros{% endblock %}
 
 {% block content %}
-<h2 class="mb-4"><i class="bi bi-speedometer2"></i> Dashboard</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-speedometer2"></i> Resumen del Negocio</h2>
+    <span class="text-muted">{{ now|date:"l, d \d\e F \d\e Y" }}</span>
+</div>
 
+<!-- FILA 1: KPIs FINANCIEROS -->
 <div class="row g-3 mb-4">
     <div class="col-md-3">
-        <div class="card card-kpi p-3">
-            <small class="text-muted">Pedidos pendientes</small>
-            <h3 class="mb-0">{{ pedidos_pendientes }}</h3>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card card-kpi p-3">
-            <small class="text-muted">Pedidos últimos 30 días</small>
-            <h3 class="mb-0">{{ pedidos_mes }}</h3>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card card-kpi p-3">
-            <small class="text-muted">Saldo en caja</small>
+        <div class="card card-kpi p-3 border-start border-success border-4 h-100">
+            <small class="text-muted">Dinero en Caja</small>
             <h3 class="mb-0 text-success">${{ saldo_caja|floatformat:2 }}</h3>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card card-kpi p-3">
-            <small class="text-muted">Por cobrar</small>
+        <div class="card card-kpi p-3 border-start border-warning border-4 h-100">
+            <small class="text-muted">Por Cobrar (Clientes)</small>
             <h3 class="mb-0 text-warning">${{ por_cobrar|floatformat:2 }}</h3>
         </div>
     </div>
-</div>
-
-<div class="row g-3">
-    <div class="col-md-6">
-        <div class="card card-kpi p-3">
-            <h5>Pedidos por estado</h5>
-            <ul class="list-group list-group-flush">
-                {% for item in pedidos_por_estado %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <span>
-                        <span class="badge me-2" style="background-color: {{ item.estado__color }};">&nbsp;</span>
-                        {{ item.estado__nombre }}
-                    </span>
-                    <span class="badge bg-secondary">{{ item.total }}</span>
-                </li>
-                {% empty %}
-                <li class="list-group-item text-muted">Sin pedidos activos</li>
-                {% endfor %}
-            </ul>
+    <div class="col-md-3">
+        <div class="card card-kpi p-3 border-start border-danger border-4 h-100">
+            <small class="text-muted">Por Pagar (Proveedores)</small>
+            <h3 class="mb-0 text-danger">${{ por_pagar|floatformat:2 }}</h3>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card card-kpi p-3">
-            <h5>Pedidos atrasados</h5>
-            {% if pedidos_atrasados %}
+    <div class="col-md-3">
+        <div class="card card-kpi p-3 border-start border-primary border-4 h-100">
+            <small class="text-muted">Pedidos Activos</small>
+            <h3 class="mb-0 text-primary">{{ pedidos_pendientes }}</h3>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <!-- GRÁFICO DE GANANCIAS DEL MES -->
+    <div class="col-md-8">
+        <div class="card card-kpi p-3 h-100">
+            <h5>Rentabilidad del Mes (Entregados)</h5>
+            <canvas id="graficoRentabilidad" height="100"></canvas>
+        </div>
+    </div>
+    
+    <!-- PROGRESO DE PEDIDOS -->
+    <div class="col-md-4">
+        <div class="card card-kpi p-3 h-100">
+            <h5>Estado del Taller</h5>
+            <p class="text-muted small mb-3">Total activos: {{ total_activos }}</p>
+            {% for item in pedidos_por_estado %}
+            <div class="mb-2">
+                <div class="d-flex justify-content-between small mb-1">
+                    <span>{{ item.estado__nombre }}</span>
+                    <span class="fw-bold">{{ item.total }}</span>
+                </div>
+                <div class="progress" style="height: 6px;">
+                    <div class="progress-bar" role="progressbar" style="width: 100%; background-color: {{ item.estado__color }};"></div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-muted small">No hay pedidos activos.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- FILA 3: ALERTAS Y BORRADORES -->
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card card-kpi p-3 border-danger h-100">
+            <h5 class="text-danger"><i class="bi bi-exclamation-triangle"></i> Pedidos Atrasados</h5>
             <ul class="list-group list-group-flush">
                 {% for p in pedidos_atrasados %}
-                <li class="list-group-item">
-                    <a href="{% url 'pedidos:detalle' p.id %}">#{{ p.id }} {{ p.titulo_libro }}</a>
-                    <small class="text-danger">({{ p.cliente.nombre }})</small>
+                <li class="list-group-item px-0 py-2">
+                    <a href="{% url 'pedidos:detalle' p.id %}" class="fw-bold">#{{ p.id }} {{ p.libro.titulo }}</a><br>
+                    <small class="text-muted">Debía entregarse el {{ p.fecha_entrega_prometida|date:"d/m/Y" }}</small>
                 </li>
+                {% empty %}
+                <li class="list-group-item px-0 text-muted py-3">¡Todo al día! No hay atrasos.</li>
                 {% endfor %}
             </ul>
-            {% else %}
-            <p class="text-muted mb-0">Ningún pedido atrasado</p>
-            {% endif %}
         </div>
     </div>
-</div>
 
-<div class="row g-3 mt-3">
-    <div class="col-md-6">
-        <div class="card card-kpi p-3">
-            <h5>Materiales con stock bajo</h5>
-            {% if materiales_bajos %}
+    <div class="col-md-4">
+        <div class="card card-kpi p-3 border-warning h-100">
+            <h5 class="text-warning"><i class="bi bi-box-seam"></i> Stock Bajo</h5>
             <ul class="list-group list-group-flush">
                 {% for m in materiales_bajos %}
-                <li class="list-group-item d-flex justify-content-between">
+                <li class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center">
                     <span>{{ m.nombre }}</span>
-                    <span class="badge bg-danger">{{ m.stock_actual }} {{ m.unidad_medida }}</span>
+                    <span class="badge bg-danger">Quedan {{ m.stock_actual|floatformat:0 }}</span>
                 </li>
+                {% empty %}
+                <li class="list-group-item px-0 text-muted py-3">Todo el inventario está bien.</li>
                 {% endfor %}
             </ul>
-            {% else %}
-            <p class="text-muted mb-0">Todo el inventario OK</p>
-            {% endif %}
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card card-kpi p-3">
-            <h5>Acciones rápidas</h5>
-            <div class="d-grid gap-2">
-                <a href="{% url 'pedidos:lista' %}" class="btn btn-primary">
-                    <i class="bi bi-journal-text"></i> Ver pedidos
-                </a>
-                <a href="/admin/pedidos/pedido/add/" class="btn btn-success">
-                    <i class="bi bi-plus-lg"></i> Nuevo pedido
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-<div class="row g-3 mt-3">
-    <div class="col-md-6">
-        <div class="card card-kpi p-3">
-            <h5>
-                <i class="bi bi-file-earmark-text text-warning"></i>
-                Borradores sin confirmar
-                {% if total_borradores %}
-                <span class="badge bg-warning text-dark">{{ total_borradores }}</span>
-                {% endif %}
-            </h5>
-            {% if borradores %}
+
+    <div class="col-md-4">
+        <div class="card card-kpi p-3 border-secondary h-100">
+            <h5 class="text-secondary"><i class="bi bi-file-earmark-text"></i> Borradores Recientes</h5>
             <ul class="list-group list-group-flush">
                 {% for b in borradores %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                        <a href="{% url 'pedidos:detalle' b.id %}">
-                            #{{ b.id }} {{ b.titulo_libro }}
-                        </a>
-                        <br>
-                        <small class="text-muted">
-                            {{ b.cliente.nombre }} — hace {{ b.fecha_pedido|timesince }}
-                        </small>
-                    </div>
-                    <a href="{% url 'pedidos:detalle' b.id %}" class="btn btn-sm btn-outline-primary">
-                        Ver
-                    </a>
+                <li class="list-group-item px-0 py-2">
+                    <a href="{% url 'pedidos:detalle' b.id %}" class="fw-bold">#{{ b.id }} {{ b.libro.titulo }}</a><br>
+                    <small class="text-muted">{{ b.cliente.nombre }}</small>
                 </li>
+                {% empty %}
+                <li class="list-group-item px-0 text-muted py-3">No hay borradores.</li>
                 {% endfor %}
             </ul>
-            {% else %}
-            <p class="text-muted mb-0">Sin borradores pendientes</p>
-            {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Incluimos Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('graficoRentabilidad').getContext('2d');
+    
+    // Datos pasados desde Django
+    const ventas = {{ ventas_mes|default:0 }};
+    const costoMat = {{ costo_materiales_mes|default:0 }};
+    const costoServ = {{ costo_servicios_mes|default:0 }};
+    const ganancia = {{ ganancia_bruta_mes|default:0 }};
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Ventas Totales', 'Costo Materiales', 'Costo Servicios', 'Ganancia Bruta'],
+            datasets: [{
+                label: 'Monto ($)',
+                data: [ventas, costoMat, costoServ, ganancia],
+                backgroundColor: [
+                    'rgba(25, 135, 84, 0.7)',  // Verde para ventas
+                    'rgba(255, 193, 7, 0.7)',  // Amarillo para materiales
+                    'rgba(220, 53, 69, 0.7)',  // Rojo para servicios
+                    'rgba(13, 110, 253, 0.7)'  // Azul para ganancia
+                ],
+                borderColor: [
+                    'rgba(25, 135, 84, 1)',
+                    'rgba(255, 193, 7, 1)',
+                    'rgba(220, 53, 69, 1)',
+                    'rgba(13, 110, 253, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) { return '$' + value; }
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+</script>
 {% endblock %}

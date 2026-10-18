@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% block title %}Activos Fijos - ERP Libros{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0"><i class="bi bi-hdd-stack"></i> Activos Fijos</h2>
+    <div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalActivo">
+            <i class="bi bi-plus-lg"></i> Registrar Activo
+        </button>
+        <form method="post" action="{% url 'finanzas:depreciar_mes' %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-warning" onclick="return confirm('¿Registrar el desgaste de este mes para todos los activos?')">
+                <i class="bi bi-arrow-down-circle"></i> Depreciar Mes
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-12">
+        <div class="card card-kpi p-3 border-start border-primary border-4">
+            <small class="text-muted">Valor Total de los Equipos (Valor en Libros)</small>
+            <h3 class="mb-0 text-primary">${{ valor_total|floatformat:2 }}</h3>
+        </div>
+    </div>
+</div>
+
+<div class="card card-kpi">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Activo</th>
+                    <th>Fecha Compra</th>
+                    <th>Valor Original</th>
+                    <th>Depreciación Acumulada</th>
+                    <th>Valor Actual</th>
+                    <th>Dep. Mensual</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in activos %}
+                <tr>
+                    <td><strong>{{ a.nombre }}</strong></td>
+                    <td>{{ a.fecha_compra|date:"d/m/Y" }}</td>
+                    <td>${{ a.valor_compra|floatformat:2 }}</td>
+                    <td class="text-danger">-${{ a.depreciacion_acumulada|floatformat:2 }}</td>
+                    <td class="fw-bold text-success">${{ a.valor_actual|floatformat:2 }}</td>
+                    <td>${{ a.depreciacion_mensual|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No hay activos registrados.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Registrar Activo -->
+<div class="modal fade" id="modalActivo" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'finanzas:registrar_activo' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-hdd-stack"></i> Registrar Activo Fijo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">Registrar un activo descontará su valor de la caja inmediatamente.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre del Activo *</label>
+                        <input type="text" name="nombre" class="form-control" placeholder="Ej: Impresora Epson" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Fecha de Compra *</label>
+                        <input type="date" name="fecha_compra" class="form-control" required>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Valor Compra ($) *</label>
+                            <input type="number" name="valor_compra" class="form-control" step="0.01" min="1" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Vida Útil (Meses) *</label>
+                            <input type="number" name="vida_util" class="form-control" value="60" min="1" required>
+                            <small class="text-muted">Ej: 60 = 5 años</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Activo</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,59 +1,97 @@
 from django.shortcuts import render
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count
 from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
+import json
 
-from pedidos.models import Pedido, Estado
+from finanzas.services_depreciacion import ServicioDepreciacion
+from pedidos.models import Pedido, Estado, ServicioExterno
 from clientes.models import Cliente
-from inventario.models import Material
+from inventario.models import Material, LoteConsumo
+from finanzas.models import ActivoFijo, Depreciacion, MovimientoCaja, GastoOperativo
 from finanzas.services import ServicioFinanzas
 
 
 def dashboard(request):
     hoy = timezone.now().date()
-    hace_30_dias = hoy - timedelta(days=30)
+    inicio_mes = hoy.replace(day=1)
     
-    # 1. Buscamos los estados especiales
-    estado_borrador = Estado.objects.filter(nombre='Borrador').first()
-    estado_entregado = Estado.objects.filter(nombre='Entregado').first()
-    estado_cancelado = Estado.objects.filter(nombre='Cancelado').first()
+    # ==========================================
+    # AUTOMATIZACIÓN DE LA DEPRECIACIÓN
+    # ==========================================
+    # Si hay activos y NO existe una depreciación para el primer día de este mes:
+    if ActivoFijo.objects.filter(activo=True).exists():
+        if not Depreciacion.objects.filter(mes=inicio_mes).exists():
+            ServicioDepreciacion.depreciar_mes(hoy.year, hoy.month)
     
-    # 2. Pedidos activos: todos los que NO sean borrador, entregado o cancelado
-    estados_excluidos = []
-    if estado_borrador: estados_excluidos.append(estado_borrador.id)
-    if estado_entregado: estados_excluidos.append(estado_entregado.id)
-    if estado_cancelado: estados_excluidos.append(estado_cancelado.id)
-    
-    pedidos_activos = Pedido.objects.exclude(estado_id__in=estados_excluidos)
-    
-    # Pedidos agrupados por estado
-    pedidos_por_estado = pedidos_activos.values('estado__nombre', 'estado__color').annotate(total=Count('id'))
-    
-    # KPIs
-    pedidos_mes = Pedido.objects.filter(fecha_pedido__date__gte=hace_30_dias).count()
-    pedidos_pendientes = pedidos_activos.count()
-    pedidos_atrasados = [p for p in pedidos_activos if p.esta_atrasado]
-    
-    # Finanzas
+    # ==========================================
+    # 1. KPIs PRINCIPALES
+    # ==========================================
     saldo_caja = ServicioFinanzas.saldo_caja()
+    
+    # Pedidos activos (excluyendo borradores, entregados y cancelados)
+    estados_inactivos = Estado.objects.filter(nombre__in=['Borrador', 'Entregado', 'Cancelado']).values_list('id', flat=True)
+    pedidos_activos = Pedido.objects.exclude(estado_id__in=estados_inactivos)
+    
+    pedidos_pendientes = pedidos_activos.count()
     por_cobrar = pedidos_activos.aggregate(t=Sum('saldo_pendiente'))['t'] or 0
     
-    # Materiales
+    # Deuda a proveedores (Servicios externos no pagados)
+    por_pagar = ServicioExterno.objects.filter(estado__in=['SOLICITADO', 'RECIBIDO']).aggregate(t=Sum('monto'))['t'] or 0
+
+    # ==========================================
+    # 2. DATOS PARA EL GRÁFICO (Ventas vs Costos del Mes)
+    # ==========================================
+    # Ingresos por ventas entregadas este mes
+    ventas_mes = Pedido.objects.filter(
+        estado__nombre='Entregado',
+        fecha_entrega_real__date__gte=inicio_mes
+    ).aggregate(t=Sum('precio_venta'))['t'] or 0
+
+    # Costos de materiales de los libros entregados este mes
+    # (Sumamos los movimientos de inventario asociados a esos pedidos)
+    pedidos_entregados_mes = Pedido.objects.filter(estado__nombre='Entregado', fecha_entrega_real__date__gte=inicio_mes)
+    costo_materiales_mes = 0
+    for p in pedidos_entregados_mes:
+        movs = p.movimientos_inventario.filter(tipo='SALIDA')
+        costo_materiales_mes += sum(m.costo_total for m in movs)
+
+    # Servicios externos (portadas/encuadernado) del mes
+    costo_servicios_mes = ServicioExterno.objects.filter(
+        pedido__in=pedidos_entregados_mes
+    ).aggregate(t=Sum('monto'))['t'] or 0
+
+    # ==========================================
+    # 3. PEDIDOS POR ESTADO (Para las barras de progreso)
+    # ==========================================
+    pedidos_por_estado = pedidos_activos.values('estado__nombre', 'estado__color').annotate(total=Count('id')).order_by('estado__orden')
+    total_activos = pedidos_activos.count()
+
+    # ==========================================
+    # 4. ALERTAS Y PENDIENTES
+    # ==========================================
+    pedidos_atrasados = [p for p in pedidos_activos if p.esta_atrasado]
     materiales_bajos = [m for m in Material.objects.filter(activo=True) if m.stock_bajo]
     
-    # Borradores sin confirmar
-    borradores = Pedido.objects.filter(estado=estado_borrador).order_by('-fecha_pedido') if estado_borrador else []
-    
+    estado_borrador = Estado.objects.filter(nombre='Borrador').first()
+    borradores = Pedido.objects.filter(estado=estado_borrador).order_by('-fecha_pedido')[:5] if estado_borrador else []
+
     context = {
-        'pedidos_por_estado': pedidos_por_estado,
-        'pedidos_mes': pedidos_mes,
-        'pedidos_pendientes': pedidos_pendientes,
-        'pedidos_atrasados': pedidos_atrasados[:5],
         'saldo_caja': saldo_caja,
+        'pedidos_pendientes': pedidos_pendientes,
         'por_cobrar': por_cobrar,
+        'por_pagar': por_pagar,
+        'ventas_mes': ventas_mes,
+        'costo_materiales_mes': costo_materiales_mes,
+        'costo_servicios_mes': costo_servicios_mes,
+        'ganancia_bruta_mes': ventas_mes - costo_materiales_mes - costo_servicios_mes,
+        'pedidos_por_estado': pedidos_por_estado,
+        'total_activos': total_activos,
+        'pedidos_atrasados': pedidos_atrasados,
         'materiales_bajos': materiales_bajos,
-        'total_clientes': Cliente.objects.count(),
         'borradores': borradores,
-        'total_borradores': len(borradores),
+        'total_clientes': Cliente.objects.count(),
     }
+    
     return render(request, 'dashboard.html', context)

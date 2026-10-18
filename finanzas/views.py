@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.db.models import Sum, Q
@@ -68,3 +69,67 @@ def registrar_gasto(request):
             messages.success(request, f'Gasto registrado: {concepto} por ${monto}')
             
     return redirect('finanzas:caja')
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.utils import timezone
+from .models import ActivoFijo
+from .services_depreciacion import ServicioDepreciacion
+
+def lista_activos(request):
+    activos = ActivoFijo.objects.filter(activo=True).order_by('-fecha_compra')
+    
+    # Calculamos el total del valor en libros
+    valor_total = sum(a.valor_actual for a in activos)
+    
+    return render(request, 'finanzas/activos.html', {
+        'activos': activos,
+        'valor_total': valor_total
+    })
+
+def registrar_activo(request):
+    """Registra un activo nuevo y lo saca de caja."""
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre')
+        fecha_compra = request.POST.get('fecha_compra')
+        valor_compra = Decimal(request.POST.get('valor_compra', 0))
+        vida_util = int(request.POST.get('vida_util', 60))
+        
+        if valor_compra > 0 and nombre:
+            with transaction.atomic():
+                # 1. Creamos el activo
+                activo = ActivoFijo.objects.create(
+                    nombre=nombre,
+                    fecha_compra=fecha_compra,
+                    valor_compra=valor_compra,
+                    vida_util_meses=vida_util,
+                    valor_residual=0
+                )
+                
+                # 2. Registramos la salida de dinero de la caja
+                MovimientoCaja.objects.create(
+                    tipo='EGRESO',
+                    categoria='COMPRA_ACTIVO',
+                    monto=valor_compra,
+                    concepto=f'Compra de activo fijo: {nombre}',
+                    metodo='EFECTIVO'
+                )
+                messages.success(request, f'Activo "{nombre}" registrado y descontado de caja.')
+        else:
+            messages.error(request, 'El nombre y el valor deben ser válidos.')
+            
+    return redirect('finanzas:activos')
+
+def depreciar_mes(request):
+    """Ejecuta la depreciación del mes actual."""
+    hoy = timezone.now().date()
+    try:
+        resultados = ServicioDepreciacion.depreciar_mes(hoy.year, hoy.month)
+        if resultados:
+            messages.success(request, f'Se registró la depreciación de {len(resultados)} activos para {hoy.strftime("%B %Y")}.')
+        else:
+            messages.info(request, 'No hay activos pendientes de depreciar este mes.')
+    except Exception as e:
+        messages.error(request, f'Error al depreciar: {str(e)}')
+        
+    return redirect('finanzas:activos')
