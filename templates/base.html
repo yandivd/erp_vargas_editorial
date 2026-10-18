@@ -80,6 +80,9 @@
             <a href="{% url 'proveedores:lista' %}" class="{% if 'proveedores' in request.resolver_match.namespace %}active{% endif %}">
                 <i class="bi bi-truck"></i> Proveedores
             </a>
+            <a href="{% url 'empleados:lista' %}" class="{% if 'empleados' in request.path %}active{% endif %}">
+                <i class="bi bi-person-badge"></i> Nómina
+            </a>
             <a href="{% url 'finanzas:caja' %}" class="{% if 'finanzas' in request.resolver_match.namespace %}active{% endif %}">
                 <i class="bi bi-cash-stack"></i> Caja
             </a>

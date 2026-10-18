@@ -16,7 +16,7 @@ class MovimientoCaja(models.Model):
         ('COMPRA_MATERIAL', 'Compra de material'),
         ('GASTO_OPERATIVO', 'Gasto operativo'),
         ('COMPRA_ACTIVO', 'Compra de activo fijo'),
-        ('OTRO', 'Otro'),
+        ('OTRO', 'Otro'), ('PAGO_NOMINA', 'Pago de Nómina'),
     ]
     METODO_CHOICES = [
         ('EFECTIVO', 'Efectivo'),
