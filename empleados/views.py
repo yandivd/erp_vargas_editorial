@@ -40,26 +40,31 @@ def pagar_nomina(request):
         monto = Decimal(request.POST.get('monto', 0))
         mes = request.POST.get('mes')
         notas = request.POST.get('notas', '')
+        tipo_pago = request.POST.get('tipo_pago', 'SALARIO') # <-- NUEVO
         
         empleado = get_object_or_404(Empleado, id=empleado_id)
         
         if monto > 0:
             with transaction.atomic():
-                # 1. Registrar el pago
                 PagoNomina.objects.create(
                     empleado=empleado,
+                    tipo=tipo_pago,
                     monto_pagado=monto,
                     mes_correspondiente=mes,
                     notas=notas
                 )
-                # 2. Sacar el dinero de la caja
+                
+                # Asignamos la categoría correcta según el tipo de pago
+                categoria_caja = 'PAGO_NOMINA' if tipo_pago == 'SALARIO' else 'RETIRO_UTILIDADES'
+                concepto_caja = f'Salario {mes}' if tipo_pago == 'SALARIO' else f'Retiro de Utilidades {mes}'
+                
                 MovimientoCaja.objects.create(
                     tipo='EGRESO',
-                    categoria='PAGO_NOMINA',
+                    categoria=categoria_caja,
                     monto=monto,
-                    concepto=f'Salario {mes} - {empleado.nombre}',
+                    concepto=f'{concepto_caja} - {empleado.nombre}',
                     metodo='EFECTIVO'
                 )
-            messages.success(request, f'Salario pagado a {empleado.nombre} por ${monto}.')
+            messages.success(request, f'Pago registrado a {empleado.nombre} por ${monto}.')
         return redirect('empleados:lista')
     return redirect('empleados:lista')

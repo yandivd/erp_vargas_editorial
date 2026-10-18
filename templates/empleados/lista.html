@@ -64,6 +64,13 @@
                     <tr>
                         <td>{{ p.fecha|date:"d/m/Y" }}</td>
                         <td>{{ p.empleado.nombre }}</td>
+                        <td>
+                            {% if p.tipo == 'SALARIO' %}
+                                <span class="badge bg-secondary">Salario</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Utilidades</span>
+                            {% endif %}
+                        </td>
                         <td>{{ p.mes_correspondiente }}</td>
                         <td class="text-end text-danger">-${{ p.monto_pagado|floatformat:2 }}</td>
                     </tr>
@@ -146,6 +153,13 @@
                         <label class="form-label">Monto a Pagar ($) *</label>
                         <input type="number" name="monto" class="form-control" step="0.01" required>
                         <small class="text-muted">Puedes ajustar el monto si hay descuentos o bonos.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Pago *</label>
+                        <select name="tipo_pago" class="form-select" required>
+                            <option value="SALARIO">Salario Fijo (Afecta Ganancia)</option>
+                            <option value="UTILIDADES">Retiro de Utilidades (No afecta Ganancia)</option>
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Notas (Opcional)</label>

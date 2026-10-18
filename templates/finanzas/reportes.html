@@ -51,7 +51,7 @@
             </div>
 
             <div class="d-flex justify-content-between mb-2 text-muted">
-                <span>(-) Gastos Operativos (Luz, Internet, Alquiler)</span>
+                <span>(-) Gastos Operativos y Nómina (Salarios)</span>
                 <span>-${{ gastos_operativos|floatformat:2 }}</span>
             </div>
 
@@ -61,7 +61,7 @@
             </div>
 
             <div class="d-flex justify-content-between border-top border-2 pt-3 mt-2">
-                <h4 class="mb-0">GANANCIA NETA REAL</h4>
+                <h4 class="mb-0">GANANCIA NETA OPERATIVA</h4>
                 <h4 class="mb-0 {% if ganancia_neta >= 0 %}text-success{% else %}text-danger{% endif %}">
                     ${{ ganancia_neta|floatformat:2 }}
                 </h4>
@@ -69,6 +69,11 @@
             
             <div class="text-end mt-2">
                 <small class="text-muted">Margen de Rentabilidad: <strong>{{ margen_neto|floatformat:1 }}%</strong></small>
+            </div>
+
+            <!-- Retiros de Utilidades (Informativo, no afecta la ganancia) -->
+            <div class="alert alert-info mt-4 mb-0 small">
+                <i class="bi bi-info-circle"></i> En este periodo, los dueños retiraron <strong>${{ retiros_utilidades|floatformat:2 }}</strong> como utilidades (esto no afecta la Ganancia Neta, solo el saldo de la Caja).
             </div>
         </div>
     </div>

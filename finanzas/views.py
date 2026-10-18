@@ -194,8 +194,17 @@ def reporte_mensual(request):
     # ==========================================
     # 5. GASTOS OPERATIVOS Y DEPRECIACIÓN
     # ==========================================
-    gastos_operativos = GastoOperativo.objects.filter(
-        fecha__gte=desde, fecha__lte=hasta
+    gastos_operativos = MovimientoCaja.objects.filter(
+        categoria__in=['GASTO_OPERATIVO', 'PAGO_NOMINA', 'COMPRA_MATERIAL'],
+        fecha__date__gte=desde, 
+        fecha__date__lte=hasta
+    ).aggregate(t=Sum('monto'))['t'] or 0
+
+    # Calculamos cuánto se retiró como utilidades (no afecta la ganancia)
+    retiros_utilidades = MovimientoCaja.objects.filter(
+        categoria='RETIRO_UTILIDADES',
+        fecha__date__gte=desde, 
+        fecha__date__lte=hasta
     ).aggregate(t=Sum('monto'))['t'] or 0
 
     depreciacion = Depreciacion.objects.filter(
@@ -208,6 +217,7 @@ def reporte_mensual(request):
     # (Ventas Reales) - (Materiales + Proveedores + Gastos + Depreciación)
     ganancia_bruta = total_ventas - costo_materiales - costo_servicios
     ganancia_neta = ganancia_bruta - gastos_operativos - depreciacion
+    flujo_caja_neto = ingresos_totales - egresos_totales
     
     margen_neto = (ganancia_neta / total_ventas * 100) if total_ventas > 0 else 0
 

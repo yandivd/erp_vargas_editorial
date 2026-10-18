@@ -10,13 +10,15 @@ class MovimientoCaja(models.Model):
         ('EGRESO', 'Egreso'),
     ]
     CATEGORIA_CHOICES = [
-        ('ANTICIPO_clientes', 'Anticipo de clientes'),
-        ('SALDO_clientes', 'Saldo de clientes'),
+        ('ANTICIPO_CLIENTE', 'Anticipo de cliente'),
+        ('SALDO_CLIENTE', 'Saldo de cliente'),
         ('PAGO_PROVEEDOR', 'Pago a proveedor'),
         ('COMPRA_MATERIAL', 'Compra de material'),
         ('GASTO_OPERATIVO', 'Gasto operativo'),
+        ('PAGO_NOMINA', 'Pago de Nómina'),
+        ('RETIRO_UTILIDADES', 'Retiro de Utilidades'), # <-- NUEVA
         ('COMPRA_ACTIVO', 'Compra de activo fijo'),
-        ('OTRO', 'Otro'), ('PAGO_NOMINA', 'Pago de Nómina'),
+        ('OTRO', 'Otro'),
     ]
     METODO_CHOICES = [
         ('EFECTIVO', 'Efectivo'),
