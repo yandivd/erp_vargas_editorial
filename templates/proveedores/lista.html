@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Proveedores - ERP Libros{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0"><i class="bi bi-truck"></i> Proveedores</h2>
+    <a href="{% url 'proveedores:cuentas_por_pagar' %}" class="btn btn-primary">
+        <i class="bi bi-cash-coin"></i> Ver Cuentas por Pagar
+    </a>
+</div>
+
+<div class="card card-kpi">
+    <table class="table table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Proveedor</th>
+                <th>Tipo</th>
+                <th>Teléfono</th>
+                <th>Deuda Pendiente</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in proveedores %}
+            <tr>
+                <td><strong>{{ p.nombre }}</strong></td>
+                <td>{{ p.get_tipo_display }}</td>
+                <td>{{ p.telefono|default:"—" }}</td>
+                <td>
+                    {% if p.deuda_total > 0 %}
+                        <span class="text-danger fw-bold">${{ p.deuda_total|floatformat:2 }}</span>
+                    {% else %}
+                        <span class="text-success">Al día</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-4">No hay proveedores registrados.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

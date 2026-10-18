@@ -73,9 +73,9 @@
             <a href="{% url 'inventario:lista' %}" class="{% if 'inventario' in request.resolver_match.namespace %}active{% endif %}">
                 <i class="bi bi-box-seam"></i> Inventario
             </a>
-            {% comment %} <a href="{% url 'proveedores:lista' %}">
+            <a href="{% url 'proveedores:lista' %}" class="{% if 'proveedores' in request.resolver_match.namespace %}active{% endif %}">
                 <i class="bi bi-truck"></i> Proveedores
-            </a> {% endcomment %}
+            </a>
             <a href="{% url 'finanzas:caja' %}" class="{% if 'finanzas' in request.resolver_match.namespace %}active{% endif %}">
                 <i class="bi bi-cash-stack"></i> Caja
             </a>
