@@ -45,6 +45,9 @@
                         <a href="{% url 'pedidos:editar_libro' libro.id %}" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-pencil"></i> Editar
                         </a>
+                        <a href="{% url 'pedidos:fabricar_stock' libro.id %}" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-hammer"></i> Fabricar para Stock
+                        </a>
                     </td>
                 </tr>
                 {% empty %}

@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Q
@@ -264,3 +265,64 @@ def imprimir_pedido(request, pk):
 def imprimir_orden_servicio(request, pk):
     pedido = get_object_or_404(Pedido, pk=pk)
     return render(request, 'pedidos/imprimir_orden_servicio.html', {'pedido': pedido})
+
+def fabricar_para_stock(request, libro_id):
+    """Crea un pedido sin cliente para fabricar un libro que se venderá en el mostrador."""
+    libro = get_object_or_404(Book, pk=libro_id)
+    
+    if request.method == 'POST':
+        cantidad = int(request.POST.get('cantidad', 1))
+        
+        # Creamos el pedido sin cliente, en estado Borrador
+        estado_borrador = Estado.objects.get(nombre='Borrador')
+        
+        for _ in range(cantidad):
+            Pedido.objects.create(
+                cliente=None, # Sin cliente
+                libro=libro,
+                cantidad=1,
+                precio_venta=libro.precio,
+                anticipo_requerido=0, # Tú lo financias
+                estado=estado_borrador,
+                notas='Pedido creado para stock (Venta Directa)'
+            )
+            
+        messages.success(request, f'Se crearon {cantidad} pedidos de "{libro.titulo}" para stock. Pásalos a producción.')
+        return redirect('pedidos:lista')
+        
+    return render(request, 'pedidos/fabricar_stock.html', {'libro': libro})
+
+def asignar_cliente_y_cobrar(request, pk):
+    """Asigna un cliente a un pedido de stock, cobra el total y lo entrega."""
+    pedido = get_object_or_404(Pedido, pk=pk)
+    
+    if request.method == 'POST':
+        cliente_id = request.POST.get('cliente_id')
+        metodo = request.POST.get('metodo_pago', 'EFECTIVO')
+        
+        if not cliente_id:
+            messages.error(request, 'Debes seleccionar un cliente.')
+            return redirect('pedidos:detalle', pk=pedido.id)
+            
+        cliente = get_object_or_404(Cliente, id=cliente_id)
+        
+        with transaction.atomic():
+            # 1. Asignar el cliente
+            pedido.cliente = cliente
+            pedido.save()
+            
+            # 2. Cobrar el total pendiente (registra en caja)
+            if pedido.saldo_pendiente > 0:
+                ServicioFinanzas.registrar_saldo(pedido, monto=pedido.saldo_pendiente, metodo=metodo)
+            
+            # 3. Avanzar el estado a Entregado
+            ServicioPedido.cambiar_estado(pedido, 'Entregado', usuario=request.user.username, notas='Venta directa de stock')
+            
+        messages.success(request, f'Pedido #{pedido.id} vendido a {cliente.nombre} por ${pedido.precio_venta}.')
+        return redirect('pedidos:detalle', pk=pedido.id)
+        
+    clientes = Cliente.objects.all().order_by('nombre')
+    return render(request, 'pedidos/asignar_cliente.html', {
+        'pedido': pedido,
+        'clientes': clientes
+    })

@@ -68,7 +68,7 @@ class Estado(models.Model):
 class Pedido(models.Model):
     cliente = models.ForeignKey(
         Cliente, on_delete=models.PROTECT, related_name='pedidos',
-        verbose_name='Cliente'
+        verbose_name='Cliente', null=True, blank=True # <-- Agregamos null y blank
     )
     libro = models.ForeignKey(
         Book, on_delete=models.PROTECT, related_name='pedidos',
@@ -111,7 +111,8 @@ class Pedido(models.Model):
         ordering = ['-fecha_pedido']
 
     def __str__(self):
-        return f"#{self.id} - {self.libro.titulo} ({self.cliente.nombre})"
+        nombre_cliente = self.cliente.nombre if self.cliente else "Stock / Venta Directa"
+        return f"#{self.id} - {self.libro.titulo} ({nombre_cliente})"
 
     def save(self, *args, **kwargs):
         self.saldo_pendiente = self.precio_venta - self.anticipo_recibido

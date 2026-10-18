@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Fabricar para Stock{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card card-kpi p-4">
+            <h3><i class="bi bi-box-seam"></i> Fabricar para Stock</h3>
+            <p>Vas a crear una orden de producción para: <strong>{{ libro.titulo }}</strong></p>
+            <p class="text-muted small">Este pedido no tendrá cliente asignado. Se fabricará y quedará listo en el taller para cuando alguien lo compre.</p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">¿Cuántas copias vas a fabricar?</label>
+                    <input type="number" name="cantidad" class="form-control" value="1" min="1" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Crear Orden de Producción</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

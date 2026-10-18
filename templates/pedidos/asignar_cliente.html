@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Vender Pedido #{{ pedido.id }} - ERP Libros{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card card-kpi p-4 border-success border-4">
+            <h2 class="text-success"><i class="bi bi-cash-coin"></i> Cobrar Venta Directa</h2>
+            <p class="text-muted">Estás a punto de vender un libro que ya está fabricado en el taller.</p>
+            
+            <div class="alert alert-secondary">
+                <strong>Libro:</strong> {{ pedido.libro.titulo }}<br>
+                <strong>Páginas:</strong> {{ pedido.libro.paginas }}<br>
+                <strong>Precio de Venta:</strong> <span class="fs-5 fw-bold text-success">${{ pedido.precio_venta|floatformat:2 }}</span>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label class="form-label">Cliente *</label>
+                    <select name="cliente_id" class="form-select" required>
+                        <option value="">Selecciona el cliente que está comprando...</option>
+                        {% for c in clientes %}
+                        <option value="{{ c.id }}">{{ c.nombre }} ({{ c.telefono|default:"Sin tel" }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Método de Pago</label>
+                    <select name="metodo_pago" class="form-select">
+                        <option value="EFECTIVO">Efectivo</option>
+                        <option value="TRANSFERENCIA">Transferencia</option>
+                        <option value="TARJETA">Tarjeta</option>
+                    </select>
+                </div>
+
+                <div class="alert alert-warning small">
+                    <i class="bi bi-info-circle"></i> Al confirmar, se registrará el ingreso de <strong>${{ pedido.saldo_pendiente|floatformat:2 }}</strong> en la caja y el pedido pasará a "Entregado" automáticamente.
+                </div>
+
+                <button type="submit" class="btn btn-success btn-lg w-100">Cobrar y Entregar</button>
+                <a href="{% url 'pedidos:detalle' pedido.id %}" class="btn btn-outline-secondary w-100 mt-2">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
