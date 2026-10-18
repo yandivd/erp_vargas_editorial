@@ -1,4 +1,5 @@
-from django.shortcuts import render, get_object_or_404
+from django.contrib import messages
+from django.shortcuts import redirect, render, get_object_or_404
 from django.db.models import Q, Sum
 from .models import Cliente
 
@@ -42,3 +43,21 @@ def detalle_cliente(request, pk):
         'total_pagado': total_pagado,
         'total_deuda': total_deuda,
     })
+
+def crear_cliente(request):
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre')
+        telefono = request.POST.get('telefono', '')
+        direccion = request.POST.get('direccion', '')
+        
+        if nombre:
+            Cliente.objects.create(
+                nombre=nombre,
+                telefono=telefono,
+                direccion=direccion
+            )
+            messages.success(request, f'Cliente "{nombre}" registrado.')
+        else:
+            messages.error(request, 'El nombre es obligatorio.')
+            
+    return redirect('clientes:lista')

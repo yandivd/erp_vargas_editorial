@@ -6,4 +6,5 @@ app_name = 'clientes'
 urlpatterns = [
     path('', views.lista_clientes, name='lista'),
     path('<int:pk>/', views.detalle_cliente, name='detalle'),
+    path('nuevo/', views.crear_cliente, name='crear_cliente'),
 ]

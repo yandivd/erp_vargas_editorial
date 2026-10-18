@@ -1,16 +1,18 @@
 {% extends 'base.html' %}
-
 {% block title %}Clientes - ERP Libros{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0"><i class="bi bi-people"></i> Directorio de Clientes</h2>
+    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoCliente">
+        <i class="bi bi-person-plus"></i> Nuevo Cliente
+    </button>
 </div>
 
 <div class="card card-kpi p-3 mb-3">
     <form method="get" class="row g-2">
         <div class="col-md-10">
-            <input type="text" name="q" class="form-control" placeholder="Buscar cliente por nombre, teléfono o email..." value="{{ busqueda }}">
+            <input type="text" name="q" class="form-control" placeholder="Buscar por nombre o teléfono..." value="{{ busqueda }}">
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Buscar</button>
@@ -25,9 +27,9 @@
                 <tr>
                     <th>Nombre</th>
                     <th>Teléfono</th>
-                    <th>Email</th>
-                    <th>Pedidos</th>
+                    <th>Libros</th>
                     <th>Saldo Pendiente</th>
+                    <th>Segmento</th>
                     <th></th>
                 </tr>
             </thead>
@@ -36,10 +38,7 @@
                 <tr>
                     <td><strong>{{ c.nombre }}</strong></td>
                     <td>{{ c.telefono|default:"—" }}</td>
-                    <td>{{ c.email|default:"—" }}</td>
-                    <td>
-                        <span class="badge bg-secondary">{{ c.pedidos.count }}</span>
-                    </td>
+                    <td>{{ c.total_libros }}</td>
                     <td>
                         {% with deuda=c.saldo_pendiente_total %}
                             {% if deuda > 0 %}
@@ -50,16 +49,58 @@
                         {% endwith %}
                     </td>
                     <td>
+                        {% if c.badge %}
+                            <span class="badge bg-{{ c.badge.color }}">
+                                {{ c.badge.emoji }} {{ c.badge.label }}
+                            </span>
+                        {% else %}
+                            <span class="badge bg-light text-dark border">Sin pedidos</span>
+                        {% endif %}
+                    </td>
+                    <td>
                         <a href="{% url 'clientes:detalle' c.id %}" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-person-lines-fill"></i> Ver Perfil
                         </a>
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-4">No se encontraron clientes</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4">No se encontraron clientes.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Modal Nuevo Cliente -->
+<div class="modal fade" id="modalNuevoCliente" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'clientes:crear_cliente' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-plus"></i> Nuevo Cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre *</label>
+                        <input type="text" name="nombre" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Teléfono</label>
+                        <input type="text" name="telefono" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Dirección (Opcional)</label>
+                        <textarea name="direccion" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Guardar Cliente</button>
+                </div>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}

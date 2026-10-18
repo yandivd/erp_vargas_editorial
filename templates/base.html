@@ -92,7 +92,7 @@
             <a href="{% url 'finanzas:reportes' %}" class="{% if 'reportes' in request.path %}active{% endif %}">
                 <i class="bi bi-graph-up-arrow"></i> Reportes
             </a>
-            <a href="{% url 'finanzas:activos' %}">
+            <a href="{% url 'finanzas:activos' %}" class="{% if 'activos' in request.path %}active{% endif %}">
                 <i class="bi bi-hdd-stack"></i> Activos fijos
             </a>
             <a href="/admin/">
