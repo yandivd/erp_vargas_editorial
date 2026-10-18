@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}Compras - ERP Libros{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0"><i class="bi bi-cart-check"></i> Órdenes de Compra</h2>
+    <a href="{% url 'compras:nueva' %}" class="btn btn-success"><i class="bi bi-plus-lg"></i> Nueva Compra</a>
+</div>
+
+<div class="card card-kpi">
+    <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>Orden #</th>
+                <th>Fecha</th>
+                <th>Proveedor</th>
+                <th>Total</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in compras %}
+            <tr>
+                <td><strong>OC-{{ c.id|stringformat:"05d" }}</strong></td>
+                <td>{{ c.fecha|date:"d/m/Y" }}</td>
+                <td>{{ c.proveedor.nombre }}</td>
+                <td class="fw-bold">${{ c.total|floatformat:2 }}</td>
+                <td>
+                    {% if c.estado == 'BORRADOR' %}
+                        <span class="badge bg-warning text-dark">Pendiente de Recibir</span>
+                    {% elif c.estado == 'RECIBIDA' %}
+                        <span class="badge bg-success">Recibida</span>
+                    {% else %}
+                        <span class="badge bg-danger">Cancelada</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'compras:imprimir' c.id %}" target="_blank" class="btn btn-sm btn-outline-dark">
+                        <i class="bi bi-printer"></i> Imprimir
+                    </a>
+                    
+                    {% if c.estado == 'BORRADOR' %}
+                    <a href="{% url 'compras:recibir' c.id %}" class="btn btn-sm btn-success">
+                        <i class="bi bi-box-arrow-in-down"></i> Recibir Material
+                    </a>
+                    <form method="post" action="{% url 'compras:cancelar' c.id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Cancelar esta orden?')">
+                            <i class="bi bi-x-circle"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-4">No hay compras registradas.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends 'impresion_base.html' %}
+
+{% block title %}Orden de Compra OC-{{ orden.id }}{% endblock %}
+{% block tipo_documento %}ORDEN DE COMPRA{% endblock %}
+{% block numero_doc %}OC-{{ orden.id|stringformat:"05d" }}{% endblock %}
+
+{% block contenido %}
+<div class="row mb-4">
+    <div class="col-6">
+        <h6 class="text-muted">DATOS DEL PROVEEDOR</h6>
+        <p class="mb-1"><strong>{{ orden.proveedor.nombre }}</strong></p>
+        <p class="mb-1">Tel: {{ orden.proveedor.telefono|default:"—" }}</p>
+        <p class="mb-1">Dir: {{ orden.proveedor.direccion|default:"—" }}</p>
+    </div>
+    <div class="col-6 text-end">
+        <p class="mb-1"><strong>Fecha de Emisión:</strong> {{ orden.fecha|date:"d/m/Y" }}</p>
+        {% if orden.notas %}
+        <p class="mb-1"><strong>Notas:</strong> {{ orden.notas }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<table class="table table-bordered mt-4">
+    <thead class="table-light">
+        <tr>
+            <th>Material</th>
+            <th class="text-center">Cantidad</th>
+            <th class="text-end">Costo Unitario</th>
+            <th class="text-end">Subtotal</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for d in orden.detalles.all %}
+        <tr>
+            <td>{{ d.material.nombre }}</td>
+            <td class="text-center">{{ d.cantidad|floatformat:2 }} {{ d.material.unidad_medida }}</td>
+            <td class="text-end">${{ d.costo_unitario|floatformat:2 }}</td>
+            <td class="text-end">${{ d.subtotal|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="row justify-content-end mt-4">
+    <div class="col-5">
+        <table class="table table-sm">
+            <tr class="fw-bold fs-5 border-top">
+                <td>TOTAL PAGADO:</td>
+                <td class="text-end text-success">${{ orden.total|floatformat:2 }}</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<div class="row mt-5 pt-4">
+    <div class="col-6">
+        <p class="text-center">_________________________</p>
+        <p class="text-center">Entregado por (ERP Libros)</p>
+    </div>
+    <div class="col-6">
+        <p class="text-center">_________________________</p>
+        <p class="text-center">Recibido por (Proveedor)</p>
+    </div>
+</div>
+{% endblock %}

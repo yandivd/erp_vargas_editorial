@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Recibir Compra - ERP Libros{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card card-kpi p-4 border-success border-4">
+            <h2 class="text-success"><i class="bi bi-box-arrow-in-down"></i> Confirmar Recepción</h2>
+            <p class="text-muted">Estás a punto de recibir los materiales de la orden <strong>OC-{{ orden.id|stringformat:"05d" }}</strong> del proveedor <strong>{{ orden.proveedor.nombre }}</strong>.</p>
+            
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i> Al confirmar, se sumarán los materiales al inventario y se restará el dinero (${% widthratio orden.total 1 1 %}{{ orden.total }}) de la caja.
+            </div>
+
+            <table class="table">
+                <thead><tr><th>Material</th><th>Cantidad</th><th>Subtotal</th></tr></thead>
+                <tbody>
+                    {% for d in orden.detalles.all %}
+                    <tr>
+                        <td>{{ d.material.nombre }}</td>
+                        <td>{{ d.cantidad }} {{ d.material.unidad_medida }}</td>
+                        <td>${{ d.subtotal|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <form method="post" class="mt-4">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success btn-lg w-100">Sí, recibí el material y pagué</button>
+                <a href="{% url 'compras:lista' %}" class="btn btn-outline-secondary w-100 mt-2">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

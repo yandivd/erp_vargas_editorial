@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}Nueva Compra - ERP Libros{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0"><i class="bi bi-cart-plus"></i> Registrar Compra</h2>
+    <a href="{% url 'compras:lista' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="card card-kpi p-4 mb-3">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Proveedor *</label>
+                <select name="proveedor" class="form-select" required>
+                    <option value="">Selecciona un proveedor...</option>
+                    {% for p in proveedores %}
+                    <option value="{{ p.id }}">{{ p.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Notas (Opcional)</label>
+                <input type="text" name="notas" class="form-control" placeholder="Ej: Factura #123">
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-kpi p-4 mb-3">
+        <h5>Materiales Comprados</h5>
+        <table class="table" id="tabla-materiales">
+            <thead>
+                <tr>
+                    <th>Material</th>
+                    <th style="width: 120px;">Cantidad</th>
+                    <th style="width: 150px;">Costo Unitario ($)</th>
+                    <th style="width: 150px;">Subtotal</th>
+                    <th style="width: 50px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="fila-material">
+                    <td>
+                        <select name="material_id[]" class="form-select" required>
+                            <option value="">Selecciona...</option>
+                            {% for m in materiales %}
+                            <option value="{{ m.id }}">{{ m.nombre }} ({{ m.unidad_medida }})</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input type="number" name="cantidad[]" class="form-control cantidad" step="0.01" required></td>
+                    <td><input type="number" name="costo[]" class="form-control costo" step="0.01" required></td>
+                    <td><span class="subtotal-fila fw-bold">$0.00</span></td>
+                    <td><button type="button" class="btn btn-sm btn-danger btn-eliminar"><i class="bi bi-trash"></i></button></td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <button type="button" class="btn btn-outline-primary btn-sm" id="btn-agregar">
+            <i class="bi bi-plus-circle"></i> Agregar otro material
+        </button>
+    </div>
+
+    <div class="card card-kpi p-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h3 class="mb-0">Total de la Compra:</h3>
+            <h3 class="mb-0 text-success" id="total-general">$0.00</h3>
+        </div>
+        <hr>
+        <button type="submit" class="btn btn-success btn-lg w-100">
+            <i class="bi bi-save"></i> Guardar Compra y Actualizar Inventario
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tabla = document.querySelector('#tabla-materiales tbody');
+    const btnAgregar = document.getElementById('btn-agregar');
+    const totalGeneral = document.getElementById('total-general');
+
+    function calcularTotales() {
+        let total = 0;
+        document.querySelectorAll('.fila-material').forEach(fila => {
+            const cant = parseFloat(fila.querySelector('.cantidad').value) || 0;
+            const costo = parseFloat(fila.querySelector('.costo').value) || 0;
+            const sub = cant * costo;
+            fila.querySelector('.subtotal-fila').textContent = '$' + sub.toFixed(2);
+            total += sub;
+        });
+        totalGeneral.textContent = '$' + total.toFixed(2);
+    }
+
+    tabla.addEventListener('input', function(e) {
+        if (e.target.classList.contains('cantidad') || e.target.classList.contains('costo')) {
+            calcularTotales();
+        }
+    });
+
+    btnAgregar.addEventListener('click', function() {
+        const nuevaFila = document.createElement('tr');
+        nuevaFila.classList.add('fila-material');
+        // Clonamos la primera fila para no escribir tanto HTML
+        nuevaFila.innerHTML = tabla.querySelector('.fila-material').innerHTML;
+        tabla.appendChild(nuevaFila);
+    });
+
+    tabla.addEventListener('click', function(e) {
+        if (e.target.closest('.btn-eliminar')) {
+            if (document.querySelectorAll('.fila-material').length > 1) {
+                e.target.closest('.fila-material').remove();
+                calcularTotales();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

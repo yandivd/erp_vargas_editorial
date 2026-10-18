@@ -14,3 +14,5 @@
 /core/migrations/__pycache__
 /finanzas/migrations/__pycache__
 /finanzas/management/__pycache__
+/compras/__pycache__
+/compras/migrations/__pycache__
