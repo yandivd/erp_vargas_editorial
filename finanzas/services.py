@@ -87,3 +87,53 @@ class ServicioFinanzas:
         ingresos = MovimientoCaja.objects.filter(tipo='INGRESO').aggregate(t=Sum('monto'))['t'] or 0
         egresos = MovimientoCaja.objects.filter(tipo='EGRESO').aggregate(t=Sum('monto'))['t'] or 0
         return ingresos - egresos
+
+    @staticmethod
+    def calcular_utilidad_disponible(fondo_reserva=50000, porcentaje_seguridad=0.5):
+        """
+        Calcula cuánto dinero puede retirar el dueño sin comprometer la operación.
+        """
+        from django.db.models import Sum
+        from pedidos.models import ServicioExterno
+        from core.models import Parametro
+        
+        # 1. Saldo actual en caja
+        saldo_caja = ServicioFinanzas.saldo_caja()
+        
+        # 2. Deudas con proveedores (Servicios externos no pagados)
+        deudas = ServicioExterno.objects.filter(estado__in=['SOLICITADO', 'RECIBIDO']).aggregate(t=Sum('monto'))['t'] or 0
+        
+        # 3. Dinero comprometido (Saldo pendiente de pedidos en producción)
+        # Si tienes un anticipo, ese dinero no es tuyo aún, es para pagar materiales de ese libro.
+        # Para simplificar, tomamos el 50% de los saldos de pedidos activos como dinero comprometido.
+        from pedidos.models import Pedido
+        pedidos_activos = Pedido.objects.exclude(estado__nombre__in=['Borrador', 'Entregado', 'Cancelado'])
+        costo_estimado_pedidos = pedidos_activos.count() * 2500 # Estimado promedio de costo por libro
+        comprometido = deudas + costo_estimado_pedidos
+        
+        # 4. Caja Libre = Saldo - Deudas - Costos Estimados - Fondo de Reserva
+        caja_libre = saldo_caja - comprometido - fondo_reserva
+        
+        if caja_libre <= 0:
+            return {
+                'saldo_caja': saldo_caja,
+                'deudas': deudas,
+                'comprometido': comprometido,
+                'fondo_reserva': fondo_reserva,
+                'caja_libre': 0,
+                'retiro_sugerido': 0,
+                'mensaje': 'No hay excedente para retirar. Deja que la caja crezca.'
+            }
+            
+        # 5. Sugerimos retirar un porcentaje de la caja libre (para dejar colchón)
+        retiro_sugerido = caja_libre * Decimal(str(porcentaje_seguridad))
+        
+        return {
+            'saldo_caja': saldo_caja,
+            'deudas': deudas,
+            'comprometido': comprometido,
+            'fondo_reserva': fondo_reserva,
+            'caja_libre': caja_libre,
+            'retiro_sugerido': retiro_sugerido,
+            'mensaje': 'Puedes retirar esta cantidad de forma segura.'
+        }

@@ -68,3 +68,20 @@ def pagar_nomina(request):
             messages.success(request, f'Pago registrado a {empleado.nombre} por ${monto}.')
         return redirect('empleados:lista')
     return redirect('empleados:lista')
+
+from finanzas.services import ServicioFinanzas # <-- Importar
+
+def lista_empleados(request):
+    empleados = Empleado.objects.filter(activo=True)
+    total_nomina = sum(e.salario_base for e in empleados)
+    pagos = PagoNomina.objects.all().order_by('-fecha')[:20]
+    
+    # Calculamos la utilidad sugerida (Fondo de reserva: $50,000, Retiro seguro: 50%)
+    utilidad = ServicioFinanzas.calcular_utilidad_disponible(fondo_reserva=50000, porcentaje_seguridad=0.5)
+    
+    return render(request, 'empleados/lista.html', {
+        'empleados': empleados,
+        'total_nomina': total_nomina,
+        'pagos': pagos,
+        'utilidad': utilidad
+    })
