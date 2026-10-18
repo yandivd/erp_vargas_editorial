@@ -6,10 +6,8 @@ class ServicioInventario:
     """
     Maneja los movimientos de entrada y salida de inventario.
     """
-    
     @staticmethod
     def registrar_compra(material, cantidad, costo_unitario, proveedor=None, motivo=''):
-        # 1. Registramos la entrada normal (ej: 1 litro)
         mov = MovimientoInventario.objects.create(
             material=material,
             tipo='ENTRADA',
@@ -19,26 +17,25 @@ class ServicioInventario:
             motivo=motivo or f'Compra de {material.nombre}'
         )
         
-        # 2. Si el material tiene fraccionamiento, creamos los Lotes de Consumo
-        if material.cantidad_por_unidad > 1:
+        # Si tiene fraccionamiento, creamos los lotes
+        if material.cantidad_por_unidad and material.cantidad_por_unidad > 1:
             total_lotes = int(cantidad * material.cantidad_por_unidad)
-            costo_por_lote = (cantidad * costo_unitario) / total_lotes
+            costo_total_compra = cantidad * costo_unitario
+            costo_por_lote = costo_total_compra / total_lotes
             
             for i in range(total_lotes):
-                # Generamos un código único (ej: TINTA-001, TINTA-002)
                 ultimo_lote = LoteConsumo.objects.filter(material=material).count()
                 codigo = f"{material.nombre[:4].upper()}-{ultimo_lote + 1:03d}"
                 
                 LoteConsumo.objects.create(
                     material=material,
                     codigo=codigo,
-                    cantidad_inicial=1, # 1 pomo chiquito
+                    cantidad_inicial=1,
                     cantidad_actual=1,
                     costo_total=costo_por_lote,
                     estado='CERRADO'
                 )
             
-            # Actualizamos el stock de consumo del material
             material.stock_consumo += total_lotes
             material.save()
             

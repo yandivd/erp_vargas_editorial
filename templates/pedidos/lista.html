@@ -201,25 +201,15 @@ document.addEventListener('DOMContentLoaded', function () {
         let p = 0;
         let esLibroNuevo = false;
 
-        // 1. Si seleccionó un libro del catálogo
         if (libroSelect && libroSelect.value) {
             const opcionSeleccionada = libroSelect.options[libroSelect.selectedIndex];
             p = opcionSeleccionada.getAttribute('data-paginas');
-            
             if (paginasInput) paginasInput.value = p;
-
             const precioBase = opcionSeleccionada.getAttribute('data-precio');
             const anticipoBase = opcionSeleccionada.getAttribute('data-anticipo');
-            
-            if (precioInput && (!precioInput.value || precioInput.value == 0)) {
-                precioInput.value = precioBase;
-            }
-            if (anticipoInput) {
-                anticipoInput.value = anticipoBase;
-            }
-        } 
-        // 2. Si es un libro nuevo
-        else if (paginasInput && paginasInput.value) {
+            if (precioInput && (!precioInput.value || precioInput.value == 0)) precioInput.value = precioBase;
+            if (anticipoInput) anticipoInput.value = anticipoBase;
+        } else if (paginasInput && paginasInput.value) {
             p = paginasInput.value;
             esLibroNuevo = true;
         }
@@ -229,17 +219,18 @@ document.addEventListener('DOMContentLoaded', function () {
             return; 
         }
         
-        // Hacemos la petición AJAX
-        fetch(`/pedidos/calcular-costo/?paginas=${p}&lleva_scotch=false`)
+        // AQUI AGREGAMOS EL CHECKBOX DE ESQUINEROS A LA URL
+        const llevaScotch = document.querySelector('#id_lleva_scotch').checked;
+        const llevaEsquineros = document.querySelector('#id_lleva_esquineros').checked;
+        
+        fetch(`/pedidos/calcular-costo/?paginas=${p}&lleva_scotch=${llevaScotch}&lleva_esquineros=${llevaEsquineros}`)
             .then(r => r.json())
             .then(d => {
                 if (d.ok) {
-                    // Si es un libro nuevo, autocompletamos el precio y anticipo
                     if (esLibroNuevo) {
                         precioInput.value = d.costo.precio_sugerido;
                         anticipoInput.value = d.costo.anticipo_sugerido;
                     }
-                    
                     const gan = (parseFloat(precioInput.value) || 0) - d.costo.costo_total;
                     costoPanel.innerHTML = `Costo total: <strong>$${d.costo.costo_total}</strong> — Ganancia: <strong class="${gan >= 0 ? 'text-success' : 'text-danger'}">$${gan.toFixed(2)}</strong>`;
                 }
@@ -251,6 +242,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (paginasInput) paginasInput.addEventListener('input', actualizarCosto);
     if (precioInput) precioInput.addEventListener('input', actualizarCosto);
     if (anticipoInput) anticipoInput.addEventListener('input', actualizarCosto);
+    
+    const scotchCheck = document.querySelector('#id_lleva_scotch');
+    if (scotchCheck) scotchCheck.addEventListener('change', actualizarCosto);
+    
+    const esquinerosCheck = document.querySelector('#id_lleva_esquineros');
+    if (esquinerosCheck) esquinerosCheck.addEventListener('change', actualizarCosto);
 
     // Ocultar los campos manuales si elige un libro existente
     if (libroSelect) {

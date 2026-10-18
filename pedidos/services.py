@@ -39,6 +39,14 @@ class CosteadorPedido:
         rinde_pegamento = self._param('rinde_pegamento_lomos', 70)
         costo_pegamento = precio_pegamento / rinde_pegamento if rinde_pegamento else 0
 
+        # --- ESQUINEROS ---
+        costo_esquineros = Decimal('0')
+        if p.lleva_esquineros:
+            material_esquineros = Material.objects.filter(nombre__iexact='esquineros').first()
+            if material_esquineros:
+                cant_esquineros = self._param('esquineros_por_libro', 4)
+                costo_esquineros = cant_esquineros * material_esquineros.costo_promedio
+
         # --- SCOTCH ---
         costo_scotch = Decimal('0')
         if p.lleva_scotch:
@@ -65,7 +73,7 @@ class CosteadorPedido:
 
         # --- TOTAL ---
         total = (
-            costo_papel + costo_tinta + costo_pegamento + costo_scotch +
+            costo_papel + costo_tinta + costo_pegamento + costo_scotch + costo_esquineros+
             costo_portada + costo_encuadernacion + costo_electricidad + costo_diseno
         )
 
@@ -76,6 +84,7 @@ class CosteadorPedido:
             'costo_pegamento': round(costo_pegamento, 2),
             'costo_scotch': round(costo_scotch, 2),
             'costo_portada': round(costo_portada, 2),
+            'costo_esquineros': round(costo_esquineros, 2),
             'costo_encuadernacion': round(costo_encuadernacion, 2),
             'costo_electricidad': round(costo_electricidad, 2),
             'costo_diseno': round(costo_diseno, 2),
@@ -156,6 +165,9 @@ class ServicioPedido:
         elif nuevo_estado.nombre == 'Pendiente a Encuadernado':
             ServicioPedido.crear_servicio_encuadernado(pedido)
             
+        elif nuevo_estado.nombre == 'Listo para Entregar':
+            ServicioPedido.consumir_esquineros(pedido) # <-- NUEVA ACCIÓN
+            
         elif nuevo_estado.nombre == 'Entregado':
             ServicioPedido.cobrar_saldo(pedido)
 
@@ -202,3 +214,20 @@ class ServicioPedido:
         # Solo cobramos si hay algo pendiente
         if pedido.saldo_pendiente > 0:
             ServicioFinanzas.registrar_saldo(pedido, monto=pedido.saldo_pendiente)
+
+    @staticmethod
+    def consumir_esquineros(pedido):
+        """Al estar listo para entregar, descuenta los esquineros si el pedido los lleva."""
+        if pedido.lleva_esquineros:
+            from inventario.services import ServicioInventario
+            from inventario.models import Material
+            from core.models import Parametro
+            from decimal import Decimal
+            
+            material_esq = Material.objects.filter(nombre__iexact='esquineros', activo=True).first()
+            if material_esq:
+                cant_esq = Decimal(str(Parametro.get('esquineros_por_libro', 4)))
+                ServicioInventario.registrar_consumo(
+                    material_esq, cant_esq, pedido,
+                    motivo=f'Esquineros instalados para {pedido.libro.titulo}'
+                )

@@ -171,22 +171,26 @@ def nuevo_pedido_modal(request):
 def calcular_costo_ajax(request):
     try:
         paginas = int(request.GET.get('paginas', 0))
+        lleva_scotch = request.GET.get('lleva_scotch') == 'true'
+        lleva_esquineros = request.GET.get('lleva_esquineros') == 'true'
+        
         if paginas <= 0:
             return JsonResponse({'ok': False, 'error': 'Páginas inválidas'})
         
-        # Creamos un pedido y libro temporales
         libro_temp = Book(paginas=paginas)
         pedido_temp = Pedido(
-            libro=libro_temp, lleva_scotch=False, cantidad=1, precio_venta=0
+            libro=libro_temp, 
+            lleva_scotch=lleva_scotch, 
+            lleva_esquineros=lleva_esquineros, 
+            cantidad=1, 
+            precio_venta=0
         )
         
-        # Calculamos el costo y el precio sugerido
         costeador = CosteadorPedido(pedido_temp)
         resultado = costeador.calcular()
         precio_sugerido = costeador.calcular_precio_sugerido()
         anticipo_sugerido = round(precio_sugerido / 2, 2)
         
-        # Agregamos estos datos al JSON de respuesta
         resultado['precio_sugerido'] = float(precio_sugerido)
         resultado['anticipo_sugerido'] = float(anticipo_sugerido)
         

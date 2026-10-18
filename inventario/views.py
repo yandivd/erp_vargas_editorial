@@ -6,16 +6,65 @@ from decimal import Decimal
 from finanzas.models import MovimientoCaja
 from .models import LoteConsumo, Material, MovimientoInventario
 from django.utils import timezone
+from .models import Material, MovimientoInventario, LoteConsumo
+from .services import ServicioInventario
+from django.db import transaction
+# ... tus otros imports ...
+
 
 
 def lista_inventario(request):
-    """Muestra todos los materiales y su stock actual."""
+    # Forzamos a consultar la base de datos de nuevo
     materiales = Material.objects.filter(activo=True).order_by('nombre')
-    return render(request, 'inventario/lista.html', {'materiales': materiales})
+    lotes = LoteConsumo.objects.filter(estado='CERRADO').select_related('material').order_by('material__nombre', 'codigo')
+    
+    return render(request, 'inventario/lista.html', {
+        'materiales': materiales,
+        'lotes': lotes
+    })
 
+def abrir_lote(request, lote_id):
+    lote = get_object_or_404(LoteConsumo, id=lote_id)
+    
+    if lote.estado == 'CERRADO':
+        with transaction.atomic():
+            # 1. Cambiamos el estado del lote
+            lote.estado = 'EN_USO'
+            lote.fecha_apertura = timezone.now()
+            lote.save()
+            
+            # 2. Registramos el egreso en caja
+            MovimientoCaja.objects.create(
+                tipo='EGRESO',
+                categoria='GASTO_OPERATIVO',
+                monto=lote.costo_total,
+                concepto=f'Apertura de {lote.codigo} ({lote.material.nombre})',
+            )
+            
+            material = lote.material
+            
+            # 3. Restamos el stock de consumo
+            material.stock_consumo -= lote.cantidad_inicial
+            
+            # 4. Restamos el stock principal
+            cantidad_a_restar = Decimal(str(lote.cantidad_inicial)) / Decimal(str(material.cantidad_por_unidad))
+            
+            stock_anterior = material.stock_actual
+            material.stock_actual = material.stock_actual - cantidad_a_restar
+            
+            # Imprimimos en la consola para diagnosticar
+            print(f"--- ABRIENDO {lote.codigo} ---")
+            print(f"Stock anterior: {stock_anterior}")
+            print(f"Cantidad a restar: {cantidad_a_restar}")
+            print(f"Stock nuevo: {material.stock_actual}")
+            
+            material.save()
+            
+            messages.success(request, f'Lote {lote.codigo} ejecutado. Gasto registrado: ${lote.costo_total}. Stock restante: {material.stock_actual}')
+        
+    return redirect('inventario:lista')
 
 def registrar_compra_modal(request):
-    """Procesa la compra de un material desde el modal."""
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
     
@@ -31,24 +80,65 @@ def registrar_compra_modal(request):
         material = Material.objects.get(id=material_id)
         costo_unitario = costo_total / cantidad
         
-        # 1. Registrar entrada al inventario (el signal del modelo actualiza el stock y el costo promedio)
-        mov_inventario = MovimientoInventario.objects.create(
-            material=material,
-            tipo='ENTRADA',
-            cantidad=cantidad,
-            costo_unitario=costo_unitario,
-            costo_total=costo_total,
-            motivo=f'Compra: {notas}'
-        )
-        
-        # 2. Registrar salida de dinero de la caja
-        MovimientoCaja.objects.create(
-            tipo='EGRESO',
-            categoria='COMPRA_MATERIAL',
-            monto=costo_total,
-            concepto=f'Compra de {cantidad} {material.unidad_medida} de {material.nombre}',
-            metodo='EFECTIVO' # Luego podemos hacer que se elija
-        )
+        # Usamos transaction.atomic para que si algo falla, no se guarde a medias
+        with transaction.atomic():
+            # 1. Registrar entrada al inventario
+            MovimientoInventario.objects.create(
+                material=material,
+                tipo='ENTRADA',
+                cantidad=cantidad,
+                costo_unitario=costo_unitario,
+                costo_total=costo_total,
+                motivo=f'Compra: {notas}'
+            )
+            
+            # 2. Registrar salida de dinero de la caja
+            MovimientoCaja.objects.create(
+                tipo='EGRESO',
+                categoria='COMPRA_MATERIAL',
+                monto=costo_total,
+                concepto=f'Compra de {cantidad} {material.unidad_medida} de {material.nombre}',
+                metodo='EFECTIVO'
+            )
+            
+            # 3. CREAR LOS LOTES DE CONSUMO (Usando bulk_create para velocidad)
+            if material.unidad_consumo:
+                total_lotes = int(cantidad * material.cantidad_por_unidad)
+                costo_por_lote = costo_total / total_lotes
+                
+                ultimo_lote = LoteConsumo.objects.filter(material=material).order_by('-id').first()
+                
+                if ultimo_lote and '-' in ultimo_lote.codigo:
+                    try:
+                        contador = int(ultimo_lote.codigo.split('-')[1]) + 1
+                    except ValueError:
+                        contador = 1
+                else:
+                    contador = 1
+                
+                lotes_a_crear = []
+                prefijo = material.nombre[:4].upper().replace(" ", "")
+                
+                for i in range(total_lotes):
+                    codigo = f"{prefijo}-{contador:03d}"
+                    lotes_a_crear.append(
+                        LoteConsumo(
+                            material=material,
+                            codigo=codigo,
+                            cantidad_inicial=1,
+                            cantidad_actual=1,
+                            costo_total=costo_por_lote,
+                            estado='CERRADO'
+                        )
+                    )
+                    contador += 1
+                
+                # Guardamos todos los lotes en 1 sola consulta
+                LoteConsumo.objects.bulk_create(lotes_a_crear)
+                
+                # Actualizamos el material
+                material.stock_consumo += total_lotes
+                material.save()
         
         return JsonResponse({'ok': True})
     except Exception as e:
@@ -86,29 +176,3 @@ def registrar_ajuste(request, pk):
             return redirect('inventario:detalle', pk=pk)
             
     return redirect('inventario:detalle', pk=pk)
-
-def abrir_lote(request, lote_id):
-    """Abre un lote (saca del almacén) y registra el gasto en caja."""
-    lote = get_object_or_404(LoteConsumo, id=lote_id)
-    
-    if lote.estado == 'CERRADO':
-        # 1. Cambiamos el estado del lote
-        lote.estado = 'EN_USO'
-        lote.fecha_apertura = timezone.now()
-        lote.save()
-        
-        # 2. Registramos el egreso en caja (El dinero se convierte en gasto de producción)
-        MovimientoCaja.objects.create(
-            tipo='EGRESO',
-            categoria='COMPRA_MATERIAL', # O una categoría nueva 'CONSUMO_MATERIAL'
-            monto=lote.costo_total,
-            concepto=f'Apertura de {lote.codigo} ({lote.material.nombre})',
-        )
-        
-        # 3. Actualizamos el stock de consumo
-        lote.material.stock_consumo -= lote.cantidad_inicial
-        lote.material.save()
-        
-        messages.success(request, f'Lote {lote.codigo} abierto. Gasto registrado: ${lote.costo_total}')
-        
-    return redirect('inventario:lista')

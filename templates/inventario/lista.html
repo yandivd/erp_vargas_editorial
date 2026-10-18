@@ -51,7 +51,9 @@
             </tbody>
         </table>
     </div>
-    <h4 class="mt-4"><i class="bi bi-boxes"></i> Almacén de Lotes (Listos para ejecutar)</h4>
+</div>
+
+<h4 class="mt-4"><i class="bi bi-boxes"></i> Almacén de Lotes (Listos para usar)</h4>
 <div class="card card-kpi">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
@@ -71,32 +73,23 @@
                     <td>{{ lote.material.nombre }}</td>
                     <td>${{ lote.costo_total|floatformat:2 }}</td>
                     <td>
-                        {% if lote.estado == 'CERRADO' %}
-                            <span class="badge bg-secondary">Cerrado</span>
-                        {% elif lote.estado == 'EN_USO' %}
-                            <span class="badge bg-success">En Uso</span>
-                        {% else %}
-                            <span class="badge bg-danger">Agotado</span>
-                        {% endif %}
+                        <span class="badge bg-secondary">{{ lote.get_estado_display }}</span>
                     </td>
                     <td>
-                        {% if lote.estado == 'CERRADO' %}
                         <form method="post" action="{% url 'inventario:abrir_lote' lote.id %}" style="display:inline;">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('¿Abrir este lote y registrar el gasto?')">
+                            <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('¿Abrir este lote y registrar el gasto en caja?')">
                                 <i class="bi bi-box-open"></i> Abrir y Ejecutar
                             </button>
                         </form>
-                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="5" class="text-center text-muted py-3">No hay lotes en el almacén</td></tr>
+                <tr><td colspan="5" class="text-center text-muted py-3">No hay lotes cerrados en el almacén</td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-</div>
 </div>
 
 <!-- Modal Registrar Compra -->
@@ -156,10 +149,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const errorsDiv = document.getElementById('compra-errors');
 
-    form.addEventListener('submit', function (e) {
+        form.addEventListener('submit', function (e) {
         e.preventDefault();
         const formData = new FormData(form);
         errorsDiv.classList.add('d-none');
+        
+        // Cambiamos el botón para que el usuario sepa que está cargando
+        const btnSubmit = form.querySelector('button[type="submit"]');
+        const textoOriginal = btnSubmit.innerHTML;
+        btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
+        btnSubmit.disabled = true;
 
         fetch('{% url "inventario:comprar_modal" %}', {
             method: 'POST',
@@ -173,11 +172,15 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 errorsDiv.textContent = data.error || 'Error al guardar la compra.';
                 errorsDiv.classList.remove('d-none');
+                btnSubmit.innerHTML = textoOriginal;
+                btnSubmit.disabled = false;
             }
         })
         .catch(err => {
-            errorsDiv.textContent = 'Error de conexión.';
+            errorsDiv.textContent = 'Error de conexión. Revisa la consola.';
             errorsDiv.classList.remove('d-none');
+            btnSubmit.innerHTML = textoOriginal;
+            btnSubmit.disabled = false;
             console.error(err);
         });
     });
