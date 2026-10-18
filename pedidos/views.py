@@ -210,3 +210,49 @@ def confirmar_pedido(request, pk):
             )
             messages.success(request, 'Pedido confirmado. Esperando anticipo.')
     return redirect('pedidos:detalle', pk=pk)
+
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from django.db.models import Q, Count
+
+# ... (tus otras funciones) ...
+
+def lista_libros(request):
+    """Muestra el catálogo de libros con buscador."""
+    libros = Book.objects.all().annotate(num_pedidos=Count('pedidos')).order_by('titulo')
+    
+    busqueda = request.GET.get('q', '')
+    if busqueda:
+        libros = libros.filter(
+            Q(titulo__icontains=busqueda) | 
+            Q(autor__icontains=busqueda)
+        )
+        
+    return render(request, 'pedidos/libros_lista.html', {
+        'libros': libros,
+        'busqueda': busqueda
+    })
+
+
+def editar_libro(request, pk):
+    """Permite editar los datos de un libro del catálogo."""
+    libro = get_object_or_404(Book, pk=pk)
+    
+    if request.method == 'POST':
+        titulo = request.POST.get('titulo')
+        autor = request.POST.get('autor', '')
+        paginas = request.POST.get('paginas')
+        precio = request.POST.get('precio')
+        
+        if titulo and paginas and precio:
+            libro.titulo = titulo
+            libro.autor = autor
+            libro.paginas = int(paginas)
+            libro.precio = Decimal(precio)
+            libro.save()
+            messages.success(request, f'Libro "{libro.titulo}" actualizado correctamente.')
+            return redirect('pedidos:lista_libros')
+        else:
+            messages.error(request, 'Todos los campos obligatorios deben estar llenos.')
+            
+    return render(request, 'pedidos/libro_editar.html', {'libro': libro})

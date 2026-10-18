@@ -68,6 +68,9 @@
             <a href="{% url 'pedidos:lista' %}" class="{% if 'pedidos' in request.resolver_match.namespace %}active{% endif %}">
                 <i class="bi bi-journal-text"></i> Pedidos
             </a>
+            <a href="{% url 'pedidos:lista_libros' %}" class="{% if 'libros' in request.path %}active{% endif %}">
+                <i class="bi bi-book"></i> Catálogo
+            </a>
             <a href="{% url 'clientes:lista' %}" class="{% if 'clientes' in request.resolver_match.namespace %}active{% endif %}">
                 <i class="bi bi-people"></i> Clientes
             </a>
