@@ -82,6 +82,36 @@ class CosteadorPedido:
             'costo_total': round(total, 2),
         }
 
+    def calcular_precio_sugerido(self):
+        """Calcula el precio basado en la fórmula del Excel (margen dinámico)."""
+        costo = self.calcular()
+        costo_total = Decimal(str(costo['costo_total']))
+        paginas = Decimal(str(self.pedido.paginas))
+        
+        # Parámetros de márgenes y páginas
+        pag_min = Decimal(str(Parametro.get('paginas_min', 100)))
+        pag_max = Decimal(str(Parametro.get('paginas_max', 1000)))
+        margen_min = Decimal(str(Parametro.get('margen_min', 0.8)))
+        margen_max = Decimal(str(Parametro.get('margen_max', 2.0)))
+        
+        # Evitar división por cero
+        if pag_max == pag_min:
+            pag_max = pag_min + 1
+            
+        # Fórmula del Excel: Margen dinámico
+        # = Margen_Min + ((Páginas - Pág_Min) / (Pág_Max - Pág_Min)) * (Margen_Max - Margen_Min)
+        proporcion = (min(max(paginas, pag_min), pag_max) - pag_min) / (pag_max - pag_min)
+        margen = margen_min + (proporcion * (margen_max - margen_min))
+        
+        # Precio base = Costo * (1 + Margen)
+        precio_base = costo_total * (Decimal('1') + margen)
+        
+        # Redondear hacia arriba a la centena más cercana (CEILING(..., 100))
+        import math
+        precio_final = math.ceil(precio_base / 100) * 100
+        
+        return Decimal(str(precio_final))
+
 
 # ============================================================
 # SERVICIO DE PEDIDOS

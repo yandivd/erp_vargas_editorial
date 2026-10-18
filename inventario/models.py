@@ -17,6 +17,10 @@ class Material(models.Model):
     stock_minimo = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     costo_promedio = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     activo = models.BooleanField(default=True)
+    # NUEVOS CAMPOS PARA EL FRACCIONAMIENTO
+    unidad_consumo = models.CharField(max_length=50, blank=True, help_text="Ej: Pomo de 65ml, Resma de 100 hojas")
+    cantidad_por_unidad = models.DecimalField(max_digits=10, decimal_places=2, default=1, help_text="¿Cuántas unidades de consumo hay en la unidad de almacén?")
+    stock_consumo = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Stock de pomos chiquitos listos para usar")
 
     class Meta:
         verbose_name = 'Material'
@@ -84,3 +88,21 @@ class MovimientoInventario(models.Model):
             material.save()
 
         super().save(*args, **kwargs)
+
+class LoteConsumo(models.Model):
+    ESTADOS = [
+        ('CERRADO', 'Cerrado en almacén'),
+        ('EN_USO', 'En uso (Abierto)'),
+        ('AGOTADO', 'Agotado'),
+    ]
+    
+    material = models.ForeignKey(Material, on_delete=models.CASCADE, related_name='lotes_consumo')
+    codigo = models.CharField(max_length=50, unique=True) # Ej: TINTA-001, HOJA-001
+    cantidad_inicial = models.DecimalField(max_digits=10, decimal_places=2)
+    cantidad_actual = models.DecimalField(max_digits=10, decimal_places=2)
+    costo_total = models.DecimalField(max_digits=10, decimal_places=2)
+    estado = models.CharField(max_length=20, choices=ESTADOS, default='CERRADO')
+    fecha_apertura = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.codigo} - {self.material.nombre} ({self.get_estado_display()})"

@@ -51,6 +51,52 @@
             </tbody>
         </table>
     </div>
+    <h4 class="mt-4"><i class="bi bi-boxes"></i> Almacén de Lotes (Listos para ejecutar)</h4>
+<div class="card card-kpi">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Código</th>
+                    <th>Material</th>
+                    <th>Costo del Lote</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lote in lotes %}
+                <tr>
+                    <td><strong>{{ lote.codigo }}</strong></td>
+                    <td>{{ lote.material.nombre }}</td>
+                    <td>${{ lote.costo_total|floatformat:2 }}</td>
+                    <td>
+                        {% if lote.estado == 'CERRADO' %}
+                            <span class="badge bg-secondary">Cerrado</span>
+                        {% elif lote.estado == 'EN_USO' %}
+                            <span class="badge bg-success">En Uso</span>
+                        {% else %}
+                            <span class="badge bg-danger">Agotado</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if lote.estado == 'CERRADO' %}
+                        <form method="post" action="{% url 'inventario:abrir_lote' lote.id %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('¿Abrir este lote y registrar el gasto?')">
+                                <i class="bi bi-box-open"></i> Abrir y Ejecutar
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-3">No hay lotes en el almacén</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 </div>
 
 <!-- Modal Registrar Compra -->

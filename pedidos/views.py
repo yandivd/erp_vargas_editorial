@@ -37,7 +37,7 @@ class NuevoPedidoForm(forms.Form):
     nuevo_libro_titulo = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Título nuevo'}))
     nuevo_libro_autor = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Autor'}))
     nuevo_libro_paginas = forms.IntegerField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Páginas'}))
-    nuevo_libro_precio = forms.DecimalField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Precio Base', 'step': '0.01'})) # <-- NUEVO
+    # nuevo_libro_precio = forms.DecimalField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Precio Base', 'step': '0.01'})) # <-- NUEVO
 
     cantidad = forms.IntegerField(initial=1, widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1}))
     lleva_scotch = forms.BooleanField(required=False)
@@ -143,7 +143,7 @@ def nuevo_pedido_modal(request):
                 titulo=form.cleaned_data['nuevo_libro_titulo'],
                 autor=form.cleaned_data.get('nuevo_libro_autor', ''),
                 paginas=form.cleaned_data['nuevo_libro_paginas'],
-                precio=form.cleaned_data.get('nuevo_libro_precio') or 0
+                precio=form.cleaned_data.get('precio_venta', 0) # <-- Guardamos el precio calculado como precio base
             )
         
         # Crear Pedido
@@ -174,12 +174,22 @@ def calcular_costo_ajax(request):
         if paginas <= 0:
             return JsonResponse({'ok': False, 'error': 'Páginas inválidas'})
         
-        # Creamos un pedido y libro temporales para usar el costeador
+        # Creamos un pedido y libro temporales
         libro_temp = Book(paginas=paginas)
         pedido_temp = Pedido(
             libro=libro_temp, lleva_scotch=False, cantidad=1, precio_venta=0
         )
-        resultado = CosteadorPedido(pedido_temp).calcular()
+        
+        # Calculamos el costo y el precio sugerido
+        costeador = CosteadorPedido(pedido_temp)
+        resultado = costeador.calcular()
+        precio_sugerido = costeador.calcular_precio_sugerido()
+        anticipo_sugerido = round(precio_sugerido / 2, 2)
+        
+        # Agregamos estos datos al JSON de respuesta
+        resultado['precio_sugerido'] = float(precio_sugerido)
+        resultado['anticipo_sugerido'] = float(anticipo_sugerido)
+        
         return JsonResponse({'ok': True, 'costo': resultado})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)})

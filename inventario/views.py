@@ -3,9 +3,9 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.db.models import F
 from decimal import Decimal
-
-from .models import Material, MovimientoInventario
 from finanzas.models import MovimientoCaja
+from .models import LoteConsumo, Material, MovimientoInventario
+from django.utils import timezone
 
 
 def lista_inventario(request):
@@ -86,3 +86,29 @@ def registrar_ajuste(request, pk):
             return redirect('inventario:detalle', pk=pk)
             
     return redirect('inventario:detalle', pk=pk)
+
+def abrir_lote(request, lote_id):
+    """Abre un lote (saca del almacén) y registra el gasto en caja."""
+    lote = get_object_or_404(LoteConsumo, id=lote_id)
+    
+    if lote.estado == 'CERRADO':
+        # 1. Cambiamos el estado del lote
+        lote.estado = 'EN_USO'
+        lote.fecha_apertura = timezone.now()
+        lote.save()
+        
+        # 2. Registramos el egreso en caja (El dinero se convierte en gasto de producción)
+        MovimientoCaja.objects.create(
+            tipo='EGRESO',
+            categoria='COMPRA_MATERIAL', # O una categoría nueva 'CONSUMO_MATERIAL'
+            monto=lote.costo_total,
+            concepto=f'Apertura de {lote.codigo} ({lote.material.nombre})',
+        )
+        
+        # 3. Actualizamos el stock de consumo
+        lote.material.stock_consumo -= lote.cantidad_inicial
+        lote.material.save()
+        
+        messages.success(request, f'Lote {lote.codigo} abierto. Gasto registrado: ${lote.costo_total}')
+        
+    return redirect('inventario:lista')
