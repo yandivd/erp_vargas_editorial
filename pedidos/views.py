@@ -256,3 +256,11 @@ def editar_libro(request, pk):
             messages.error(request, 'Todos los campos obligatorios deben estar llenos.')
             
     return render(request, 'pedidos/libro_editar.html', {'libro': libro})
+
+def imprimir_pedido(request, pk):
+    pedido = get_object_or_404(Pedido, pk=pk)
+    return render(request, 'pedidos/imprimir_pedido.html', {'pedido': pedido})
+
+def imprimir_orden_servicio(request, pk):
+    pedido = get_object_or_404(Pedido, pk=pk)
+    return render(request, 'pedidos/imprimir_orden_servicio.html', {'pedido': pedido})

@@ -1,0 +1,69 @@
+{% extends 'impresion_base.html' %}
+
+{% block title %}Comprobante #{{ pedido.id }}{% endblock %}
+{% block tipo_documento %}COMPROBANTE DE PEDIDO{% endblock %}
+{% block numero_doc %}{{ pedido.id|stringformat:"05d" }}{% endblock %}
+
+{% block contenido %}
+<div class="row mb-4">
+    <div class="col-6">
+        <h6 class="text-muted">DATOS DEL CLIENTE</h6>
+        <p class="mb-1"><strong>{{ pedido.cliente.nombre }}</strong></p>
+        <p class="mb-1">Tel: {{ pedido.cliente.telefono|default:"—" }}</p>
+        <p class="mb-1">Dir: {{ pedido.direccion_entrega|default:pedido.cliente.direccion|default:"—" }}</p>
+    </div>
+    <div class="col-6 text-end">
+        <h6 class="text-muted">DETALLES DEL PEDIDO</h6>
+        <p class="mb-1">Fecha de pedido: {{ pedido.fecha_pedido|date:"d/m/Y" }}</p>
+        <p class="mb-1">Entrega estimada: <strong>{{ pedido.fecha_entrega_prometida|date:"d/m/Y"|default:"Por definir" }}</strong></p>
+        <p class="mb-1">Estado actual: {{ pedido.estado.nombre }}</p>
+    </div>
+</div>
+
+<table class="table table-bordered mt-4">
+    <thead class="table-light">
+        <tr>
+            <th>Descripción del Libro</th>
+            <th class="text-center">Páginas</th>
+            <th class="text-center">Cant.</th>
+            <th class="text-end">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+                <strong>{{ pedido.libro.titulo }}</strong><br>
+                <small>Autor: {{ pedido.libro.autor }}</small><br>
+                {% if pedido.lleva_scotch %}<small>+ Scotch</small><br>{% endif %}
+                {% if pedido.lleva_esquineros %}<small>+ Esquineros</small><br>{% endif %}
+            </td>
+            <td class="text-center">{{ pedido.libro.paginas }}</td>
+            <td class="text-center">{{ pedido.cantidad }}</td>
+            <td class="text-end">${{ pedido.precio_venta|floatformat:2 }}</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="row justify-content-end mt-4">
+    <div class="col-5">
+        <table class="table table-sm">
+            <tr>
+                <td>Subtotal:</td>
+                <td class="text-end">${{ pedido.precio_venta|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>Anticipo pagado:</td>
+                <td class="text-end">-${{ pedido.anticipo_recibido|floatformat:2 }}</td>
+            </tr>
+            <tr class="fw-bold fs-5 border-top">
+                <td>SALDO A PAGAR:</td>
+                <td class="text-end text-danger">${{ pedido.saldo_pendiente|floatformat:2 }}</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<div class="alert alert-secondary mt-4 small">
+    <strong>Nota:</strong> El cliente debe presentar este comprobante al momento de recoger el libro. El saldo pendiente debe ser abonado en su totalidad antes de la entrega.
+</div>
+{% endblock %}

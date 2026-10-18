@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+
+{% block title %}Reportes - ERP Libros{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0"><i class="bi bi-graph-up-arrow"></i> Cierre y Reporte de Ganancias</h2>
+</div>
+
+<!-- Filtro de Fechas -->
+<div class="card card-kpi p-3 mb-4">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label small">Desde</label>
+            <input type="date" name="desde" class="form-control" value="{{ desde }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small">Hasta</label>
+            <input type="date" name="hasta" class="form-control" value="{{ hasta }}">
+        </div>
+        <div class="col-md-4">
+            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-calculator"></i> Generar Reporte</button>
+        </div>
+    </form>
+</div>
+
+<div class="row g-3">
+    <!-- Columna Izquierda: El Estado de Resultados -->
+    <div class="col-md-8">
+        <div class="card card-kpi p-4">
+            <h5 class="border-bottom pb-2 mb-3">Estado de Resultados ({{ desde }} al {{ hasta }})</h5>
+            
+            <div class="d-flex justify-content-between mb-2">
+                <span>(+) Ingresos Totales por Ventas ({{ cantidad_libros }} libros entregados)</span>
+                <span class="text-success fw-bold">${{ total_ventas|floatformat:2 }}</span>
+            </div>
+            
+            <div class="d-flex justify-content-between mb-2 text-muted">
+                <span>(-) Costo de Materiales Usados</span>
+                <span>-${{ costo_materiales|floatformat:2 }}</span>
+            </div>
+            
+            <div class="d-flex justify-content-between mb-2 text-muted">
+                <span>(-) Costo de Servicios Externos (Portadas/Encuadernado)</span>
+                <span>-${{ costo_servicios|floatformat:2 }}</span>
+            </div>
+            
+            <div class="d-flex justify-content-between mb-3 border-top pt-2">
+                <span class="fw-bold">(=) Ganancia Bruta</span>
+                <span class="fw-bold text-primary">${{ ganancia_bruta|floatformat:2 }}</span>
+            </div>
+
+            <div class="d-flex justify-content-between mb-2 text-muted">
+                <span>(-) Gastos Operativos (Luz, Internet, Alquiler)</span>
+                <span>-${{ gastos_operativos|floatformat:2 }}</span>
+            </div>
+
+            <div class="d-flex justify-content-between mb-3 text-muted">
+                <span>(-) Depreciación de Equipos</span>
+                <span>-${{ depreciacion|floatformat:2 }}</span>
+            </div>
+
+            <div class="d-flex justify-content-between border-top border-2 pt-3 mt-2">
+                <h4 class="mb-0">GANANCIA NETA REAL</h4>
+                <h4 class="mb-0 {% if ganancia_neta >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    ${{ ganancia_neta|floatformat:2 }}
+                </h4>
+            </div>
+            
+            <div class="text-end mt-2">
+                <small class="text-muted">Margen de Rentabilidad: <strong>{{ margen_neto|floatformat:1 }}%</strong></small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna Derecha: Flujo de Caja y Otros -->
+    <div class="col-md-4">
+        <div class="card card-kpi p-4 mb-3">
+            <h5 class="border-bottom pb-2 mb-3">Flujo de Caja del Periodo</h5>
+            <div class="d-flex justify-content-between mb-2">
+                <span>Dinero que entró (Cobros)</span>
+                <span class="text-success">+${{ ingresos_totales|floatformat:2 }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-3">
+                <span>Dinero que salió (Pagos)</span>
+                <span class="text-danger">-${{ egresos_totales|floatformat:2 }}</span>
+            </div>
+            <div class="d-flex justify-content-between border-top pt-2">
+                <strong>Flujo Neto de Caja</strong>
+                <strong class="{% if saldo_periodo >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    ${{ saldo_periodo|floatformat:2 }}
+                </strong>
+            </div>
+            <small class="text-muted d-block mt-3">
+                * Nota: El flujo de caja muestra el dinero físico que entró y salió. La Ganancia Neta (izquierda) es la utilidad real contable de los libros que entregaste en este periodo.
+            </small>
+        </div>
+
+        <!-- Botón para imprimir -->
+        <button onclick="window.print()" class="btn btn-outline-secondary w-100">
+            <i class="bi bi-printer"></i> Imprimir Reporte
+        </button>
+    </div>
+</div>
+{% endblock %}

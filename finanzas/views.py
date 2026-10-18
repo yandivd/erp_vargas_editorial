@@ -133,3 +133,99 @@ def depreciar_mes(request):
         messages.error(request, f'Error al depreciar: {str(e)}')
         
     return redirect('finanzas:activos')
+
+from django.shortcuts import render
+from django.db.models import Sum, Q
+from django.utils import timezone
+from datetime import datetime, timedelta
+from decimal import Decimal
+from .models import MovimientoCaja, ActivoFijo, Depreciacion, GastoOperativo
+from pedidos.models import Pedido, Estado, ServicioExterno
+from inventario.models import MovimientoInventario
+
+def reporte_mensual(request):
+    # Por defecto, mostramos el mes actual
+    hoy = timezone.now().date()
+    
+    # Obtenemos las fechas del formulario o usamos el mes actual
+    desde_str = request.GET.get('desde', hoy.replace(day=1).strftime('%Y-%m-%d'))
+    hasta_str = request.GET.get('hasta', hoy.strftime('%Y-%m-%d'))
+    
+    # Convertimos a fechas reales
+    desde = datetime.strptime(desde_str, '%Y-%m-%d').date()
+    hasta = datetime.strptime(hasta_str, '%Y-%m-%d').date()
+
+    # ==========================================
+    # 1. INGRESOS Y EGRESOS (FLUJO DE CAJA)
+    # ==========================================
+    movimientos = MovimientoCaja.objects.filter(fecha__date__gte=desde, fecha__date__lte=hasta)
+    
+    ingresos_totales = movimientos.filter(tipo='INGRESO').aggregate(t=Sum('monto'))['t'] or 0
+    egresos_totales = movimientos.filter(tipo='EGRESO').aggregate(t=Sum('monto'))['t'] or 0
+    saldo_periodo = ingresos_totales - egresos_totales
+
+    # ==========================================
+    # 2. VENTAS REALES (PEDIDOS ENTREGADOS)
+    # ==========================================
+    pedidos_entregados = Pedido.objects.filter(
+        estado__nombre='Entregado',
+        fecha_entrega_real__date__gte=desde,
+        fecha_entrega_real__date__lte=hasta
+    )
+    total_ventas = pedidos_entregados.aggregate(t=Sum('precio_venta'))['t'] or 0
+    cantidad_libros = pedidos_entregados.count()
+
+    # ==========================================
+    # 3. COSTOS DE PRODUCCIÓN (MATERIALES)
+    # ==========================================
+    # Sumamos el costo de los materiales usados en esos pedidos entregados
+    costo_materiales = MovimientoInventario.objects.filter(
+        pedido__in=pedidos_entregados, 
+        tipo='SALIDA'
+    ).aggregate(t=Sum('costo_total'))['t'] or 0
+
+    # ==========================================
+    # 4. SERVICIOS EXTERNOS (PROVEEDORES)
+    # ==========================================
+    costo_servicios = ServicioExterno.objects.filter(
+        pedido__in=pedidos_entregados
+    ).aggregate(t=Sum('monto'))['t'] or 0
+
+    # ==========================================
+    # 5. GASTOS OPERATIVOS Y DEPRECIACIÓN
+    # ==========================================
+    gastos_operativos = GastoOperativo.objects.filter(
+        fecha__gte=desde, fecha__lte=hasta
+    ).aggregate(t=Sum('monto'))['t'] or 0
+
+    depreciacion = Depreciacion.objects.filter(
+        mes__gte=desde, mes__lte=hasta
+    ).aggregate(t=Sum('monto'))['t'] or 0
+
+    # ==========================================
+    # 6. CÁLCULO DE GANANCIA NETA
+    # ==========================================
+    # (Ventas Reales) - (Materiales + Proveedores + Gastos + Depreciación)
+    ganancia_bruta = total_ventas - costo_materiales - costo_servicios
+    ganancia_neta = ganancia_bruta - gastos_operativos - depreciacion
+    
+    margen_neto = (ganancia_neta / total_ventas * 100) if total_ventas > 0 else 0
+
+    context = {
+        'desde': desde_str,
+        'hasta': hasta_str,
+        'ingresos_totales': ingresos_totales,
+        'egresos_totales': egresos_totales,
+        'saldo_periodo': saldo_periodo,
+        'total_ventas': total_ventas,
+        'cantidad_libros': cantidad_libros,
+        'costo_materiales': costo_materiales,
+        'costo_servicios': costo_servicios,
+        'gastos_operativos': gastos_operativos,
+        'depreciacion': depreciacion,
+        'ganancia_bruta': ganancia_bruta,
+        'ganancia_neta': ganancia_neta,
+        'margen_neto': margen_neto,
+        'pedidos': pedidos_entregados,
+    }
+    return render(request, 'finanzas/reportes.html', context)

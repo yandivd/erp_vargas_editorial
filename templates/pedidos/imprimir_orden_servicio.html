@@ -1,0 +1,56 @@
+{% extends 'impresion_base.html' %}
+
+{% block title %}Orden de Servicio #{{ pedido.id }}{% endblock %}
+{% block tipo_documento %}ORDEN DE SERVICIO{% endblock %}
+{% block numero_doc %}{{ pedido.id|stringformat:"05d" }}{% endblock %}
+
+{% block contenido %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h6 class="text-muted">PROVEEDOR</h6>
+        <p class="mb-1">Nombre: _______________________________</p>
+        <p class="mb-1">Fecha de entrega: ______________________</p>
+    </div>
+</div>
+
+<div class="alert alert-warning">
+    <h5>TRABAJO SOLICITADO:</h5>
+    <ul class="mb-0 fs-5">
+        <li>Imprimir Portada: <strong>{{ pedido.libro.titulo }}</strong></li>
+        <li>Montar y Encuadernar Libro ({{ pedido.libro.paginas }} páginas)</li>
+    </ul>
+</div>
+
+<table class="table table-bordered mt-4">
+    <thead class="table-light">
+        <tr>
+            <th>Material entregado</th>
+            <th>Cantidad</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Interior del libro impreso y pegado</td>
+            <td>1 unidad</td>
+        </tr>
+        <tr>
+            <td>Portada impresa</td>
+            <td>1 unidad</td>
+        </tr>
+        {% if pedido.lleva_scotch %}
+        <tr><td>Scotch</td><td>Incluido</td></tr>
+        {% endif %}
+    </tbody>
+</table>
+
+<div class="mt-5 row">
+    <div class="col-6">
+        <p class="text-center">_________________________</p>
+        <p class="text-center">Entregado por (Taller)</p>
+    </div>
+    <div class="col-6">
+        <p class="text-center">_________________________</p>
+        <p class="text-center">Recibido por (Proveedor)</p>
+    </div>
+</div>
+{% endblock %}

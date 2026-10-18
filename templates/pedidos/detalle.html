@@ -106,6 +106,17 @@
                 <button class="btn btn-success w-100">Registrar</button>
             </form>
         </div>
+                <div class="card card-kpi p-3 mb-3">
+            <h5><i class="bi bi-printer"></i> Documentos</h5>
+            <div class="d-grid gap-2">
+                <a href="{% url 'pedidos:imprimir_pedido' pedido.id %}" target="_blank" class="btn btn-outline-dark">
+                    <i class="bi bi-receipt"></i> Imprimir Comprobante de Pedido
+                </a>
+                <a href="{% url 'pedidos:imprimir_servicio' pedido.id %}" target="_blank" class="btn btn-outline-dark">
+                    <i class="bi bi-tools"></i> Imprimir Orden de Servicio
+                </a>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
