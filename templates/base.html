@@ -67,9 +67,9 @@
             <a href="{% url 'pedidos:lista' %}" class="{% if 'pedidos' in request.resolver_match.namespace %}active{% endif %}">
                 <i class="bi bi-journal-text"></i> Pedidos
             </a>
-            {% comment %} <a href="{% url 'clientes:lista' %}">
+            <a href="{% url 'clientes:lista' %}" class="{% if 'clientes' in request.resolver_match.namespace %}active{% endif %}">
                 <i class="bi bi-people"></i> Clientes
-            </a> {% endcomment %}
+            </a>
             <a href="{% url 'inventario:lista' %}" class="{% if 'inventario' in request.resolver_match.namespace %}active{% endif %}">
                 <i class="bi bi-box-seam"></i> Inventario
             </a>
