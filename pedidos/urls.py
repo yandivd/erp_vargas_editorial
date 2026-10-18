@@ -17,4 +17,5 @@ urlpatterns = [
     path('<int:pk>/imprimir-servicio/', views.imprimir_orden_servicio, name='imprimir_servicio'),
     path('libros/<int:libro_id>/fabricar/', views.fabricar_para_stock, name='fabricar_stock'),
     path('<int:pk>/asignar-cliente/', views.asignar_cliente_y_cobrar, name='asignar_cliente'),
+    path('libros/nuevo/', views.crear_libro, name='crear_libro'),
 ]

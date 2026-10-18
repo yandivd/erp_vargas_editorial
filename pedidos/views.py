@@ -326,3 +326,23 @@ def asignar_cliente_y_cobrar(request, pk):
         'pedido': pedido,
         'clientes': clientes
     })
+
+def crear_libro(request):
+    if request.method == 'POST':
+        titulo = request.POST.get('titulo')
+        autor = request.POST.get('autor', '')
+        paginas = request.POST.get('paginas')
+        precio = request.POST.get('precio', 0)
+        
+        if titulo and paginas:
+            Book.objects.create(
+                titulo=titulo,
+                autor=autor,
+                paginas=int(paginas),
+                precio=Decimal(precio) if precio else Decimal('0')
+            )
+            messages.success(request, f'Libro "{titulo}" agregado al catálogo.')
+        else:
+            messages.error(request, 'El título y las páginas son obligatorios.')
+            
+    return redirect('pedidos:lista_libros')
