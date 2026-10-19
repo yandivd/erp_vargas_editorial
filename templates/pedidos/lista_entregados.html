@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}Historial de Pedidos - Vargas Editorial{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0 fw-bold"><i class="bi bi-archive text-secondary"></i> Historial de Entregados</h2>
+        <p class="text-muted mb-0">Pedidos completados y entregados ({{ total_pedidos }} en total)</p>
+    </div>
+    <a href="{% url 'pedidos:lista' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Volver al Taller
+    </a>
+</div>
+
+<!-- PANEL DE FILTROS -->
+<div class="card card-kpi p-3 mb-4">
+    <form method="get" class="row g-3" id="formFiltrosEntregados">
+        <div class="col-md-6">
+            <label class="form-label small fw-bold text-muted">Buscar</label>
+            <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" class="form-control" placeholder="Libro, cliente o referencia..." value="{{ busqueda }}">
+            </div>
+        </div>
+        <div class="col-md-5">
+            <label class="form-label small fw-bold text-muted">Rango de entrega</label>
+            <div class="input-group">
+                <input type="date" name="desde" class="form-control" value="{{ desde }}" title="Desde">
+                <input type="date" name="hasta" class="form-control" value="{{ hasta }}" title="Hasta">
+            </div>
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100" title="Aplicar filtros"><i class="bi bi-funnel"></i></button>
+        </div>
+    </form>
+</div>
+
+<!-- TABLA DE HISTORIAL -->
+<!-- Donde estaba la tabla, ahora pon esto: -->
+<div class="card card-kpi" id="contenedor-tabla-entregados">
+    {% include 'pedidos/_tabla_entregados.html' %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('formFiltrosEntregados');
+    const contenedor = document.getElementById('contenedor-tabla-entregados');
+    if (!form || !contenedor) return;
+
+    const searchInput = form.querySelector('input[type="text"]');
+
+    function actualizarTabla() {
+        contenedor.style.opacity = '0.5';
+        
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData).toString();
+        
+        fetch(`{% url 'pedidos:lista_entregados_ajax' %}?${params}`)
+            .then(response => response.json())
+            .then(data => {
+                contenedor.innerHTML = data.html;
+                contenedor.style.opacity = '1';
+                engancharPaginacion();
+            })
+            .catch(err => {
+                console.error(err);
+                contenedor.style.opacity = '1';
+            });
+    }
+
+            function engancharPaginacion() {
+            const paginacion = document.getElementById('paginacion-ajax-entregados');
+            if (!paginacion) return;
+            
+            paginacion.querySelectorAll('a.page-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Leemos el número de página directamente del HTML
+                    const page = this.getAttribute('data-page');
+                    if (!page) return;
+                    
+                    // Preparamos el formulario y forzamos la nueva página
+                    const formData = new FormData(form);
+                    formData.set('page', page);
+                    const params = new URLSearchParams(formData).toString();
+                    
+                    contenedor.style.opacity = '0.5';
+                    fetch(`{% url 'pedidos:lista_entregados_ajax' %}?${params}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            contenedor.innerHTML = data.html;
+                            contenedor.style.opacity = '1';
+                            engancharPaginacion(); // Volvemos a conectar los botones nuevos
+                        });
+                });
+            });
+        }
+
+    form.querySelectorAll('select, input[type="date"]').forEach(el => {
+        el.addEventListener('change', () => actualizarTabla());
+    });
+
+    if (searchInput) {
+        let timer;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(timer);
+            timer = setTimeout(actualizarTabla, 500);
+        });
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(timer);
+                actualizarTabla();
+            }
+        });
+    }
+
+    engancharPaginacion();
+});
+</script>
+{% endblock %}
