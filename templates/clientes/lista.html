@@ -1,106 +1,146 @@
 {% extends 'base.html' %}
-{% block title %}Clientes - ERP Libros{% endblock %}
+
+{% block title %}Directorio de Clientes - Vargas Editorial{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0"><i class="bi bi-people"></i> Directorio de Clientes</h2>
-    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoCliente">
-        <i class="bi bi-person-plus"></i> Nuevo Cliente
-    </button>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0 fw-bold"><i class="bi bi-people text-primary"></i> Directorio de Clientes</h2>
+        <p class="text-muted mb-0">Total de clientes registrados: {{ total_clientes }}</p>
+    </div>
 </div>
 
-<div class="card card-kpi p-3 mb-3">
-    <form method="get" class="row g-2">
-        <div class="col-md-10">
-            <input type="text" name="q" class="form-control" placeholder="Buscar por nombre o teléfono..." value="{{ busqueda }}">
-        </div>
-        <div class="col-md-2">
-            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Buscar</button>
+<!-- TABLA CON FILTROS INTEGRADOS -->
+<div class="card card-kpi" id="contenedor-tabla-clientes">
+    <form id="formFiltrosClientes">
+        <!-- Input oculto para guardar el orden actual -->
+        <input type="hidden" name="orden" id="inputOrden" value="{{ orden_actual }}">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>
+                            <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Filtrar nombre..." value="{{ f_nombre }}">
+                        </th>
+                        <th>
+                            <input type="text" name="telefono" class="form-control form-control-sm" placeholder="Filtrar teléfono..." value="{{ f_telefono }}">
+                        </th>
+                        <th>
+                            <input type="text" name="email" class="form-control form-control-sm" placeholder="Filtrar email..." value="{{ f_email }}">
+                        </th>
+                        <th>
+                            <select name="deuda" class="form-select form-select-sm">
+                                <option value="">Todos</option>
+                                <option value="con_deuda" {% if f_deuda == 'con_deuda' %}selected{% endif %}>Con deuda</option>
+                                <option value="al_dia" {% if f_deuda == 'al_dia' %}selected{% endif %}>Al día</option>
+                            </select>
+                        </th>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </thead>
+            </table>
         </div>
     </form>
-</div>
-
-<div class="card card-kpi">
-    <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Nombre</th>
-                    <th>Teléfono</th>
-                    <th>Libros</th>
-                    <th>Saldo Pendiente</th>
-                    <th>Segmento</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for c in clientes %}
-                <tr>
-                    <td><strong>{{ c.nombre }}</strong></td>
-                    <td>{{ c.telefono|default:"—" }}</td>
-                    <td>{{ c.total_libros }}</td>
-                    <td>
-                        {% with deuda=c.saldo_pendiente_total %}
-                            {% if deuda > 0 %}
-                                <span class="text-danger fw-bold">${{ deuda|floatformat:2 }}</span>
-                            {% else %}
-                                <span class="text-success">Al día</span>
-                            {% endif %}
-                        {% endwith %}
-                    </td>
-                    <td>
-                        {% if c.badge %}
-                            <span class="badge bg-{{ c.badge.color }}">
-                                {{ c.badge.emoji }} {{ c.badge.label }}
-                            </span>
-                        {% else %}
-                            <span class="badge bg-light text-dark border">Sin pedidos</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="{% url 'clientes:detalle' c.id %}" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-person-lines-fill"></i> Ver Perfil
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-4">No se encontraron clientes.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    
+    <!-- Aquí se inyectará la tabla real -->
+    <div id="tabla-resultados">
+        {% include 'clientes/_tabla_clientes.html' %}
     </div>
 </div>
+{% endblock %}
 
-<!-- Modal Nuevo Cliente -->
-<div class="modal fade" id="modalNuevoCliente" tabindex="-1">
-    <div class="modal-dialog">
-        <form method="post" action="{% url 'clientes:crear_cliente' %}">
-            {% csrf_token %}
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-person-plus"></i> Nuevo Cliente</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Nombre *</label>
-                        <input type="text" name="nombre" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Teléfono</label>
-                        <input type="text" name="telefono" class="form-control">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Dirección (Opcional)</label>
-                        <textarea name="direccion" class="form-control" rows="2"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">Guardar Cliente</button>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const formFiltros = document.getElementById('formFiltrosClientes');
+    const contenedor = document.getElementById('tabla-resultados');
+    
+    if (formFiltros && contenedor) {
+        // Función para actualizar la tabla
+        function actualizarTabla() {
+            contenedor.style.opacity = '0.5';
+            const formData = new FormData(formFiltros);
+            const params = new URLSearchParams(formData).toString();
+            
+            fetch(`?${params}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                contenedor.innerHTML = data.html;
+                contenedor.style.opacity = '1';
+                engancharPaginacion();
+            })
+            .catch(err => {
+                console.error(err);
+                contenedor.style.opacity = '1';
+            });
+        }
+
+        // Función para la paginación
+        function engancharPaginacion() {
+            const paginacion = document.getElementById('paginacion-ajax-clientes');
+            if (!paginacion) return;
+            
+            paginacion.querySelectorAll('a.page-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const page = this.getAttribute('data-page');
+                    if (!page) return;
+                    
+                    const formData = new FormData(formFiltros);
+                    formData.set('page', page);
+                    const params = new URLSearchParams(formData).toString();
+                    
+                    contenedor.style.opacity = '0.5';
+                    fetch(`?${params}`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        contenedor.innerHTML = data.html;
+                        contenedor.style.opacity = '1';
+                        engancharPaginacion();
+                    });
+                });
+            });
+        }
+
+
+        // Escuchar cambios en los inputs de filtro
+        let timer;
+        formFiltros.querySelectorAll('input[type="text"], select').forEach(el => {
+            el.addEventListener('input', () => {
+                clearTimeout(timer);
+                timer = setTimeout(actualizarTabla, 400);
+            });
+        });
+
+        // Escuchar clics en las columnas para ordenar
+        document.addEventListener('click', function(e) {
+            const th = e.target.closest('th.sortable');
+            if (!th) return;
+
+            const columna = th.getAttribute('data-orden');
+            const inputOrden = document.getElementById('inputOrden');
+            let nuevoOrden = '';
+
+            if (columna === 'nombre') {
+                nuevoOrden = (inputOrden.value === 'nombre_asc') ? 'nombre_desc' : 'nombre_asc';
+            } else if (columna === 'pedidos') {
+                nuevoOrden = (inputOrden.value === 'pedidos_desc') ? 'pedidos_asc' : 'pedidos_desc';
+            }
+
+            if (nuevoOrden) {
+                inputOrden.value = nuevoOrden;
+                actualizarTabla(); // Recargamos la tabla con el nuevo orden
+            }
+        });
+
+        // Conectar la paginación inicial
+        engancharPaginacion();
+    }
+});
+</script>
 {% endblock %}
