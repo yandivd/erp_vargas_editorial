@@ -66,3 +66,81 @@ def pagar_servicio(request, pk):
             messages.success(request, f'Pago de ${servicio.monto} registrado a {servicio.proveedor.nombre}.')
             
     return redirect('proveedores:cuentas_por_pagar')
+
+from django.views.decorators.http import require_POST
+from django.utils import timezone
+from django.db import transaction
+from finanzas.models import MovimientoCaja
+
+@require_POST
+def recibir_lote(request):
+    """Marca varios servicios como RECIBIDOS a la vez."""
+    ids = request.POST.getlist('servicios_ids')
+    if ids:
+        with transaction.atomic():
+            ServicioExterno.objects.filter(id__in=ids, estado='SOLICITADO').update(
+                estado='RECIBIDO',
+                fecha_recepcion=timezone.now()
+            )
+        messages.success(request, f'Se marcaron {len(ids)} servicios como recibidos.')
+    else:
+        messages.warning(request, 'No seleccionaste ningún servicio.')
+    return redirect('proveedores:cuentas_por_pagar')
+
+@require_POST
+def pagar_lote(request):
+    """Paga varios servicios a la vez y los resta de la caja."""
+    ids = request.POST.getlist('servicios_ids')
+    if ids:
+        servicios = ServicioExterno.objects.filter(id__in=ids, estado__in=['SOLICITADO', 'RECIBIDO'])
+        
+        with transaction.atomic():
+            total_pagado = 0
+            
+            for s in servicios:
+                # 1. Registrar salida de dinero en Caja
+                MovimientoCaja.objects.create(
+                    tipo='EGRESO',
+                    categoria='PAGO_PROVEEDOR',
+                    monto=s.monto,
+                    concepto=f'Pago {s.get_tipo_display()} - Pedido #{s.pedido.id} ({s.proveedor.nombre})',
+                    proveedor=s.proveedor,
+                    pedido=s.pedido
+                )
+                total_pagado += s.monto
+                
+                # 2. Marcar como pagado
+                s.estado = 'PAGADO'
+                s.fecha_pago = timezone.now()
+                # Si no estaba "RECIBIDO", lo ponemos como recibido también
+                if not s.fecha_recepcion:
+                    s.fecha_recepcion = timezone.now()
+                    s.estado = 'RECIBIDO' # Temporal para guardar la recepción
+                    
+                s.save()
+                
+                # Corregir estado final
+                s.estado = 'PAGADO'
+                s.save()
+                
+        messages.success(request, f'Se pagaron {len(ids)} servicios por un total de ${total_pagado:.2f}.')
+    else:
+        messages.warning(request, 'No seleccionaste ningún servicio para pagar.')
+    return redirect('proveedores:cuentas_por_pagar')
+
+from decimal import Decimal
+
+def editar_monto_servicio(request, pk):
+    """Permite ajustar el monto real de un servicio externo."""
+    servicio = get_object_or_404(ServicioExterno, pk=pk)
+    
+    if request.method == 'POST':
+        nuevo_monto = Decimal(request.POST.get('monto', 0))
+        if nuevo_monto > 0:
+            servicio.monto = nuevo_monto
+            servicio.save()
+            messages.success(request, f'Monto actualizado a ${nuevo_monto}.')
+        else:
+            messages.error(request, 'El monto debe ser mayor a 0.')
+            
+    return redirect('proveedores:cuentas_por_pagar')

@@ -147,7 +147,7 @@ def _obtener_pedidos_filtrados(request, solo_entregados=False):
 
 # 2. Vista principal (Carga inicial)
 def lista(request):
-    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=False)
+    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=False).order_by('referencia_externa')
     paginator = Paginator(pedidos_list, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
 
@@ -165,7 +165,7 @@ def lista(request):
 
 # 3. Vista AJAX (Devuelve solo el HTML de la tabla)
 def lista_ajax(request):
-    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=False)
+    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=False).order_by('referencia_externa')
     paginator = Paginator(pedidos_list, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
 

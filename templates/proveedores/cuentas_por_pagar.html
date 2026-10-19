@@ -1,62 +1,148 @@
 {% extends 'base.html' %}
-{% block title %}Cuentas por Pagar - ERP Libros{% endblock %}
+
+{% block title %}Cuentas por Pagar - Vargas Editorial{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0"><i class="bi bi-cash-coin"></i> Cuentas por Pagar</h2>
-    <h3 class="text-danger mb-0">Deuda Total: ${{ total_deuda|floatformat:2 }}</h3>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0 fw-bold"><i class="bi bi-cash-coin text-primary"></i> Cuentas por Pagar</h2>
+        <p class="text-muted mb-0">Deudas con imprentas y encuadernadores</p>
+    </div>
+    <h3 class="text-danger mb-0 fw-bold">Deuda Total: ${{ total_deuda|floatformat:2 }}</h3>
 </div>
 
-<div class="card card-kpi">
-    <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Pedido</th>
-                    <th>Proveedor</th>
-                    <th>Servicio</th>
-                    <th>Monto</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for s in servicios %}
-                <tr>
-                    <td><a href="{% url 'pedidos:detalle' s.pedido.id %}">#{{ s.pedido.id }} - {{ s.pedido.libro.titulo }}</a></td>
-                    <td>{{ s.proveedor.nombre }}</td>
-                    <td>{{ s.get_tipo_display }}</td>
-                    <td class="fw-bold">${{ s.monto|floatformat:2 }}</td>
-                    <td>
-                        {% if s.estado == 'SOLICITADO' %}
-                            <span class="badge bg-warning text-dark">Solicitado (No recibido)</span>
-                        {% elif s.estado == 'RECIBIDO' %}
-                            <span class="badge bg-info text-dark">Recibido (Falta pagar)</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if s.estado == 'SOLICITADO' %}
-                        <form method="post" action="{% url 'proveedores:recibir_servicio' s.id %}" style="display:inline;">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-box-arrow-in-down"></i> Marcar Recibido
-                            </button>
-                        </form>
-                        {% endif %}
-                        
-                        <form method="post" action="{% url 'proveedores:pagar_servicio' s.id %}" style="display:inline;">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('¿Registrar pago de ${{ s.monto }}? Se restará de la caja.')">
-                                <i class="bi bi-cash"></i> Pagar
-                            </button>
-                        </form>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-4">No hay deudas pendientes. ¡Todo al día!</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<form method="post" id="formLote">
+    {% csrf_token %}
+    
+    <!-- BARRA DE ACCIONES EN LOTE -->
+    <div class="card card-kpi p-3 mb-3 d-flex flex-row justify-content-between align-items-center bg-light border-0 shadow-sm">
+        <div>
+            <i class="bi bi-check2-square fs-5 text-primary me-2"></i>
+            <strong>Acciones para los seleccionados</strong>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="submit" formaction="{% url 'proveedores:recibir_lote' %}" class="btn btn-warning fw-bold">
+                <i class="bi bi-box-arrow-in-down"></i> Marcar como Recibidos
+            </button>
+            <button type="submit" formaction="{% url 'proveedores:pagar_lote' %}" class="btn btn-success fw-bold" onclick="return confirm('¿Registrar el pago de los servicios seleccionados? Se restará de la caja.')">
+                <i class="bi bi-cash-stack"></i> Pagar Seleccionados
+            </button>
+        </div>
     </div>
-</div>
+
+    <div class="card card-kpi">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 40px;" class="text-center">
+                            <input class="form-check-input" type="checkbox" id="checkTodos" onclick="toggleTodos(this)">
+                        </th>
+                        <th>Pedido</th>
+                        <th>Proveedor</th>
+                        <th>Servicio</th>
+                        <th>Monto</th>
+                        <th>Estado</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in servicios %}
+                    <tr>
+                        <td class="text-center">
+                            <input class="form-check-input check-servicio" type="checkbox" name="servicios_ids" value="{{ s.id }}">
+                        </td>
+                        <td>
+                            <a href="{% url 'pedidos:detalle' s.pedido.id %}" class="text-dark fw-bold text-decoration-none">
+                                #{{ s.pedido.referencia_externa|default:s.pedido.id }} - {{ s.pedido.libro.titulo }}
+                            </a>
+                        </td>
+                        <td>{{ s.proveedor.nombre }}</td>
+                        <td>{{ s.get_tipo_display }}</td>
+                        <td class="fw-bold">${{ s.monto|floatformat:2 }}</td>
+                        <td>
+                            {% if s.estado == 'SOLICITADO' %}
+                                <span class="badge bg-warning text-dark">Solicitado</span>
+                            {% elif s.estado == 'RECIBIDO' %}
+                                <span class="badge bg-info text-dark">Recibido</span>
+                            {% elif s.estado == 'PAGADO' %}
+                                <span class="badge bg-success">Pagado</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <!-- Botones individuales -->
+                            {% if s.estado == 'SOLICITADO' %}
+                            <a href="{% url 'proveedores:recibir_servicio' s.id %}" class="btn btn-sm btn-outline-warning" title="Marcar Recibido">
+                                <i class="bi bi-box-arrow-in-down"></i>
+                            </a>
+                            {% endif %}
+                            
+                            {% if s.estado != 'PAGADO' %}
+                            <!-- Botón para editar el monto -->
+                            <button type="button" class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalMonto-{{ s.id }}" title="Ajustar Monto">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+
+                            <a href="{% url 'proveedores:pagar_servicio' s.id %}" class="btn btn-sm btn-outline-success" title="Pagar">
+                                <i class="bi bi-cash"></i>
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="7" class="text-center text-muted py-5">
+                        <i class="bi bi-check-circle fs-1 d-block mb-2 text-success"></i>
+                        No hay deudas pendientes. ¡Todo al día!
+                    </td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</form>
+
+<!-- MODALES DE EDICIÓN (FUERA DE LA TABLA) -->
+{% for s in servicios %}
+    {% if s.estado != 'PAGADO' %}
+    <div class="modal fade" id="modalMonto-{{ s.id }}" tabindex="-1">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <form method="post" action="{% url 'proveedores:editar_monto_servicio' s.id %}">
+                {% csrf_token %}
+                <div class="modal-content border-0 shadow-lg">
+                    <div class="modal-header bg-dark text-white py-2">
+                        <h6 class="modal-title"><i class="bi bi-pencil-square"></i> Ajustar Monto</h6>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <p class="small text-muted mb-3">
+                            Pedido #{{ s.pedido.referencia_externa|default:s.pedido.id }} - {{ s.pedido.libro.titulo }}<br>
+                            <strong>Proveedor:</strong> {{ s.proveedor.nombre }}
+                        </p>
+                        <label class="form-label small fw-bold">Monto real cobrado:</label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text bg-light">$</span>
+                            <input type="number" name="monto" class="form-control fw-bold text-primary" step="0.01" value="{{ s.monto }}" required autofocus>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light p-2">
+                        <button type="submit" class="btn btn-primary w-100 fw-bold">Guardar Cambio</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Función para seleccionar/deseleccionar todos los checkboxes
+    function toggleTodos(source) {
+        const checkboxes = document.querySelectorAll('.check-servicio');
+        checkboxes.forEach(cb => {
+            cb.checked = source.checked;
+        });
+    }
+</script>
 {% endblock %}
