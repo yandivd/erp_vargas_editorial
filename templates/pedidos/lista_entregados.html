@@ -15,7 +15,7 @@
 
 <!-- PANEL DE FILTROS -->
 <div class="card card-kpi p-3 mb-4">
-    <form method="get" class="row g-3">
+    <form method="get" class="row g-3" id="formFiltrosEntregados">
         <div class="col-md-6">
             <label class="form-label small fw-bold text-muted">Buscar</label>
             <div class="input-group">
@@ -37,83 +37,85 @@
 </div>
 
 <!-- TABLA DE HISTORIAL -->
-<div class="card card-kpi">
-    <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>Ref</th>
-                    <th>Libro</th>
-                    <th>Cliente</th>
-                    <th>Fechas</th>
-                    <th>Precio</th>
-                    <th>Estado</th>
-                    <th class="text-end">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in pedidos %}
-                <tr>
-                    <td>
-                        {% if p.referencia_externa %}
-                            <span class="badge bg-secondary">{{ p.referencia_externa }}</span>
-                        {% else %}
-                            <span class="text-muted small">#{{ p.id }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <strong>{{ p.libro.titulo }}</strong><br>
-                        <small class="text-muted">{{ p.libro.paginas }} pág.</small>
-                    </td>
-                    <td>
-                        <strong>{{ p.cliente.nombre|default:"[ Stock ]" }}</strong>
-                    </td>
-                    <td>
-                        <small class="text-muted d-block">Pedido: {{ p.fecha_pedido|date:"d/m/Y" }}</small>
-                        <span class="badge bg-success text-white"><i class="bi bi-check-circle"></i> Entregado: {{ p.fecha_entrega_real|date:"d/m/Y"|default:"—" }}</span>
-                    </td>
-                    <td class="fw-bold">${{ p.precio_venta|floatformat:0 }}</td>
-                    <td>
-                        <span class="badge estado-badge" style="background-color: {{ p.estado.color }}; color: white;">
-                            {{ p.estado.nombre }}
-                        </span>
-                    </td>
-                    <td class="text-end">
-                        <a href="{% url 'pedidos:detalle' p.id %}" class="btn btn-sm btn-outline-primary" title="Ver detalle">
-                            <i class="bi bi-eye"></i>
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="7" class="text-center text-muted py-5">
-                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                    No hay pedidos entregados en este rango.
-                </td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    
-    <!-- PAGINACIÓN -->
-    {% if pedidos.has_other_pages %}
-    <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center">
-        <small class="text-muted">
-            Mostrando {{ pedidos.start_index }} - {{ pedidos.end_index }} de {{ pedidos.paginator.count }} pedidos
-        </small>
-        <ul class="pagination pagination-sm mb-0">
-            {% if pedidos.has_previous %}
-                <li class="page-item"><a class="page-link" href="?page=1{% if busqueda %}&q={{ busqueda }}{% endif %}{% if desde %}&desde={{ desde }}{% endif %}{% if hasta %}&hasta={{ hasta }}{% endif %}">&laquo;</a></li>
-                <li class="page-item"><a class="page-link" href="?page={{ pedidos.previous_page_number }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if desde %}&desde={{ desde }}{% endif %}{% if hasta %}&hasta={{ hasta }}{% endif %}">Anterior</a></li>
-            {% endif %}
-
-            <li class="page-item active"><span class="page-link">{{ pedidos.number }}</span></li>
-
-            {% if pedidos.has_next %}
-                <li class="page-item"><a class="page-link" href="?page={{ pedidos.next_page_number }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if desde %}&desde={{ desde }}{% endif %}{% if hasta %}&hasta={{ hasta }}{% endif %}">Siguiente</a></li>
-                <li class="page-item"><a class="page-link" href="?page={{ pedidos.paginator.num_pages }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if desde %}&desde={{ desde }}{% endif %}{% if hasta %}&hasta={{ hasta }}{% endif %}">&raquo;</a></li>
-            {% endif %}
-        </ul>
-    </div>
-    {% endif %}
+<!-- Donde estaba la tabla, ahora pon esto: -->
+<div class="card card-kpi" id="contenedor-tabla-entregados">
+    {% include 'pedidos/_tabla_entregados.html' %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('formFiltrosEntregados');
+    const contenedor = document.getElementById('contenedor-tabla-entregados');
+    if (!form || !contenedor) return;
+
+    const searchInput = form.querySelector('input[type="text"]');
+
+    function actualizarTabla() {
+        contenedor.style.opacity = '0.5';
+        
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData).toString();
+        
+        fetch(`{% url 'pedidos:lista_entregados_ajax' %}?${params}`)
+            .then(response => response.json())
+            .then(data => {
+                contenedor.innerHTML = data.html;
+                contenedor.style.opacity = '1';
+                engancharPaginacion();
+            })
+            .catch(err => {
+                console.error(err);
+                contenedor.style.opacity = '1';
+            });
+    }
+
+    function engancharPaginacion() {
+        const paginacion = document.getElementById('paginacion-ajax-entregados');
+        if (!paginacion) return;
+        paginacion.querySelectorAll('a.page-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const url = new URL(this.href);
+                const page = url.searchParams.get('page');
+                
+                const formData = new FormData(form);
+                formData.append('page', page);
+                const params = new URLSearchParams(formData).toString();
+                
+                contenedor.style.opacity = '0.5';
+                fetch(`{% url 'pedidos:lista_entregados_ajax' %}?${params}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        contenedor.innerHTML = data.html;
+                        contenedor.style.opacity = '1';
+                        engancharPaginacion();
+                    });
+            });
+        });
+    }
+
+    form.querySelectorAll('select, input[type="date"]').forEach(el => {
+        el.addEventListener('change', () => actualizarTabla());
+    });
+
+    if (searchInput) {
+        let timer;
+        searchInput.addEventListener('input', () => {
+            clearTimeout(timer);
+            timer = setTimeout(actualizarTabla, 500);
+        });
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(timer);
+                actualizarTabla();
+            }
+        });
+    }
+
+    engancharPaginacion();
+});
+</script>
 {% endblock %}

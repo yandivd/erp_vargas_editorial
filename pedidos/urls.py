@@ -19,4 +19,6 @@ urlpatterns = [
     path('<int:pk>/asignar-cliente/', views.asignar_cliente_y_cobrar, name='asignar_cliente'),
     path('libros/nuevo/', views.crear_libro, name='crear_libro'),
     path('entregados/', views.lista_entregados, name='lista_entregados'),
+    path('ajax/', views.lista_ajax, name='lista_ajax'),
+    path('entregados/ajax/', views.lista_entregados_ajax, name='lista_entregados_ajax'),
 ]

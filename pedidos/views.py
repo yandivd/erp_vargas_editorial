@@ -3,8 +3,12 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Q
 from django.http import JsonResponse
+from django.core.paginator import Paginator
 from django import forms
 from decimal import Decimal
+
+from django.http import JsonResponse
+from django.template.loader import render_to_string
 
 from .models import Pedido, ServicioExterno, Book, Estado
 from .services import ServicioPedido, CosteadorPedido
@@ -63,16 +67,13 @@ class NuevoPedidoForm(forms.Form):
         return cleaned_data
 
 
-from django.core.paginator import Paginator
-from django.db.models import Q
-
-def lista(request):
-    # 1. Traemos los pedidos EXCLUYENDO los entregados y cancelados
-    pedidos_list = Pedido.objects.select_related('cliente', 'libro', 'estado').exclude(
-        estado__nombre__in=['Entregado', 'Cancelado']
-    ).order_by('-fecha_pedido')
+# 1. Función que calcula los pedidos filtrados (para no repetir código)
+def _obtener_pedidos_filtrados(request, solo_entregados=False):
+    if solo_entregados:
+        pedidos_list = Pedido.objects.select_related('cliente', 'libro', 'estado').filter(estado__nombre='Entregado').order_by('-fecha_entrega_real', '-fecha_pedido')
+    else:
+        pedidos_list = Pedido.objects.select_related('cliente', 'libro', 'estado').exclude(estado__nombre__in=['Entregado', 'Cancelado']).order_by('-fecha_pedido')
     
-    # --- FILTROS ---
     busqueda = request.GET.get('q', '').strip()
     estado_id = request.GET.get('estado', '')
     desde = request.GET.get('desde', '')
@@ -86,71 +87,90 @@ def lista(request):
             Q(cliente__nombre__icontains=busqueda) |
             Q(referencia_externa__icontains=busqueda)
         )
-    if estado_id:
+    
+    if estado_id and not solo_entregados:
         pedidos_list = pedidos_list.filter(estado_id=estado_id)
-    if desde:
-        pedidos_list = pedidos_list.filter(fecha_pedido__date__gte=desde)
-    if hasta:
-        pedidos_list = pedidos_list.filter(fecha_pedido__date__lte=hasta)
         
-    if pago_status == 'pagado':
-        pedidos_list = pedidos_list.filter(saldo_pendiente=0)
-    elif pago_status == 'pendiente':
-        pedidos_list = pedidos_list.filter(saldo_pendiente__gt=0)
-    elif pago_status == 'atrasado':
-        pedidos_list = [p for p in pedidos_list if p.esta_atrasado]
+    if desde:
+        if solo_entregados:
+            pedidos_list = pedidos_list.filter(fecha_entrega_real__date__gte=desde)
+        else:
+            pedidos_list = pedidos_list.filter(fecha_pedido__date__gte=desde)
+            
+    if hasta:
+        if solo_entregados:
+            pedidos_list = pedidos_list.filter(fecha_entrega_real__date__lte=hasta)
+        else:
+            pedidos_list = pedidos_list.filter(fecha_pedido__date__lte=hasta)
+            
+    if pago_status and not solo_entregados:
+        if pago_status == 'pagado':
+            pedidos_list = pedidos_list.filter(saldo_pendiente=0)
+        elif pago_status == 'pendiente':
+            pedidos_list = pedidos_list.filter(saldo_pendiente__gt=0)
+        elif pago_status == 'atrasado':
+            pedidos_list = [p for p in pedidos_list if p.esta_atrasado]
 
-    # --- PAGINACIÓN (10 en 10) ---
+    return pedidos_list
+
+# 2. Vista principal (Carga inicial)
+def lista(request):
+    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=False)
     paginator = Paginator(pedidos_list, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginator.get_page(request.GET.get('page'))
 
-    context = {
+    return render(request, 'pedidos/lista.html', {
         'pedidos': page_obj,
-        'estados': Estado.objects.exclude(nombre__in=['Entregado', 'Cancelado']).order_by('orden'), # No mostrar entregados en el filtro
-        'estado_actual': estado_id,
-        'busqueda': busqueda,
-        'desde': desde,
-        'hasta': hasta,
-        'pago_actual': pago_status,
+        'estados': Estado.objects.exclude(nombre__in=['Entregado', 'Cancelado']).order_by('orden'),
+        'estado_actual': request.GET.get('estado', ''),
+        'busqueda': request.GET.get('q', ''),
+        'desde': request.GET.get('desde', ''),
+        'hasta': request.GET.get('hasta', ''),
+        'pago_actual': request.GET.get('pago', ''),
         'form': NuevoPedidoForm(),
         'total_pedidos': paginator.count,
-    }
-    return render(request, 'pedidos/lista.html', context)
+    })
 
-
-def lista_entregados(request):
-    # 2. Nueva vista: SOLO los entregados
-    pedidos_list = Pedido.objects.select_related('cliente', 'libro', 'estado').filter(
-        estado__nombre='Entregado'
-    ).order_by('-fecha_entrega_real', '-fecha_pedido')
-    
-    busqueda = request.GET.get('q', '').strip()
-    desde = request.GET.get('desde', '')
-    hasta = request.GET.get('hasta', '')
-
-    if busqueda:
-        pedidos_list = pedidos_list.filter(
-            Q(libro__titulo__icontains=busqueda) |
-            Q(cliente__nombre__icontains=busqueda) |
-            Q(referencia_externa__icontains=busqueda)
-        )
-    if desde:
-        pedidos_list = pedidos_list.filter(fecha_entrega_real__date__gte=desde)
-    if hasta:
-        pedidos_list = pedidos_list.filter(fecha_entrega_real__date__lte=hasta)
-
+# 3. Vista AJAX (Devuelve solo el HTML de la tabla)
+def lista_ajax(request):
+    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=False)
     paginator = Paginator(pedidos_list, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    html = render_to_string('pedidos/_tabla_pedidos.html', {
+        'pedidos': page_obj,
+        'total_pedidos': paginator.count,
+    }, request=request)
+
+    return JsonResponse({'html': html})
+
+
+# 1. Vista normal para cargar la página por primera vez
+def lista_entregados(request):
+    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=True)
+    paginator = Paginator(pedidos_list, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'pedidos/lista_entregados.html', {
         'pedidos': page_obj,
-        'busqueda': busqueda,
-        'desde': desde,
-        'hasta': hasta,
+        'busqueda': request.GET.get('q', ''),
+        'desde': request.GET.get('desde', ''),
+        'hasta': request.GET.get('hasta', ''),
         'total_pedidos': paginator.count,
     })
+
+# 2. Vista AJAX que devuelve solo el HTML de la tabla de entregados
+def lista_entregados_ajax(request):
+    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=True)
+    paginator = Paginator(pedidos_list, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    html = render_to_string('pedidos/_tabla_entregados.html', {
+        'pedidos': page_obj,
+        'total_pedidos': paginator.count,
+    }, request=request)
+
+    return JsonResponse({'html': html})
 
 
 def detalle(request, pk):
