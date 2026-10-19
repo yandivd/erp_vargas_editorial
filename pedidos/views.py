@@ -15,6 +15,33 @@ from .services import ServicioPedido, CosteadorPedido
 from clientes.models import Cliente
 from finanzas.services import ServicioFinanzas
 
+class ClienteSelectConTelefono(forms.Select):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if value:
+            try:
+                cliente = Cliente.objects.get(pk=value.value)
+                if cliente.telefono:
+                    # Inyectamos el teléfono en el atributo data-telefono
+                    option['attrs']['data-telefono'] = cliente.telefono
+            except Cliente.DoesNotExist:
+                pass
+        return option
+    
+class LibroSelectConPaginas(forms.Select):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if value:
+            try:
+                libro = Book.objects.get(pk=value.value)
+                option['attrs']['data-paginas'] = libro.paginas
+                option['attrs']['data-precio'] = libro.precio
+                option['attrs']['data-anticipo'] = round(libro.precio / 2, 2)
+                option['attrs']['data-autor'] = libro.autor or "Autor desconocido" # <-- NUEVO
+            except Book.DoesNotExist:
+                pass
+        return option
+
 class LibroSelectConPaginas(forms.Select):
     def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
         option = super().create_option(name, value, label, selected, index, subindex, attrs)
@@ -30,9 +57,14 @@ class LibroSelectConPaginas(forms.Select):
     
 # Formulario rápido para el modal (ahora usa Book)
 class NuevoPedidoForm(forms.Form):
-    cliente = forms.ModelChoiceField(queryset=Cliente.objects.all(), required=False, widget=forms.Select(attrs={'class': 'form-select'}))
+    cliente = forms.ModelChoiceField(
+        queryset=Cliente.objects.all(), 
+        required=False, 
+        widget=ClienteSelectConTelefono(attrs={'class': 'form-select'}) # <-- Usamos el nuevo widget
+    )
     nuevo_cliente_nombre = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre nuevo'}))
     nuevo_cliente_telefono = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono'}))
+    nuevo_cliente_direccion = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Dirección (opcional)'})) # <-- NUEVO
     
     libro = forms.ModelChoiceField(
         queryset=Book.objects.all(), 
@@ -217,7 +249,8 @@ def nuevo_pedido_modal(request):
         if not cliente:
             cliente = Cliente.objects.create(
                 nombre=form.cleaned_data['nuevo_cliente_nombre'],
-                telefono=form.cleaned_data.get('nuevo_cliente_telefono', '')
+                telefono=form.cleaned_data.get('nuevo_cliente_telefono', ''),
+                direccion=form.cleaned_data.get('nuevo_cliente_direccion', '')
             )
         
         # Resolver Libro
