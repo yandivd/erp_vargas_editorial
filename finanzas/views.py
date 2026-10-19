@@ -172,7 +172,15 @@ def reporte_mensual(request):
         fecha_entrega_real__date__gte=desde,
         fecha_entrega_real__date__lte=hasta
     )
-    total_ventas = pedidos_entregados.aggregate(t=Sum('precio_venta'))['t'] or 0
+    # En lugar de sumar el precio teórico, sumamos el dinero que realmente entró a Caja
+    # por concepto de Anticipos y Saldos de esos pedidos en ese rango de fechas.
+    
+    total_ventas = MovimientoCaja.objects.filter(
+        tipo='INGRESO',
+        categoria__in=['ANTICIPO_CLIENTE', 'SALDO_CLIENTE'],
+        fecha__date__gte=desde,
+        fecha__date__lte=hasta
+    ).aggregate(t=Sum('monto'))['t'] or 0
     cantidad_libros = pedidos_entregados.count()
 
     # ==========================================
