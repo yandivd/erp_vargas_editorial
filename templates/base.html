@@ -189,9 +189,11 @@
                 <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                     <i class="bi bi-grid-1x2"></i> Dashboard
                 </a>
-                
                 <a href="{% url 'pedidos:lista' %}" class="{% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'lista' %}active{% endif %}">
-                    <i class="bi bi-journal-text"></i> Pedidos
+                    <i class="bi bi-journal-text"></i> Pedidos (Taller)
+                </a>
+                <a href="{% url 'pedidos:lista_entregados' %}" class="{% if request.resolver_match.url_name == 'lista_entregados' %}active{% endif %}">
+                    <i class="bi bi-archive"></i> Historial Entregados
                 </a>
                 <a href="{% url 'pedidos:lista_libros' %}" class="{% if request.resolver_match.url_name == 'lista_libros' or request.resolver_match.url_name == 'editar_libro' %}active{% endif %}">
                     <i class="bi bi-book"></i> Catálogo

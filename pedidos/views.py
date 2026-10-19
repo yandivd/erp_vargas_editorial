@@ -63,31 +63,94 @@ class NuevoPedidoForm(forms.Form):
         return cleaned_data
 
 
+from django.core.paginator import Paginator
+from django.db.models import Q
+
 def lista(request):
-    pedidos = Pedido.objects.select_related('cliente', 'libro', 'estado').all()
+    # 1. Traemos los pedidos EXCLUYENDO los entregados y cancelados
+    pedidos_list = Pedido.objects.select_related('cliente', 'libro', 'estado').exclude(
+        estado__nombre__in=['Entregado', 'Cancelado']
+    ).order_by('-fecha_pedido')
     
+    # --- FILTROS ---
+    busqueda = request.GET.get('q', '').strip()
     estado_id = request.GET.get('estado', '')
-    busqueda = request.GET.get('q', '')
-    
-    if estado_id:
-        pedidos = pedidos.filter(estado_id=estado_id)
+    desde = request.GET.get('desde', '')
+    hasta = request.GET.get('hasta', '')
+    pago_status = request.GET.get('pago', '')
+
     if busqueda:
-        pedidos = pedidos.filter(
+        pedidos_list = pedidos_list.filter(
             Q(libro__titulo__icontains=busqueda) |
             Q(libro__autor__icontains=busqueda) |
-            Q(cliente__nombre__icontains=busqueda)
+            Q(cliente__nombre__icontains=busqueda) |
+            Q(referencia_externa__icontains=busqueda)
         )
-    
-    pedidos = list(pedidos.order_by('-fecha_pedido'))
-    
+    if estado_id:
+        pedidos_list = pedidos_list.filter(estado_id=estado_id)
+    if desde:
+        pedidos_list = pedidos_list.filter(fecha_pedido__date__gte=desde)
+    if hasta:
+        pedidos_list = pedidos_list.filter(fecha_pedido__date__lte=hasta)
+        
+    if pago_status == 'pagado':
+        pedidos_list = pedidos_list.filter(saldo_pendiente=0)
+    elif pago_status == 'pendiente':
+        pedidos_list = pedidos_list.filter(saldo_pendiente__gt=0)
+    elif pago_status == 'atrasado':
+        pedidos_list = [p for p in pedidos_list if p.esta_atrasado]
+
+    # --- PAGINACIÓN (10 en 10) ---
+    paginator = Paginator(pedidos_list, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     context = {
-        'pedidos': pedidos,
-        'estados': Estado.objects.all().order_by('orden'),
+        'pedidos': page_obj,
+        'estados': Estado.objects.exclude(nombre__in=['Entregado', 'Cancelado']).order_by('orden'), # No mostrar entregados en el filtro
         'estado_actual': estado_id,
         'busqueda': busqueda,
+        'desde': desde,
+        'hasta': hasta,
+        'pago_actual': pago_status,
         'form': NuevoPedidoForm(),
+        'total_pedidos': paginator.count,
     }
     return render(request, 'pedidos/lista.html', context)
+
+
+def lista_entregados(request):
+    # 2. Nueva vista: SOLO los entregados
+    pedidos_list = Pedido.objects.select_related('cliente', 'libro', 'estado').filter(
+        estado__nombre='Entregado'
+    ).order_by('-fecha_entrega_real', '-fecha_pedido')
+    
+    busqueda = request.GET.get('q', '').strip()
+    desde = request.GET.get('desde', '')
+    hasta = request.GET.get('hasta', '')
+
+    if busqueda:
+        pedidos_list = pedidos_list.filter(
+            Q(libro__titulo__icontains=busqueda) |
+            Q(cliente__nombre__icontains=busqueda) |
+            Q(referencia_externa__icontains=busqueda)
+        )
+    if desde:
+        pedidos_list = pedidos_list.filter(fecha_entrega_real__date__gte=desde)
+    if hasta:
+        pedidos_list = pedidos_list.filter(fecha_entrega_real__date__lte=hasta)
+
+    paginator = Paginator(pedidos_list, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'pedidos/lista_entregados.html', {
+        'pedidos': page_obj,
+        'busqueda': busqueda,
+        'desde': desde,
+        'hasta': hasta,
+        'total_pedidos': paginator.count,
+    })
 
 
 def detalle(request, pk):

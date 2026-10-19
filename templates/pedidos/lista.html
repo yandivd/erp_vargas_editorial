@@ -1,49 +1,89 @@
 {% extends 'base.html' %}
 
-{% block title %}Pedidos - ERP Libros{% endblock %}
+{% block title %}Pedidos - Vargas Editorial{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0"><i class="bi bi-journal-text"></i> Pedidos</h2>
-    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoPedido">
-        <i class="bi bi-plus-lg"></i> Nuevo pedido
-    </button>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0 fw-bold"><i class="bi bi-journal-text text-primary"></i> Pedidos en Taller</h2>
+        <p class="text-muted mb-0">Gestión de encargos activos ({{ total_pedidos }} en total)</p>
+    </div>
+    <div>
+        <a href="{% url 'pedidos:lista_entregados' %}" class="btn btn-outline-primary me-2">
+            <i class="bi bi-archive"></i> Ver Historial
+        </a>
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoPedido">
+            <i class="bi bi-plus-lg"></i> Nuevo pedido
+        </button>
+    </div>
 </div>
 
-<div class="card card-kpi p-3 mb-3">
-    <form method="get" class="row g-2">
-        <div class="col-md-5">
-            <input type="text" name="q" class="form-control" placeholder="Buscar por libro, autor o cliente" value="{{ busqueda }}">
-        </div>
+<!-- PANEL DE FILTROS -->
+<div class="card card-kpi p-3 mb-4">
+    <form method="get" class="row g-3">
+        <!-- Búsqueda -->
         <div class="col-md-4">
+            <label class="form-label small fw-bold text-muted">Buscar</label>
+            <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" class="form-control" placeholder="Libro, cliente, ref..." value="{{ busqueda }}">
+            </div>
+        </div>
+        
+        <!-- Estado del Pedido -->
+        <div class="col-md-2">
+            <label class="form-label small fw-bold text-muted">Estado</label>
             <select name="estado" class="form-select">
-                <option value="">Todos los estados</option>
+                <option value="">Todos</option>
                 {% for e in estados %}
                 <option value="{{ e.id }}" {% if estado_actual == e.id|stringformat:"s" %}selected{% endif %}>{{ e.nombre }}</option>
                 {% endfor %}
             </select>
         </div>
+
+        <!-- Estado de Pago -->
+        <div class="col-md-2">
+            <label class="form-label small fw-bold text-muted">Pago</label>
+            <select name="pago" class="form-select">
+                <option value="">Cualquiera</option>
+                <option value="pagado" {% if pago_actual == 'pagado' %}selected{% endif %}>Pagados</option>
+                <option value="pendiente" {% if pago_actual == 'pendiente' %}selected{% endif %}>Con saldo</option>
+                <option value="atrasado" {% if pago_actual == 'atrasado' %}selected{% endif %}>Atrasados</option>
+            </select>
+        </div>
+
+        <!-- Fechas -->
         <div class="col-md-3">
-            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Filtrar</button>
+            <label class="form-label small fw-bold text-muted">Rango de fechas</label>
+            <div class="input-group">
+                <input type="date" name="desde" class="form-control" value="{{ desde }}" title="Desde">
+                <input type="date" name="hasta" class="form-control" value="{{ hasta }}" title="Hasta">
+            </div>
+        </div>
+
+        <!-- Botones -->
+        <div class="col-md-1 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100" title="Aplicar filtros">
+                <i class="bi bi-funnel"></i>
+            </button>
         </div>
     </form>
 </div>
 
+<!-- TABLA DE PEDIDOS -->
 <div class="card card-kpi">
-    <!-- Envolvemos la tabla en table-responsive para que no se rompa en pantallas pequeñas -->
     <div class="table-responsive">
         <table class="table table-hover mb-0 align-middle">
             <thead class="table-light">
                 <tr>
-                    <th>#</th>
+                    <th>Ref</th>
                     <th>Libro</th>
-                    <th>Cliente / Entrega</th>
+                    <th>Cliente</th>
                     <th>Fechas</th>
                     <th>Precio</th>
-                    <th>Anticipo</th>
                     <th>Saldo</th>
                     <th>Estado</th>
-                    <th></th>
+                    <th class="text-end">Acciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -51,66 +91,88 @@
                 <tr>
                     <td>
                         {% if p.referencia_externa %}
-                            <strong class="text-muted" title="ID del Excel original">{{ p.referencia_externa }}</strong>
+                            <span class="badge bg-secondary" title="ID original">{{ p.referencia_externa }}</span>
+                        {% else %}
+                            <span class="text-muted small">#{{ p.id }}</span>
                         {% endif %}
                     </td>
                     <td>
                         <strong>{{ p.libro.titulo }}</strong><br>
-                        <small class="text-muted">{{ p.libro.paginas }} pág. | {{ p.libro.autor|default:"—" }}</small>
+                        <small class="text-muted">{{ p.libro.paginas }} pág.</small>
                     </td>
                     <td>
-                        <strong>{{ p.cliente.nombre|default:"[ Venta de Stock ]" }}</strong><br>
-                        
-                        {% if p.cliente %}
-                            <small class="text-muted">
-                                <i class="bi bi-geo-alt-fill"></i> 
-                                {{ p.direccion_entrega|default:p.cliente.direccion|truncatechars:25|default:"Sin dirección" }}
-                            </small><br>
-                            <small class="text-muted">
-                                <i class="bi bi-telephone-fill"></i> 
+                        <strong>{{ p.cliente.nombre|default:"[ Stock ]" }}</strong><br>
+                        <small class="text-muted">
+                            <i class="bi bi-telephone"></i> 
+                            {% if p.cliente %}
                                 {{ p.telefono_entrega|default:p.cliente.telefono|default:"—" }}
-                            </small>
-                        {% else %}
-                            <small class="text-muted">
-                                <i class="bi bi-box-seam"></i> En el estante
-                            </small>
-                        {% endif %}
+                            {% else %}
+                                {{ p.telefono_entrega|default:"—" }}
+                            {% endif %}
+                        </small>
                     </td>
                     <td>
-                        <small class="text-muted">Pedido:</small> {{ p.fecha_pedido|date:"d/m/Y" }}<br>
-                        <small class="text-muted">Entrega:</small> 
+                        <small class="text-muted d-block">Pedido: {{ p.fecha_pedido|date:"d/m/Y" }}</small>
                         {% if p.fecha_entrega_prometida %}
-                            <strong>{{ p.fecha_entrega_prometida|date:"d/m/Y" }}</strong>
-                        {% else %}
-                            <span class="text-warning">Por definir</span>
+                            <span class="badge bg-light text-dark border"><i class="bi bi-truck"></i> {{ p.fecha_entrega_prometida|date:"d/m/Y" }}</span>
                         {% endif %}
                     </td>
-                    <td>${{ p.precio_venta|floatformat:0 }}</td>
-                    <td>${{ p.anticipo_recibido|floatformat:0 }}</td>
-                    <td>${{ p.saldo_pendiente|floatformat:0 }}</td>
+                    <td class="fw-bold">${{ p.precio_venta|floatformat:0 }}</td>
+                    <td>
+                        {% if p.saldo_pendiente > 0 %}
+                            <span class="text-danger fw-bold">${{ p.saldo_pendiente|floatformat:0 }}</span>
+                        {% else %}
+                            <span class="badge bg-success">Pagado</span>
+                        {% endif %}
+                    </td>
                     <td>
                         <span class="badge estado-badge" style="background-color: {{ p.estado.color }}; color: white;">
                             {{ p.estado.nombre }}
                         </span>
                         {% if p.esta_atrasado %}
-                        <br><span class="badge bg-danger estado-badge mt-1">Atrasado</span>
+                        <br><span class="badge bg-danger estado-badge mt-1"><i class="bi bi-exclamation-triangle"></i> Atrasado</span>
                         {% endif %}
                     </td>
-                    <td>
-                        <a href="{% url 'pedidos:detalle' p.id %}" class="btn btn-sm btn-outline-primary">
+                    <td class="text-end">
+                        <a href="{% url 'pedidos:detalle' p.id %}" class="btn btn-sm btn-outline-primary" title="Ver detalle">
                             <i class="bi bi-eye"></i>
                         </a>
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="9" class="text-center text-muted py-4">No hay pedidos registrados</td></tr>
+                <tr><td colspan="8" class="text-center text-muted py-5">
+                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                    No se encontraron pedidos con esos filtros.
+                </td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    
+    <!-- PAGINACIÓN -->
+    {% if pedidos.has_other_pages %}
+    <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center">
+        <small class="text-muted">
+            Mostrando {{ pedidos.start_index }} - {{ pedidos.end_index }} de {{ pedidos.paginator.count }} pedidos
+        </small>
+        <ul class="pagination pagination-sm mb-0">
+            {% if pedidos.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page=1{% if busqueda %}&q={{ busqueda }}{% endif %}{% if estado_actual %}&estado={{ estado_actual }}{% endif %}{% if pago_actual %}&pago={{ pago_actual }}{% endif %}{% if desde %}&desde={{ desde }}{% endif %}{% if hasta %}&hasta={{ hasta }}{% endif %}">&laquo; Primera</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ pedidos.previous_page_number }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if estado_actual %}&estado={{ estado_actual }}{% endif %}{% if pago_actual %}&pago={{ pago_actual }}{% endif %}{% if desde %}&desde={{ desde }}{% endif %}{% if hasta %}&hasta={{ hasta }}{% endif %}">Anterior</a></li>
+            {% endif %}
+
+            <li class="page-item active"><span class="page-link">{{ pedidos.number }}</span></li>
+
+            {% if pedidos.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ pedidos.next_page_number }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if estado_actual %}&estado={{ estado_actual }}{% endif %}{% if pago_actual %}&pago={{ pago_actual }}{% endif %}{% if desde %}&desde={{ desde }}{% endif %}{% if hasta %}&hasta={{ hasta }}{% endif %}">Siguiente</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ pedidos.paginator.num_pages }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if estado_actual %}&estado={{ estado_actual }}{% endif %}{% if pago_actual %}&pago={{ pago_actual }}{% endif %}{% if desde %}&desde={{ desde }}{% endif %}{% if hasta %}&hasta={{ hasta }}{% endif %}">Última &raquo;</a></li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
 </div>
 
-<!-- Modal Nuevo Pedido -->
+<!-- Modal Nuevo Pedido (se mantiene igual) -->
 <div class="modal fade" id="modalNuevoPedido" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -230,7 +292,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return; 
         }
         
-        // AQUI AGREGAMOS EL CHECKBOX DE ESQUINEROS A LA URL
         const llevaScotch = document.querySelector('#id_lleva_scotch').checked;
         const llevaEsquineros = document.querySelector('#id_lleva_esquineros').checked;
         
@@ -248,7 +309,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    // Escuchamos cambios en el selector de libros, en las páginas manuales y en el precio
     if (libroSelect) libroSelect.addEventListener('change', actualizarCosto);
     if (paginasInput) paginasInput.addEventListener('input', actualizarCosto);
     if (precioInput) precioInput.addEventListener('input', actualizarCosto);
@@ -260,20 +320,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const esquinerosCheck = document.querySelector('#id_lleva_esquineros');
     if (esquinerosCheck) esquinerosCheck.addEventListener('change', actualizarCosto);
 
-    // Ocultar los campos manuales si elige un libro existente
     if (libroSelect) {
         libroSelect.addEventListener('change', function() {
-            const colPaginas = document.querySelector('#id_nuevo_libro_paginas').closest('.col-md-2');
-            const colTitulo = document.querySelector('#id_nuevo_libro_titulo').closest('.col-md-4');
-            const colAutor = document.querySelector('#id_nuevo_libro_autor').closest('.col-md-3');
+            const colPaginas = document.querySelector('#id_nuevo_libro_paginas').closest('.col-md-3');
+            const colTitulo = document.querySelector('#id_nuevo_libro_titulo').closest('.col-md-5');
+            const colAutor = document.querySelector('#id_nuevo_libro_autor').closest('.col-md-4');
             
             if (this.value) {
-                // Si elige un libro existente, ocultamos los campos de creación
                 if (colPaginas) colPaginas.style.display = 'none';
                 if (colTitulo) colTitulo.style.display = 'none';
                 if (colAutor) colAutor.style.display = 'none';
             } else {
-                // Si no elige libro, mostramos los campos para crear uno nuevo
                 if (colPaginas) colPaginas.style.display = 'block';
                 if (colTitulo) colTitulo.style.display = 'block';
                 if (colAutor) colAutor.style.display = 'block';
@@ -281,7 +338,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Submit por AJAX
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         const formData = new FormData(form);

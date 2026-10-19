@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title %}Historial de Pedidos - Vargas Editorial{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0 fw-bold"><i class="bi bi-archive text-secondary"></i> Historial de Entregados</h2>
+        <p class="text-muted mb-0">Pedidos completados y entregados ({{ total_pedidos }} en total)</p>
+    </div>
+    <a href="{% url 'pedidos:lista' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Volver al Taller
+    </a>
+</div>
+
+<!-- PANEL DE FILTROS -->
+<div class="card card-kpi p-3 mb-4">
+    <form method="get" class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label small fw-bold text-muted">Buscar</label>
+            <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" class="form-control" placeholder="Libro, cliente o referencia..." value="{{ busqueda }}">
+            </div>
+        </div>
+        <div class="col-md-5">
+            <label class="form-label small fw-bold text-muted">Rango de entrega</label>
+            <div class="input-group">
+                <input type="date" name="desde" class="form-control" value="{{ desde }}" title="Desde">
+                <input type="date" name="hasta" class="form-control" value="{{ hasta }}" title="Hasta">
+            </div>
+        </div>
+        <div class="col-md-1 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100" title="Aplicar filtros"><i class="bi bi-funnel"></i></button>
+        </div>
+    </form>
+</div>
+
+<!-- TABLA DE HISTORIAL -->
+<div class="card card-kpi">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Ref</th>
+                    <th>Libro</th>
+                    <th>Cliente</th>
+                    <th>Fechas</th>
+                    <th>Precio</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pedidos %}
+                <tr>
+                    <td>
+                        {% if p.referencia_externa %}
+                            <span class="badge bg-secondary">{{ p.referencia_externa }}</span>
+                        {% else %}
+                            <span class="text-muted small">#{{ p.id }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ p.libro.titulo }}</strong><br>
+                        <small class="text-muted">{{ p.libro.paginas }} pág.</small>
+                    </td>
+                    <td>
+                        <strong>{{ p.cliente.nombre|default:"[ Stock ]" }}</strong>
+                    </td>
+                    <td>
+                        <small class="text-muted d-block">Pedido: {{ p.fecha_pedido|date:"d/m/Y" }}</small>
+                        <span class="badge bg-success text-white"><i class="bi bi-check-circle"></i> Entregado: {{ p.fecha_entrega_real|date:"d/m/Y"|default:"—" }}</span>
+                    </td>
+                    <td class="fw-bold">${{ p.precio_venta|floatformat:0 }}</td>
+                    <td>
+                        <span class="badge estado-badge" style="background-color: {{ p.estado.color }}; color: white;">
+                            {{ p.estado.nombre }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'pedidos:detalle' p.id %}" class="btn btn-sm btn-outline-primary" title="Ver detalle">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center text-muted py-5">
+                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                    No hay pedidos entregados en este rango.
+                </td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- PAGINACIÓN -->
+    {% if pedidos.has_other_pages %}
+    <div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center">
+        <small class="text-muted">
+            Mostrando {{ pedidos.start_index }} - {{ pedidos.end_index }} de {{ pedidos.paginator.count }} pedidos
+        </small>
+        <ul class="pagination pagination-sm mb-0">
+            {% if pedidos.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page=1{% if busqueda %}&q={{ busqueda }}{% endif %}{% if desde %}&desde={{ desde }}{% endif %}{% if hasta %}&hasta={{ hasta }}{% endif %}">&laquo;</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ pedidos.previous_page_number }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if desde %}&desde={{ desde }}{% endif %}{% if hasta %}&hasta={{ hasta }}{% endif %}">Anterior</a></li>
+            {% endif %}
+
+            <li class="page-item active"><span class="page-link">{{ pedidos.number }}</span></li>
+
+            {% if pedidos.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ pedidos.next_page_number }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if desde %}&desde={{ desde }}{% endif %}{% if hasta %}&hasta={{ hasta }}{% endif %}">Siguiente</a></li>
+                <li class="page-item"><a class="page-link" href="?page={{ pedidos.paginator.num_pages }}{% if busqueda %}&q={{ busqueda }}{% endif %}{% if desde %}&desde={{ desde }}{% endif %}{% if hasta %}&hasta={{ hasta }}{% endif %}">&raquo;</a></li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

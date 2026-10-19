@@ -18,4 +18,5 @@ urlpatterns = [
     path('libros/<int:libro_id>/fabricar/', views.fabricar_para_stock, name='fabricar_stock'),
     path('<int:pk>/asignar-cliente/', views.asignar_cliente_y_cobrar, name='asignar_cliente'),
     path('libros/nuevo/', views.crear_libro, name='crear_libro'),
+    path('entregados/', views.lista_entregados, name='lista_entregados'),
 ]
