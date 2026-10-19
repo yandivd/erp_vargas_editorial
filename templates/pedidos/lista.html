@@ -1,194 +1,223 @@
 {% extends 'base.html' %}
 
-{% block title %}Pedidos - ERP Libros{% endblock %}
+{% block title %}Pedidos - Vargas Editorial{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0"><i class="bi bi-journal-text"></i> Pedidos</h2>
-    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoPedido">
-        <i class="bi bi-plus-lg"></i> Nuevo pedido
-    </button>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0 fw-bold"><i class="bi bi-journal-text text-primary"></i> Pedidos en Taller</h2>
+        <p class="text-muted mb-0">Gestión de encargos activos ({{ total_pedidos }} en total)</p>
+    </div>
+    <div>
+        <a href="{% url 'pedidos:lista_entregados' %}" class="btn btn-outline-primary me-2">
+            <i class="bi bi-archive"></i> Ver Historial
+        </a>
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoPedido">
+            <i class="bi bi-plus-lg"></i> Nuevo pedido
+        </button>
+    </div>
 </div>
 
-<div class="card card-kpi p-3 mb-3">
-    <form method="get" class="row g-2">
-        <div class="col-md-5">
-            <input type="text" name="q" class="form-control" placeholder="Buscar por libro, autor o cliente" value="{{ busqueda }}">
-        </div>
+<!-- PANEL DE FILTROS -->
+<div class="card card-kpi p-3 mb-4">
+    <form method="get" class="row g-3" id="formFiltros">
+        <!-- Búsqueda -->
         <div class="col-md-4">
+            <label class="form-label small fw-bold text-muted">Buscar</label>
+            <div class="input-group">
+                <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" class="form-control" placeholder="Libro, cliente, ref..." value="{{ busqueda }}">
+            </div>
+        </div>
+        
+        <!-- Estado del Pedido -->
+        <div class="col-md-2">
+            <label class="form-label small fw-bold text-muted">Estado</label>
             <select name="estado" class="form-select">
-                <option value="">Todos los estados</option>
+                <option value="">Todos</option>
                 {% for e in estados %}
                 <option value="{{ e.id }}" {% if estado_actual == e.id|stringformat:"s" %}selected{% endif %}>{{ e.nombre }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-3">
-            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search"></i> Filtrar</button>
+
+        <!-- Estado de Pago -->
+        <div class="col-md-2">
+            <label class="form-label small fw-bold text-muted">Pago</label>
+            <select name="pago" class="form-select">
+                <option value="">Cualquiera</option>
+                <option value="pagado" {% if pago_actual == 'pagado' %}selected{% endif %}>Pagados</option>
+                <option value="pendiente" {% if pago_actual == 'pendiente' %}selected{% endif %}>Con saldo</option>
+                <option value="atrasado" {% if pago_actual == 'atrasado' %}selected{% endif %}>Atrasados</option>
+            </select>
+        </div>
+
+        <!-- Fechas -->
+        <div class="col-md-4">
+            <label class="form-label small fw-bold text-muted">Rango de fechas</label>
+            <div class="input-group">
+                <input type="date" name="desde" class="form-control" value="{{ desde }}" title="Desde">
+                <input type="date" name="hasta" class="form-control" value="{{ hasta }}" title="Hasta">
+            </div>
         </div>
     </form>
 </div>
 
-<div class="card card-kpi">
-    <!-- Envolvemos la tabla en table-responsive para que no se rompa en pantallas pequeñas -->
-    <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th>#</th>
-                    <th>Libro</th>
-                    <th>Cliente / Entrega</th>
-                    <th>Fechas</th>
-                    <th>Precio</th>
-                    <th>Anticipo</th>
-                    <th>Saldo</th>
-                    <th>Estado</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for p in pedidos %}
-                <tr>
-                    <td>
-                        <strong>{{ p.id }}</strong>
-                        {% if p.referencia_externa %}
-                            <br><small class="text-muted" title="ID del Excel original">{{ p.referencia_externa }}</small>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <strong>{{ p.libro.titulo }}</strong><br>
-                        <small class="text-muted">{{ p.libro.paginas }} pág. | {{ p.libro.autor|default:"—" }}</small>
-                    </td>
-                    <td>
-                        <strong>{{ p.cliente.nombre|default:"[ Venta de Stock ]" }}</strong><br>
-                        
-                        {% if p.cliente %}
-                            <small class="text-muted">
-                                <i class="bi bi-geo-alt-fill"></i> 
-                                {{ p.direccion_entrega|default:p.cliente.direccion|truncatechars:25|default:"Sin dirección" }}
-                            </small><br>
-                            <small class="text-muted">
-                                <i class="bi bi-telephone-fill"></i> 
-                                {{ p.telefono_entrega|default:p.cliente.telefono|default:"—" }}
-                            </small>
-                        {% else %}
-                            <small class="text-muted">
-                                <i class="bi bi-box-seam"></i> En el estante
-                            </small>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <small class="text-muted">Pedido:</small> {{ p.fecha_pedido|date:"d/m/Y" }}<br>
-                        <small class="text-muted">Entrega:</small> 
-                        {% if p.fecha_entrega_prometida %}
-                            <strong>{{ p.fecha_entrega_prometida|date:"d/m/Y" }}</strong>
-                        {% else %}
-                            <span class="text-warning">Por definir</span>
-                        {% endif %}
-                    </td>
-                    <td>${{ p.precio_venta|floatformat:0 }}</td>
-                    <td>${{ p.anticipo_recibido|floatformat:0 }}</td>
-                    <td>${{ p.saldo_pendiente|floatformat:0 }}</td>
-                    <td>
-                        <span class="badge estado-badge" style="background-color: {{ p.estado.color }}; color: white;">
-                            {{ p.estado.nombre }}
-                        </span>
-                        {% if p.esta_atrasado %}
-                        <br><span class="badge bg-danger estado-badge mt-1">Atrasado</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="{% url 'pedidos:detalle' p.id %}" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-eye"></i>
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="9" class="text-center text-muted py-4">No hay pedidos registrados</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<!-- TABLA DE PEDIDOS -->
+<div class="card card-kpi" id="contenedor-tabla">
+    {% include 'pedidos/_tabla_pedidos.html' %}
 </div>
 
 <!-- Modal Nuevo Pedido -->
 <div class="modal fade" id="modalNuevoPedido" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Nuevo pedido</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-cart-plus"></i> Registrar Nuevo Pedido</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form id="formNuevoPedido">
                 {% csrf_token %}
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <div id="modal-errors" class="alert alert-danger d-none"></div>
                     
-                    <h6 class="text-muted mb-2">Cliente</h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label small">Cliente existente</label>
-                            {{ form.cliente }}
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small">... o crear uno nuevo</label>
-                            {{ form.nuevo_cliente_nombre }}
-                            {{ form.nuevo_cliente_telefono }}
+                    <!-- SECCIÓN CLIENTE -->
+                    <div class="mb-4">
+                        <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.8rem; letter-spacing: 1px;">
+                            <i class="bi bi-person"></i> Datos del Cliente
+                        </h6>
+                        <ul class="nav nav-pills nav-fill mb-3 bg-light p-1 rounded" id="tabsCliente" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active fw-bold" id="tab-cliente-existente-btn" data-bs-toggle="pill" data-bs-target="#tab-cliente-existente" type="button" role="tab">
+                                    Cliente Registrado
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link fw-bold" id="tab-cliente-nuevo-btn" data-bs-toggle="pill" data-bs-target="#tab-cliente-nuevo" type="button" role="tab">
+                                    Cliente Nuevo
+                                </button>
+                            </li>
+                        </ul>
+                        <div class="tab-content" id="tabsClienteContent">
+                            <div class="tab-pane fade show active" id="tab-cliente-existente" role="tabpanel">
+                                <label class="form-label small text-muted">Selecciona el cliente</label>
+                                {{ form.cliente }}
+                            </div>
+                            <div class="tab-pane fade" id="tab-cliente-nuevo" role="tabpanel">
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Nombre completo *</label>
+                                        {{ form.nuevo_cliente_nombre }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Teléfono</label>
+                                        {{ form.nuevo_cliente_telefono }}
+                                    </div>
+                                    <div class="col-md-12 mt-2">
+                                        <label class="form-label small text-muted">Dirección</label>
+                                        {{ form.nuevo_cliente_direccion }}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <h6 class="text-muted mb-2">Libro</h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label small">Libro existente (Catálogo)</label>
-                            {{ form.libro }}
-                        </div>
-                        <div class="col-md-5 mt-2">
-                            <label class="form-label small">... o crear uno nuevo (Título)</label>
-                            {{ form.nuevo_libro_titulo }}
-                        </div>
-                        <div class="col-md-4 mt-2">
-                            <label class="form-label small">Autor</label>
-                            {{ form.nuevo_libro_autor }}
-                        </div>
-                        <div class="col-md-3 mt-2">
-                            <label class="form-label small">Páginas *</label>
-                            {{ form.nuevo_libro_paginas }}
+                    <hr class="text-muted opacity-25">
+
+                    <!-- SECCIÓN LIBRO -->
+                    <div class="mb-4">
+                        <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.8rem; letter-spacing: 1px;">
+                            <i class="bi bi-book"></i> Datos del Libro
+                        </h6>
+                        <ul class="nav nav-pills nav-fill mb-3 bg-light p-1 rounded" id="tabsLibro" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active fw-bold" id="tab-libro-existente-btn" data-bs-toggle="pill" data-bs-target="#tab-libro-existente" type="button" role="tab">
+                                    Libro en Catálogo
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link fw-bold" id="tab-libro-nuevo-btn" data-bs-toggle="pill" data-bs-target="#tab-libro-nuevo" type="button" role="tab">
+                                    Libro Nuevo
+                                </button>
+                            </li>
+                        </ul>
+                        <div class="tab-content" id="tabsLibroContent">
+                            <div class="tab-pane fade show active" id="tab-libro-existente" role="tabpanel">
+                                <label class="form-label small text-muted">Selecciona el libro</label>
+                                {{ form.libro }}
+                            </div>
+                            <div class="tab-pane fade" id="tab-libro-nuevo" role="tabpanel">
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Título *</label>
+                                        {{ form.nuevo_libro_titulo }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">Autor</label>
+                                        {{ form.nuevo_libro_autor }}
+                                    </div>
+                                    <div class="col-md-12 mt-2">
+                                        <label class="form-label small text-muted">Páginas *</label>
+                                        {{ form.nuevo_libro_paginas }}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-3">
-                            <label class="form-label small">Cantidad</label>
+                    <hr class="text-muted opacity-25">
+
+                    <!-- DETALLES DEL PEDIDO -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted fw-bold">Cantidad</label>
                             {{ form.cantidad }}
                         </div>
-                        <div class="col-md-9 d-flex align-items-end">
-                            <div class="form-check form-check-inline">
-                                {{ form.lleva_scotch }} <label class="form-check-label">Scotch</label>
+                        <div class="col-md-8 d-flex align-items-end gap-4">
+                            <div class="form-check">
+                                {{ form.lleva_scotch }} <label class="form-check-label">Lleva Scotch</label>
                             </div>
-                            <div class="form-check form-check-inline">
-                                {{ form.lleva_esquineros }} <label class="form-check-label">Esquineros</label>
+                            <div class="form-check">
+                                {{ form.lleva_esquineros }} <label class="form-check-label">Lleva Esquineros</label>
                             </div>
                         </div>
                     </div>
 
-                    <h6 class="text-muted mb-2">Precio</h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label small">Precio venta *</label>
-                            {{ form.precio_venta }}
+                    <!-- PRECIOS Y COSTOS -->
+                    <div class="bg-light p-3 rounded border">
+                        <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">
+                            <i class="bi bi-cash-coin"></i> Finanzas del Pedido
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label small text-muted fw-bold">Precio Venta *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    {{ form.precio_venta }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small text-muted fw-bold">Anticipo (Mitad)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    {{ form.anticipo_requerido }}
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label small">Anticipo (se calcula la mitad)</label>
-                            {{ form.anticipo_requerido }}
+                        <div id="costo-mini" class="mt-3 small text-muted text-center py-2">
+                            Ingresa las páginas para calcular el costo real.
                         </div>
                     </div>
 
-                    <div id="costo-mini" class="mt-2 p-2 bg-light rounded small text-muted">Ingresa las páginas o selecciona un libro para calcular el costo.</div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Guardar pedido</button>
+                    <button type="submit" class="btn btn-success px-4"><i class="bi bi-save"></i> Guardar Pedido</button>
                 </div>
             </form>
         </div>
@@ -197,41 +226,51 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- jQuery y Select2 -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    
+    // ==========================================
+    // VARIABLES GLOBALES (para que Select2 y el form las vean)
+    // ==========================================
     const form = document.getElementById('formNuevoPedido');
-    if (!form) return;
-
-    const errorsDiv = document.getElementById('modal-errors');
     const paginasInput = document.querySelector('#id_nuevo_libro_paginas');
     const precioInput = document.querySelector('#id_precio_venta');
     const anticipoInput = document.querySelector('#id_anticipo_requerido');
     const costoPanel = document.getElementById('costo-mini');
     const libroSelect = document.querySelector('#id_libro');
 
+    let usandoClienteNuevo = false;
+    let usandoLibroNuevo = false;
+
+    // Función global para calcular el costo (la usan tanto el change normal como Select2)
     function actualizarCosto() {
         let p = 0;
-        let esLibroNuevo = false;
+        let esLibroNuevo = usandoLibroNuevo;
 
-        if (libroSelect && libroSelect.value) {
+        if (!esLibroNuevo && libroSelect && libroSelect.value) {
             const opcionSeleccionada = libroSelect.options[libroSelect.selectedIndex];
             p = opcionSeleccionada.getAttribute('data-paginas');
             if (paginasInput) paginasInput.value = p;
+            
             const precioBase = opcionSeleccionada.getAttribute('data-precio');
             const anticipoBase = opcionSeleccionada.getAttribute('data-anticipo');
-            if (precioInput && (!precioInput.value || precioInput.value == 0)) precioInput.value = precioBase;
+            
+            if (precioInput) precioInput.value = precioBase;
             if (anticipoInput) anticipoInput.value = anticipoBase;
-        } else if (paginasInput && paginasInput.value) {
+            
+        } else if (esLibroNuevo && paginasInput && paginasInput.value) {
             p = paginasInput.value;
-            esLibroNuevo = true;
         }
 
         if (!p || p < 1) { 
-            costoPanel.innerHTML = 'Ingresa las páginas o selecciona un libro para calcular el costo.'; 
+            costoPanel.innerHTML = 'Ingresa las páginas para calcular el costo.'; 
             return; 
         }
         
-        // AQUI AGREGAMOS EL CHECKBOX DE ESQUINEROS A LA URL
         const llevaScotch = document.querySelector('#id_lleva_scotch').checked;
         const llevaEsquineros = document.querySelector('#id_lleva_esquineros').checked;
         
@@ -244,74 +283,240 @@ document.addEventListener('DOMContentLoaded', function () {
                         anticipoInput.value = d.costo.anticipo_sugerido;
                     }
                     const gan = (parseFloat(precioInput.value) || 0) - d.costo.costo_total;
-                    costoPanel.innerHTML = `Costo total: <strong>$${d.costo.costo_total}</strong> — Ganancia: <strong class="${gan >= 0 ? 'text-success' : 'text-danger'}">$${gan.toFixed(2)}</strong>`;
+                    costoPanel.innerHTML = `Costo de producción: <strong>$${d.costo.costo_total}</strong> — Ganancia estimada: <strong class="${gan >= 0 ? 'text-success' : 'text-danger'}">$${gan.toFixed(2)}</strong>`;
                 }
             });
     }
 
-    // Escuchamos cambios en el selector de libros, en las páginas manuales y en el precio
-    if (libroSelect) libroSelect.addEventListener('change', actualizarCosto);
-    if (paginasInput) paginasInput.addEventListener('input', actualizarCosto);
-    if (precioInput) precioInput.addEventListener('input', actualizarCosto);
-    if (anticipoInput) anticipoInput.addEventListener('input', actualizarCosto);
-    
-    const scotchCheck = document.querySelector('#id_lleva_scotch');
-    if (scotchCheck) scotchCheck.addEventListener('change', actualizarCosto);
-    
-    const esquinerosCheck = document.querySelector('#id_lleva_esquineros');
-    if (esquinerosCheck) esquinerosCheck.addEventListener('change', actualizarCosto);
+    // ==========================================
+    // 1. LÓGICA DEL MODAL NUEVO PEDIDO
+    // ==========================================
+    if (form) {
+        const errorsDiv = document.getElementById('modal-errors');
+        const tabClienteNuevoBtn = document.getElementById('tab-cliente-nuevo-btn');
+        const tabLibroNuevoBtn = document.getElementById('tab-libro-nuevo-btn');
 
-    // Ocultar los campos manuales si elige un libro existente
-    if (libroSelect) {
-        libroSelect.addEventListener('change', function() {
-            const colPaginas = document.querySelector('#id_nuevo_libro_paginas').closest('.col-md-2');
-            const colTitulo = document.querySelector('#id_nuevo_libro_titulo').closest('.col-md-4');
-            const colAutor = document.querySelector('#id_nuevo_libro_autor').closest('.col-md-3');
-            
-            if (this.value) {
-                // Si elige un libro existente, ocultamos los campos de creación
-                if (colPaginas) colPaginas.style.display = 'none';
-                if (colTitulo) colTitulo.style.display = 'none';
-                if (colAutor) colAutor.style.display = 'none';
+        if (tabClienteNuevoBtn) {
+            tabClienteNuevoBtn.addEventListener('shown.bs.tab', () => usandoClienteNuevo = true);
+            document.getElementById('tab-cliente-existente-btn').addEventListener('shown.bs.tab', () => usandoClienteNuevo = false);
+        }
+        if (tabLibroNuevoBtn) {
+            tabLibroNuevoBtn.addEventListener('shown.bs.tab', () => usandoLibroNuevo = true);
+            document.getElementById('tab-libro-existente-btn').addEventListener('shown.bs.tab', () => usandoLibroNuevo = false);
+        }
+
+        // Listeners normales (para cuando NO se usa Select2)
+        if (libroSelect) libroSelect.addEventListener('change', actualizarCosto);
+        if (paginasInput) paginasInput.addEventListener('input', actualizarCosto);
+        if (precioInput) precioInput.addEventListener('input', actualizarCosto);
+        if (anticipoInput) anticipoInput.addEventListener('input', actualizarCosto);
+        
+        const scotchCheck = document.querySelector('#id_lleva_scotch');
+        if (scotchCheck) scotchCheck.addEventListener('change', actualizarCosto);
+        
+        const esquinerosCheck = document.querySelector('#id_lleva_esquineros');
+        if (esquinerosCheck) esquinerosCheck.addEventListener('change', actualizarCosto);
+
+        // Submit
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            errorsDiv.classList.add('d-none');
+
+            if (usandoClienteNuevo) {
+                formData.delete('cliente');
             } else {
-                // Si no elige libro, mostramos los campos para crear uno nuevo
-                if (colPaginas) colPaginas.style.display = 'block';
-                if (colTitulo) colTitulo.style.display = 'block';
-                if (colAutor) colAutor.style.display = 'block';
+                formData.delete('nuevo_cliente_nombre');
+                formData.delete('nuevo_cliente_telefono');
+                formData.delete('nuevo_cliente_direccion');
             }
+
+            if (usandoLibroNuevo) {
+                formData.delete('libro');
+            } else {
+                formData.delete('nuevo_libro_titulo');
+                formData.delete('nuevo_libro_autor');
+                formData.delete('nuevo_libro_paginas');
+            }
+
+            const btnSubmit = form.querySelector('button[type="submit"]');
+            const textoOriginal = btnSubmit.innerHTML;
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...';
+            btnSubmit.disabled = true;
+
+            fetch('{% url "pedidos:nuevo_modal" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {'X-CSRFToken': formData.get('csrfmiddlewaretoken')}
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    window.location.href = data.redirect;
+                } else {
+                    let msg = 'Corrige los errores:<ul>';
+                    for (const campo in data.errors) {
+                        msg += `<li>${campo}: ${data.errors[campo]}</li>`;
+                    }
+                    msg += '</ul>';
+                    errorsDiv.innerHTML = msg;
+                    errorsDiv.classList.remove('d-none');
+                    btnSubmit.innerHTML = textoOriginal;
+                    btnSubmit.disabled = false;
+                }
+            })
+            .catch(err => {
+                errorsDiv.innerHTML = 'Ocurrió un error al guardar. Revisa la consola.';
+                errorsDiv.classList.remove('d-none');
+                btnSubmit.innerHTML = textoOriginal;
+                btnSubmit.disabled = false;
+                console.error(err);
+            });
         });
     }
 
-    // Submit por AJAX
-    form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        const formData = new FormData(form);
-        errorsDiv.classList.add('d-none');
+    // ==========================================
+    // 2. LÓGICA DE FILTROS AJAX
+    // ==========================================
+    const formFiltros = document.getElementById('formFiltros');
+    const contenedor = document.getElementById('contenedor-tabla');
+    
+    if (formFiltros && contenedor) {
+        const searchInput = formFiltros.querySelector('input[type="text"]');
 
-        fetch('{% url "pedidos:nuevo_modal" %}', {
-            method: 'POST',
-            body: formData,
-            headers: {'X-CSRFToken': formData.get('csrfmiddlewaretoken')}
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.ok) {
-                window.location.href = data.redirect;
-            } else {
-                let msg = 'Corrige los errores:<ul>';
-                for (const campo in data.errors) {
-                    msg += `<li>${campo}: ${data.errors[campo]}</li>`;
-                }
-                msg += '</ul>';
-                errorsDiv.innerHTML = msg;
-                errorsDiv.classList.remove('d-none');
-            }
-        })
-        .catch(err => {
-            errorsDiv.innerHTML = 'Ocurrió un error al guardar. Revisa la consola.';
-            errorsDiv.classList.remove('d-none');
-            console.error(err);
+        function actualizarTabla() {
+            contenedor.style.opacity = '0.5';
+            const formData = new FormData(formFiltros);
+            const params = new URLSearchParams(formData).toString();
+            
+            fetch(`{% url 'pedidos:lista_ajax' %}?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    contenedor.innerHTML = data.html;
+                    contenedor.style.opacity = '1';
+                    engancharPaginacion();
+                })
+                .catch(err => {
+                    console.error(err);
+                    contenedor.style.opacity = '1';
+                });
+        }
+
+        function engancharPaginacion() {
+            const paginacion = document.getElementById('paginacion-ajax');
+            if (!paginacion) return;
+            
+            paginacion.querySelectorAll('a.page-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    const page = this.getAttribute('data-page');
+                    if (!page) return;
+                    
+                    const formData = new FormData(formFiltros);
+                    formData.set('page', page);
+                    const params = new URLSearchParams(formData).toString();
+                    
+                    contenedor.style.opacity = '0.5';
+                    fetch(`{% url 'pedidos:lista_ajax' %}?${params}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            contenedor.innerHTML = data.html;
+                            contenedor.style.opacity = '1';
+                            engancharPaginacion();
+                        });
+                });
+            });
+        }
+
+        formFiltros.querySelectorAll('select, input[type="date"]').forEach(el => {
+            el.addEventListener('change', () => actualizarTabla());
         });
+
+        if (searchInput) {
+            let timer;
+            searchInput.addEventListener('input', () => {
+                clearTimeout(timer);
+                timer = setTimeout(actualizarTabla, 500);
+            });
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    clearTimeout(timer);
+                    actualizarTabla();
+                }
+            });
+        }
+        engancharPaginacion();
+    }
+
+    // ==========================================
+    // 3. LÓGICA DE SELECT2
+    // ==========================================
+    function matchCustom(params, data) {
+        if ($.trim(params.term) === '') { return data; }
+        if (typeof data.children === 'undefined') {
+            var term = params.term.toLowerCase();
+            var text = data.text.toLowerCase();
+            var telefono = (data.element && data.element.dataset && data.element.dataset.telefono) ? data.element.dataset.telefono : '';
+            if (text.indexOf(term) > -1 || telefono.indexOf(term) > -1) {
+                return data;
+            }
+            return null;
+        }
+        var $children = [];
+        $.each(data.children, function (idx, child) {
+            if (matchCustom(params, child)) { $children.push(child); }
+        });
+        if ($children.length === 0) { return null; }
+        var modifiedData = $.extend({}, data, true);
+        modifiedData.children = $children;
+        return modifiedData;
+    }
+
+    // Inicializar Select2 para Cliente
+    $('#id_cliente').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Escribe nombre o teléfono...',
+        allowClear: true,
+        dropdownParent: $('#modalNuevoPedido'),
+        width: '100%',
+        matcher: matchCustom
+    });
+
+    // Inicializar Select2 para Libro
+    function formatLibro(book) {
+        if (!book.id) { return book.text; } // Placeholder
+        
+        const autor = $(book.element).attr('data-autor') || 'Autor desconocido';
+        const paginas = $(book.element).attr('data-paginas') || '0';
+        
+        // Cambiamos el diseño a una sola línea usando flexbox
+        const $libro = $(
+            `<div class="d-flex justify-content-between align-items-center w-100" style="overflow: hidden; white-space: nowrap;">
+                <span style="text-overflow: ellipsis; overflow: hidden;">
+                    <strong>${book.text}</strong> 
+                    <small class="text-muted ms-2">(${autor})</small>
+                </span>
+            </div>`
+        );
+        return $libro;
+    }
+
+    $('#id_libro').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Escribe el título o autor...',
+        allowClear: true,
+        dropdownParent: $('#modalNuevoPedido'),
+        width: '100%',
+        templateResult: formatLibro,
+        templateSelection: formatLibro,
+        matcher: matchCustom
+    });
+
+    // *** ESTO ES LO QUE FALTABA: Disparar actualizarCosto cuando Select2 cambia el valor ***
+    $('#id_libro').on('select2:select select2:clear', function (e) {
+        actualizarCosto();
     });
 });
 </script>

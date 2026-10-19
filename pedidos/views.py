@@ -3,13 +3,44 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Q
 from django.http import JsonResponse
+from django.core.paginator import Paginator
 from django import forms
 from decimal import Decimal
+
+from django.http import JsonResponse
+from django.template.loader import render_to_string
 
 from .models import Pedido, ServicioExterno, Book, Estado
 from .services import ServicioPedido, CosteadorPedido
 from clientes.models import Cliente
 from finanzas.services import ServicioFinanzas
+
+class ClienteSelectConTelefono(forms.Select):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if value:
+            try:
+                cliente = Cliente.objects.get(pk=value.value)
+                if cliente.telefono:
+                    # Inyectamos el teléfono en el atributo data-telefono
+                    option['attrs']['data-telefono'] = cliente.telefono
+            except Cliente.DoesNotExist:
+                pass
+        return option
+    
+class LibroSelectConPaginas(forms.Select):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if value:
+            try:
+                libro = Book.objects.get(pk=value.value)
+                option['attrs']['data-paginas'] = libro.paginas
+                option['attrs']['data-precio'] = libro.precio
+                option['attrs']['data-anticipo'] = round(libro.precio / 2, 2)
+                option['attrs']['data-autor'] = libro.autor or "Autor desconocido" # <-- NUEVO
+            except Book.DoesNotExist:
+                pass
+        return option
 
 class LibroSelectConPaginas(forms.Select):
     def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
@@ -26,9 +57,14 @@ class LibroSelectConPaginas(forms.Select):
     
 # Formulario rápido para el modal (ahora usa Book)
 class NuevoPedidoForm(forms.Form):
-    cliente = forms.ModelChoiceField(queryset=Cliente.objects.all(), required=False, widget=forms.Select(attrs={'class': 'form-select'}))
+    cliente = forms.ModelChoiceField(
+        queryset=Cliente.objects.all(), 
+        required=False, 
+        widget=ClienteSelectConTelefono(attrs={'class': 'form-select'}) # <-- Usamos el nuevo widget
+    )
     nuevo_cliente_nombre = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre nuevo'}))
     nuevo_cliente_telefono = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono'}))
+    nuevo_cliente_direccion = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Dirección (opcional)'})) # <-- NUEVO
     
     libro = forms.ModelChoiceField(
         queryset=Book.objects.all(), 
@@ -63,31 +99,110 @@ class NuevoPedidoForm(forms.Form):
         return cleaned_data
 
 
-def lista(request):
-    pedidos = Pedido.objects.select_related('cliente', 'libro', 'estado').all()
+# 1. Función que calcula los pedidos filtrados (para no repetir código)
+def _obtener_pedidos_filtrados(request, solo_entregados=False):
+    if solo_entregados:
+        pedidos_list = Pedido.objects.select_related('cliente', 'libro', 'estado').filter(estado__nombre='Entregado').order_by('-fecha_entrega_real', '-fecha_pedido')
+    else:
+        pedidos_list = Pedido.objects.select_related('cliente', 'libro', 'estado').exclude(estado__nombre__in=['Entregado', 'Cancelado']).order_by('-fecha_pedido')
     
+    busqueda = request.GET.get('q', '').strip()
     estado_id = request.GET.get('estado', '')
-    busqueda = request.GET.get('q', '')
-    
-    if estado_id:
-        pedidos = pedidos.filter(estado_id=estado_id)
+    desde = request.GET.get('desde', '')
+    hasta = request.GET.get('hasta', '')
+    pago_status = request.GET.get('pago', '')
+
     if busqueda:
-        pedidos = pedidos.filter(
+        pedidos_list = pedidos_list.filter(
             Q(libro__titulo__icontains=busqueda) |
             Q(libro__autor__icontains=busqueda) |
-            Q(cliente__nombre__icontains=busqueda)
+            Q(cliente__nombre__icontains=busqueda) |
+            Q(referencia_externa__icontains=busqueda)
         )
     
-    pedidos = list(pedidos.order_by('-fecha_pedido'))
-    
-    context = {
-        'pedidos': pedidos,
-        'estados': Estado.objects.all().order_by('orden'),
-        'estado_actual': estado_id,
-        'busqueda': busqueda,
+    if estado_id and not solo_entregados:
+        pedidos_list = pedidos_list.filter(estado_id=estado_id)
+        
+    if desde:
+        if solo_entregados:
+            pedidos_list = pedidos_list.filter(fecha_entrega_real__date__gte=desde)
+        else:
+            pedidos_list = pedidos_list.filter(fecha_pedido__date__gte=desde)
+            
+    if hasta:
+        if solo_entregados:
+            pedidos_list = pedidos_list.filter(fecha_entrega_real__date__lte=hasta)
+        else:
+            pedidos_list = pedidos_list.filter(fecha_pedido__date__lte=hasta)
+            
+    if pago_status and not solo_entregados:
+        if pago_status == 'pagado':
+            pedidos_list = pedidos_list.filter(saldo_pendiente=0)
+        elif pago_status == 'pendiente':
+            pedidos_list = pedidos_list.filter(saldo_pendiente__gt=0)
+        elif pago_status == 'atrasado':
+            pedidos_list = [p for p in pedidos_list if p.esta_atrasado]
+
+    return pedidos_list
+
+# 2. Vista principal (Carga inicial)
+def lista(request):
+    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=False)
+    paginator = Paginator(pedidos_list, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'pedidos/lista.html', {
+        'pedidos': page_obj,
+        'estados': Estado.objects.exclude(nombre__in=['Entregado', 'Cancelado']).order_by('orden'),
+        'estado_actual': request.GET.get('estado', ''),
+        'busqueda': request.GET.get('q', ''),
+        'desde': request.GET.get('desde', ''),
+        'hasta': request.GET.get('hasta', ''),
+        'pago_actual': request.GET.get('pago', ''),
         'form': NuevoPedidoForm(),
-    }
-    return render(request, 'pedidos/lista.html', context)
+        'total_pedidos': paginator.count,
+    })
+
+# 3. Vista AJAX (Devuelve solo el HTML de la tabla)
+def lista_ajax(request):
+    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=False)
+    paginator = Paginator(pedidos_list, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    html = render_to_string('pedidos/_tabla_pedidos.html', {
+        'pedidos': page_obj,
+        'total_pedidos': paginator.count,
+    }, request=request)
+
+    return JsonResponse({'html': html})
+
+
+# 1. Vista normal para cargar la página por primera vez
+def lista_entregados(request):
+    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=True)
+    paginator = Paginator(pedidos_list, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'pedidos/lista_entregados.html', {
+        'pedidos': page_obj,
+        'busqueda': request.GET.get('q', ''),
+        'desde': request.GET.get('desde', ''),
+        'hasta': request.GET.get('hasta', ''),
+        'total_pedidos': paginator.count,
+    })
+
+# 2. Vista AJAX que devuelve solo el HTML de la tabla de entregados
+def lista_entregados_ajax(request):
+    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=True)
+    paginator = Paginator(pedidos_list, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    html = render_to_string('pedidos/_tabla_entregados.html', {
+        'pedidos': page_obj,
+        'total_pedidos': paginator.count,
+    }, request=request)
+
+    return JsonResponse({'html': html})
 
 
 def detalle(request, pk):
@@ -134,7 +249,8 @@ def nuevo_pedido_modal(request):
         if not cliente:
             cliente = Cliente.objects.create(
                 nombre=form.cleaned_data['nuevo_cliente_nombre'],
-                telefono=form.cleaned_data.get('nuevo_cliente_telefono', '')
+                telefono=form.cleaned_data.get('nuevo_cliente_telefono', ''),
+                direccion=form.cleaned_data.get('nuevo_cliente_direccion', '')
             )
         
         # Resolver Libro
@@ -218,21 +334,53 @@ from django.db.models import Q, Count
 
 # ... (tus otras funciones) ...
 
+from django.core.paginator import Paginator
+from django.db.models import Q, Count
+from django.http import JsonResponse
+from django.template.loader import render_to_string
+
 def lista_libros(request):
-    """Muestra el catálogo de libros con buscador."""
-    libros = Book.objects.all().annotate(num_pedidos=Count('pedidos')).order_by('titulo')
+    # 1. Traemos todos los libros y contamos cuántos pedidos tienen
+    libros_list = Book.objects.annotate(num_pedidos=Count('pedidos')).order_by('titulo')
     
-    busqueda = request.GET.get('q', '')
+    # 2. Filtro de búsqueda
+    busqueda = request.GET.get('q', '').strip()
     if busqueda:
-        libros = libros.filter(
+        libros_list = libros_list.filter(
             Q(titulo__icontains=busqueda) | 
             Q(autor__icontains=busqueda)
         )
         
+    # 3. Paginación (10 en 10)
+    paginator = Paginator(libros_list, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
     return render(request, 'pedidos/libros_lista.html', {
-        'libros': libros,
-        'busqueda': busqueda
+        'libros': page_obj,
+        'busqueda': busqueda,
+        'total_libros': paginator.count,
     })
+
+# 4. Vista AJAX para actualizar solo la tabla
+def lista_libros_ajax(request):
+    libros_list = Book.objects.annotate(num_pedidos=Count('pedidos')).order_by('titulo')
+    
+    busqueda = request.GET.get('q', '').strip()
+    if busqueda:
+        libros_list = libros_list.filter(
+            Q(titulo__icontains=busqueda) | 
+            Q(autor__icontains=busqueda)
+        )
+        
+    paginator = Paginator(libros_list, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    html = render_to_string('pedidos/_tabla_libros.html', {
+        'libros': page_obj,
+        'total_libros': paginator.count,
+    }, request=request)
+
+    return JsonResponse({'html': html})
 
 
 def editar_libro(request, pk):

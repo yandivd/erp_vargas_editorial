@@ -103,3 +103,40 @@ class GastoOperativo(models.Model):
 
     def __str__(self):
         return f"{self.concepto} - {self.monto}"
+    
+class CierreCaja(models.Model):
+    fecha = models.DateTimeField(auto_now_add=True)
+    usuario = models.CharField(max_length=100, blank=True)
+    
+    # Totales
+    saldo_sistema = models.DecimalField(max_digits=12, decimal_places=2, help_text="Lo que el ERP dice que debería haber")
+    efectivo_real = models.DecimalField(max_digits=12, decimal_places=2, help_text="Lo que se contó")
+    diferencia = models.DecimalField(max_digits=12, decimal_places=2, help_text="Efectivo - Sistema")
+    
+    # Desglose
+    transferencia = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    
+    # Billetes (guardamos la cantidad de cada uno)
+    b_20000 = models.IntegerField(default=0)
+    b_10000 = models.IntegerField(default=0)
+    b_5000 = models.IntegerField(default=0)
+    b_2000 = models.IntegerField(default=0)
+    b_1000 = models.IntegerField(default=0)
+    b_500 = models.IntegerField(default=0)
+    b_200 = models.IntegerField(default=0)
+    b_100 = models.IntegerField(default=0)
+    b_50 = models.IntegerField(default=0)
+    b_20 = models.IntegerField(default=0)
+    b_10 = models.IntegerField(default=0)
+    b_5 = models.IntegerField(default=0)
+    b_1 = models.IntegerField(default=0)
+    
+    notas = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = 'Cierre de Caja'
+        verbose_name_plural = 'Cierres de Caja'
+        ordering = ['-fecha']
+
+    def __str__(self):
+        return f"Cierre {self.fecha.strftime('%d/%m/%Y %H:%M')}"

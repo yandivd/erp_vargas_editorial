@@ -8,9 +8,15 @@
 <div class="row mb-4">
     <div class="col-6">
         <h6 class="text-muted">DATOS DEL CLIENTE</h6>
-        <p class="mb-1"><strong>{{ pedido.cliente.nombre }}</strong></p>
-        <p class="mb-1">Tel: {{ pedido.cliente.telefono|default:"—" }}</p>
-        <p class="mb-1">Dir: {{ pedido.direccion_entrega|default:pedido.cliente.direccion|default:"—" }}</p>
+        {% if pedido.cliente %}
+            <p class="mb-1"><strong>{{ pedido.cliente.nombre }}</strong></p>
+            <p class="mb-1">Tel: {{ pedido.cliente.telefono|default:"—" }}</p>
+            <p class="mb-1">Dir: {{ pedido.direccion_entrega|default:pedido.cliente.direccion|default:"—" }}</p>
+        {% else %}
+            <p class="mb-1"><strong>Venta de Stock</strong></p>
+            <p class="mb-1">Tel: {{ pedido.telefono_entrega|default:"—" }}</p>
+            <p class="mb-1">Dir: {{ pedido.direccion_entrega|default:"En el taller" }}</p>
+        {% endif %}
     </div>
     <div class="col-6 text-end">
         <h6 class="text-muted">DETALLES DEL PEDIDO</h6>

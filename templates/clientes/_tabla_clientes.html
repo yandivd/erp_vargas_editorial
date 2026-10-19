@@ -1,0 +1,96 @@
+<!-- templates/clientes/_tabla_clientes.html -->
+<div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+            <tr>
+                <th style="cursor: pointer;" class="sortable" data-orden="nombre">
+                    Nombre 
+                    {% if orden_actual == 'nombre_asc' %}<i class="bi bi-sort-alpha-down text-primary"></i>
+                    {% elif orden_actual == 'nombre_desc' %}<i class="bi bi-sort-alpha-up text-primary"></i>
+                    {% else %}<i class="bi bi-arrow-down-up text-muted opacity-50"></i>{% endif %}
+                </th>
+                <th>Teléfono</th>
+                <th>Email</th>
+                <th style="cursor: pointer;" class="sortable" data-orden="pedidos">
+                    Pedidos
+                    {% if orden_actual == 'pedidos_desc' %}<i class="bi bi-sort-numeric-down text-primary"></i>
+                    {% elif orden_actual == 'pedidos_asc' %}<i class="bi bi-sort-numeric-up text-primary"></i>
+                    {% else %}<i class="bi bi-arrow-down-up text-muted opacity-50"></i>{% endif %}
+                </th>
+                <th>Saldo Pendiente</th>
+                <th class="text-end">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in clientes %}
+            <tr>
+                <td>
+                    <a href="{% url 'clientes:detalle' c.id %}" class="text-dark fw-bold text-decoration-none">
+                        {{ c.nombre }}
+                    </a>
+                </td>
+                <td>
+                    {% if c.telefono %}
+                        <div class="d-flex align-items-center gap-2">
+                            <span>{{ c.telefono }}</span>
+                            <a href="https://wa.me/{{ c.telefono|cut:' '|cut:'-' }}?text=Hola%20{{ c.nombre|urlencode }},%20te%20escribo%20de%20Vargas%20Editorial" 
+                               target="_blank" 
+                               class="text-success" 
+                               title="Enviar WhatsApp">
+                                <i class="bi bi-whatsapp fs-5"></i>
+                            </a>
+                        </div>
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                <td>{{ c.email|default:"—" }}</td>
+                <td>
+                    <span class="badge bg-secondary rounded-pill">{{ c.pedidos.count }}</span>
+                </td>
+                <td>
+                    {% with deuda=c.saldo_pendiente_total %}
+                        {% if deuda > 0 %}
+                            <span class="text-danger fw-bold">${{ deuda|floatformat:2 }}</span>
+                        {% else %}
+                            <span class="badge bg-success">Al día</span>
+                        {% endif %}
+                    {% endwith %}
+                </td>
+                <td class="text-end">
+                    <a href="{% url 'clientes:detalle' c.id %}" class="btn btn-sm btn-outline-primary" title="Ver Perfil">
+                        <i class="bi bi-person-lines-fill"></i>
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center text-muted py-5">
+                <i class="bi bi-people fs-1 d-block mb-2"></i>
+                No se encontraron clientes.
+            </td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- PAGINACIÓN -->
+{% if clientes.has_other_pages %}
+<div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center">
+    <small class="text-muted">
+        Mostrando {{ clientes.start_index }} - {{ clientes.end_index }} de {{ total_clientes }} clientes
+    </small>
+    <ul class="pagination pagination-sm mb-0" id="paginacion-ajax-clientes">
+        {% if clientes.has_previous %}
+            <li class="page-item"><a class="page-link" href="#" data-page="1">&laquo;</a></li>
+            <li class="page-item"><a class="page-link" href="#" data-page="{{ clientes.previous_page_number }}">Anterior</a></li>
+        {% endif %}
+        
+        <li class="page-item active"><span class="page-link">{{ clientes.number }}</span></li>
+        
+        {% if clientes.has_next %}
+            <li class="page-item"><a class="page-link" href="#" data-page="{{ clientes.next_page_number }}">Siguiente</a></li>
+            <li class="page-item"><a class="page-link" href="#" data-page="{{ clientes.paginator.num_pages }}">&raquo;</a></li>
+        {% endif %}
+    </ul>
+</div>
+{% endif %}
