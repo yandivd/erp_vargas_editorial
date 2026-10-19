@@ -49,21 +49,33 @@
             <tbody>
                 {% for p in pedidos %}
                 <tr>
-                    <td><strong>{{ p.id }}</strong></td>
+                    <td>
+                        <strong>{{ p.id }}</strong>
+                        {% if p.referencia_externa %}
+                            <br><small class="text-muted" title="ID del Excel original">{{ p.referencia_externa }}</small>
+                        {% endif %}
+                    </td>
                     <td>
                         <strong>{{ p.libro.titulo }}</strong><br>
                         <small class="text-muted">{{ p.libro.paginas }} pág. | {{ p.libro.autor|default:"—" }}</small>
                     </td>
                     <td>
-                        <strong>{{ p.cliente.nombre }}</strong><br>
-                        <small class="text-muted" title="{{ p.direccion_entrega|default:p.cliente.direccion }}">
-                            <i class="bi bi-geo-alt-fill"></i> 
-                            {{ p.direccion_entrega|default:p.cliente.direccion|truncatechars:25|default:"Sin dirección" }}
-                        </small><br>
-                        <small class="text-muted">
-                            <i class="bi bi-telephone-fill"></i> 
-                            {{ p.telefono_entrega|default:p.cliente.telefono|default:"—" }}
-                        </small>
+                        <strong>{{ p.cliente.nombre|default:"[ Venta de Stock ]" }}</strong><br>
+                        
+                        {% if p.cliente %}
+                            <small class="text-muted">
+                                <i class="bi bi-geo-alt-fill"></i> 
+                                {{ p.direccion_entrega|default:p.cliente.direccion|truncatechars:25|default:"Sin dirección" }}
+                            </small><br>
+                            <small class="text-muted">
+                                <i class="bi bi-telephone-fill"></i> 
+                                {{ p.telefono_entrega|default:p.cliente.telefono|default:"—" }}
+                            </small>
+                        {% else %}
+                            <small class="text-muted">
+                                <i class="bi bi-box-seam"></i> En el estante
+                            </small>
+                        {% endif %}
                     </td>
                     <td>
                         <small class="text-muted">Pedido:</small> {{ p.fecha_pedido|date:"d/m/Y" }}<br>

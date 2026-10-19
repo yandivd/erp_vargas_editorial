@@ -15,7 +15,17 @@ from finanzas.services import ServicioFinanzas
 
 def dashboard(request):
     hoy = timezone.now().date()
-    inicio_mes = hoy.replace(day=1)
+    
+    # --- FECHA DE CORTE PARA EMPEZAR A MEDIR DE CERO ---
+    # Cambia esta fecha por el día que quieras empezar a contar
+    fecha_inicio_contabilidad = timezone.datetime(2026, 10, 19).date() 
+    
+    # Si estamos en el mismo mes de la fecha de corte, usamos esa fecha. 
+    # Si ya pasó el mes, usamos el día 1 del mes actual.
+    if hoy.year == fecha_inicio_contabilidad.year and hoy.month == fecha_inicio_contabilidad.month:
+        inicio_mes = fecha_inicio_contabilidad
+    else:
+        inicio_mes = hoy.replace(day=1)
     
     # ==========================================
     # AUTOMATIZACIÓN DE LA DEPRECIACIÓN

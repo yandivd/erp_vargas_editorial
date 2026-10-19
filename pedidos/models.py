@@ -105,6 +105,12 @@ class Pedido(models.Model):
 
     notas = models.TextField(blank=True, verbose_name='Notas')
 
+    referencia_externa = models.CharField(
+        max_length=50, blank=True, null=True, 
+        verbose_name='Referencia Original',
+        help_text='Número de pedido del sistema anterior (Excel)'
+    )
+
     class Meta:
         verbose_name = 'Pedido'
         verbose_name_plural = 'Pedidos'

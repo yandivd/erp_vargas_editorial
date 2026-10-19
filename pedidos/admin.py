@@ -32,6 +32,11 @@ class EstadoAdmin(admin.ModelAdmin):
 # ==========================================
 # ADMIN DE PEDIDOS
 # ==========================================
+from django.contrib import admin
+from .models import Pedido, HistorialEstado, ServicioExterno, Book, Estado
+from .services import ServicioPedido
+
+
 class HistorialEstadoInline(admin.TabularInline):
     model = HistorialEstado
     extra = 0
@@ -40,20 +45,23 @@ class HistorialEstadoInline(admin.TabularInline):
 
 @admin.register(Pedido)
 class PedidoAdmin(admin.ModelAdmin):
+    # Agregamos 'id' y 'referencia_externa' al principio para que sean lo primero que veas
     list_display = (
-        'id', 'get_titulo_libro', 'cliente', 'get_paginas', 'precio_venta',
+        'id', 'referencia_externa', 'get_titulo_libro', 'cliente', 'get_paginas', 'precio_venta',
         'anticipo_recibido', 'saldo_pendiente', 'estado',
         'fecha_entrega_prometida', 'esta_atrasado'
     )
     list_filter = ('estado', 'lleva_scotch', 'lleva_esquineros')
-    search_fields = ('libro__titulo', 'libro__autor', 'cliente__nombre')
+    # Agregamos la referencia a los campos de búsqueda
+    search_fields = ('referencia_externa', 'libro__titulo', 'libro__autor', 'cliente__nombre')
     readonly_fields = ('fecha_pedido', 'saldo_pendiente')
     inlines = [HistorialEstadoInline]
-    autocomplete_fields = ['libro'] # Útil si tienes muchos libros
+    autocomplete_fields = ['libro']
 
     fieldsets = (
         ('Datos del libro', {
-            'fields': ('cliente', 'libro', 'cantidad',
+            # Agregamos 'referencia_externa' aquí para que sea editable
+            'fields': ('referencia_externa', 'cliente', 'libro', 'cantidad',
                        'lleva_scotch', 'lleva_esquineros')
         }),
         ('Precio y pagos', {

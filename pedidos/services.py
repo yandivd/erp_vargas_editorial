@@ -156,17 +156,19 @@ class ServicioPedido:
         )
 
         # Acciones automáticas
+                # Acciones automáticas
         if nuevo_estado.nombre == 'Impreso':
-            ServicioPedido.consumir_materiales(pedido)
+            ServicioPedido.consumir_materiales(pedido, momento='IMPRESION')
             
-        elif nuevo_estado.nombre == 'Pendiente a Portada':
+        elif nuevo_estado.nombre == 'Pendiente a Carátula': # <-- CORREGIDO
             ServicioPedido.crear_servicio_portada(pedido)
             
         elif nuevo_estado.nombre == 'Pendiente a Encuadernado':
             ServicioPedido.crear_servicio_encuadernado(pedido)
             
         elif nuevo_estado.nombre == 'Listo para Entregar':
-            ServicioPedido.consumir_esquineros(pedido) # <-- NUEVA ACCIÓN
+            ServicioPedido.consumir_esquineros(pedido)
+            ServicioPedido.consumir_materiales(pedido, momento='EMPAQUE')
             
         elif nuevo_estado.nombre == 'Entregado':
             ServicioPedido.cobrar_saldo(pedido)
