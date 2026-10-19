@@ -103,5 +103,11 @@ def dashboard(request):
         'borradores': borradores,
         'total_clientes': Cliente.objects.count(),
     }
+
+    # Últimos 10 pedidos para la tabla
+    pedidos_recientes = Pedido.objects.all().select_related('cliente', 'libro', 'estado').order_by('-fecha_pedido')[:10]
+    
+    # (Agrega esto al diccionario context)
+    context['pedidos_recientes'] = pedidos_recientes
     
     return render(request, 'dashboard.html', context)
