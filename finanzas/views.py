@@ -5,8 +5,8 @@ from django.db.models import Sum, Q
 from django.utils import timezone
 from datetime import datetime
 from decimal import Decimal
-
-from .models import MovimientoCaja, GastoOperativo
+from .models import MovimientoCaja, GastoOperativo, CierreCaja
+from .services import ServicioFinanzas
 
 
 def caja(request):
@@ -30,6 +30,10 @@ def caja(request):
     total_egresos = MovimientoCaja.objects.filter(tipo='EGRESO').aggregate(t=Sum('monto'))['t'] or 0
     saldo_actual = total_ingresos - total_egresos
     
+    # Calcular valor del inventario
+    materiales = Material.objects.filter(activo=True)
+    valor_inventario = sum(m.stock_actual * m.costo_promedio for m in materiales)
+    
     context = {
         'movimientos': movimientos,
         'total_ingresos': total_ingresos,
@@ -39,6 +43,7 @@ def caja(request):
         'desde': desde,
         'hasta': hasta,
         'categoria_actual': categoria,
+        'valor_inventario': valor_inventario,
     }
     return render(request, 'finanzas/caja.html', context)
 
@@ -141,7 +146,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from .models import MovimientoCaja, ActivoFijo, Depreciacion, GastoOperativo
 from pedidos.models import Pedido, Estado, ServicioExterno
-from inventario.models import MovimientoInventario
+from inventario.models import Material, MovimientoInventario
 
 def reporte_mensual(request):
     # Por defecto, mostramos el mes actual
@@ -247,3 +252,58 @@ def reporte_mensual(request):
         'pedidos': pedidos_entregados,
     }
     return render(request, 'finanzas/reportes.html', context)
+
+def arqueo_caja(request):
+    saldo_sistema = ServicioFinanzas.saldo_caja()
+    
+    if request.method == 'POST':
+        # Capturar Transferencia
+        transferencia = Decimal(request.POST.get('transferencia', 0) or 0)
+        
+        # Capturar Billetes
+        denominaciones = [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 1]
+        cantidades = {}
+        total_efectivo = transferencia
+        
+        for d in denominaciones:
+            cant = int(request.POST.get(f'bill_{d}', 0) or 0)
+            cantidades[f'b_{d}'] = cant
+            total_efectivo += (cant * d)
+            
+        notas = request.POST.get('notas', '')
+        diferencia = total_efectivo - saldo_sistema
+        
+        # Crear el registro
+        cierre = CierreCaja.objects.create(
+            usuario=request.user.username,
+            saldo_sistema=saldo_sistema,
+            efectivo_real=total_efectivo,
+            diferencia=diferencia,
+            transferencia=transferencia,
+            notas=notas,
+            **cantidades
+        )
+        
+        # Si hay diferencia, la registramos en caja
+        if diferencia != 0:
+            tipo_mov = 'INGRESO' if diferencia > 0 else 'EGRESO'
+            MovimientoCaja.objects.create(
+                tipo=tipo_mov,
+                categoria='OTRO',
+                monto=abs(diferencia),
+                concepto=f"Ajuste por arqueo de caja ({'Sobrante' if diferencia > 0 else 'Faltante'})",
+                metodo='EFECTIVO'
+            )
+            messages.warning(request, f'Se registró un ajuste por diferencia de ${abs(diferencia)}')
+        else:
+            messages.success(request, '¡La caja cuadró perfectamente!')
+            
+        return redirect('finanzas:arqueo_caja')
+
+    cierres = CierreCaja.objects.all().order_by('-fecha')[:10]
+    
+    return render(request, 'finanzas/arqueo_caja.html', {
+        'saldo_sistema': saldo_sistema,
+        'cierres': cierres,
+        'denominaciones': [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 1]
+    })
