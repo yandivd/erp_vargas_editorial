@@ -50,9 +50,8 @@
                 {% for p in pedidos %}
                 <tr>
                     <td>
-                        <strong>{{ p.id }}</strong>
                         {% if p.referencia_externa %}
-                            <br><small class="text-muted" title="ID del Excel original">{{ p.referencia_externa }}</small>
+                            <strong class="text-muted" title="ID del Excel original">{{ p.referencia_externa }}</strong>
                         {% endif %}
                     </td>
                     <td>
