@@ -334,21 +334,53 @@ from django.db.models import Q, Count
 
 # ... (tus otras funciones) ...
 
+from django.core.paginator import Paginator
+from django.db.models import Q, Count
+from django.http import JsonResponse
+from django.template.loader import render_to_string
+
 def lista_libros(request):
-    """Muestra el catálogo de libros con buscador."""
-    libros = Book.objects.all().annotate(num_pedidos=Count('pedidos')).order_by('titulo')
+    # 1. Traemos todos los libros y contamos cuántos pedidos tienen
+    libros_list = Book.objects.annotate(num_pedidos=Count('pedidos')).order_by('titulo')
     
-    busqueda = request.GET.get('q', '')
+    # 2. Filtro de búsqueda
+    busqueda = request.GET.get('q', '').strip()
     if busqueda:
-        libros = libros.filter(
+        libros_list = libros_list.filter(
             Q(titulo__icontains=busqueda) | 
             Q(autor__icontains=busqueda)
         )
         
+    # 3. Paginación (10 en 10)
+    paginator = Paginator(libros_list, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
     return render(request, 'pedidos/libros_lista.html', {
-        'libros': libros,
-        'busqueda': busqueda
+        'libros': page_obj,
+        'busqueda': busqueda,
+        'total_libros': paginator.count,
     })
+
+# 4. Vista AJAX para actualizar solo la tabla
+def lista_libros_ajax(request):
+    libros_list = Book.objects.annotate(num_pedidos=Count('pedidos')).order_by('titulo')
+    
+    busqueda = request.GET.get('q', '').strip()
+    if busqueda:
+        libros_list = libros_list.filter(
+            Q(titulo__icontains=busqueda) | 
+            Q(autor__icontains=busqueda)
+        )
+        
+    paginator = Paginator(libros_list, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    html = render_to_string('pedidos/_tabla_libros.html', {
+        'libros': page_obj,
+        'total_libros': paginator.count,
+    }, request=request)
+
+    return JsonResponse({'html': html})
 
 
 def editar_libro(request, pk):

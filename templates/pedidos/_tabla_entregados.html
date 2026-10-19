@@ -63,13 +63,15 @@
     </small>
     <ul class="pagination pagination-sm mb-0" id="paginacion-ajax-entregados">
         {% if pedidos.has_previous %}
-            <li class="page-item"><a class="page-link" href="?page=1{{ request.GET.urlencode|safe|cut:'?page=' }}&page=1">&laquo;</a></li>
-            <li class="page-item"><a class="page-link" href="?page={{ pedidos.previous_page_number }}{{ request.GET.urlencode|safe|cut:'?page=' }}">Anterior</a></li>
+            <li class="page-item"><a class="page-link" href="#" data-page="1">&laquo;</a></li>
+            <li class="page-item"><a class="page-link" href="#" data-page="{{ pedidos.previous_page_number }}">Anterior</a></li>
         {% endif %}
+        
         <li class="page-item active"><span class="page-link">{{ pedidos.number }}</span></li>
+        
         {% if pedidos.has_next %}
-            <li class="page-item"><a class="page-link" href="?page={{ pedidos.next_page_number }}{{ request.GET.urlencode|safe|cut:'?page=' }}">Siguiente</a></li>
-            <li class="page-item"><a class="page-link" href="?page={{ pedidos.paginator.num_pages }}{{ request.GET.urlencode|safe|cut:'?page=' }}">&raquo;</a></li>
+            <li class="page-item"><a class="page-link" href="#" data-page="{{ pedidos.next_page_number }}">Siguiente</a></li>
+            <li class="page-item"><a class="page-link" href="#" data-page="{{ pedidos.paginator.num_pages }}">&raquo;</a></li>
         {% endif %}
     </ul>
 </div>

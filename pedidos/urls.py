@@ -21,4 +21,5 @@ urlpatterns = [
     path('entregados/', views.lista_entregados, name='lista_entregados'),
     path('ajax/', views.lista_ajax, name='lista_ajax'),
     path('entregados/ajax/', views.lista_entregados_ajax, name='lista_entregados_ajax'),
+    path('libros/ajax/', views.lista_libros_ajax, name='lista_libros_ajax'),
 ]

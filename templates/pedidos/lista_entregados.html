@@ -71,30 +71,34 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    function engancharPaginacion() {
-        const paginacion = document.getElementById('paginacion-ajax-entregados');
-        if (!paginacion) return;
-        paginacion.querySelectorAll('a.page-link').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                const url = new URL(this.href);
-                const page = url.searchParams.get('page');
-                
-                const formData = new FormData(form);
-                formData.append('page', page);
-                const params = new URLSearchParams(formData).toString();
-                
-                contenedor.style.opacity = '0.5';
-                fetch(`{% url 'pedidos:lista_entregados_ajax' %}?${params}`)
-                    .then(r => r.json())
-                    .then(data => {
-                        contenedor.innerHTML = data.html;
-                        contenedor.style.opacity = '1';
-                        engancharPaginacion();
-                    });
+            function engancharPaginacion() {
+            const paginacion = document.getElementById('paginacion-ajax-entregados');
+            if (!paginacion) return;
+            
+            paginacion.querySelectorAll('a.page-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Leemos el número de página directamente del HTML
+                    const page = this.getAttribute('data-page');
+                    if (!page) return;
+                    
+                    // Preparamos el formulario y forzamos la nueva página
+                    const formData = new FormData(form);
+                    formData.set('page', page);
+                    const params = new URLSearchParams(formData).toString();
+                    
+                    contenedor.style.opacity = '0.5';
+                    fetch(`{% url 'pedidos:lista_entregados_ajax' %}?${params}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            contenedor.innerHTML = data.html;
+                            contenedor.style.opacity = '1';
+                            engancharPaginacion(); // Volvemos a conectar los botones nuevos
+                        });
+                });
             });
-        });
-    }
+        }
 
     form.querySelectorAll('select, input[type="date"]').forEach(el => {
         el.addEventListener('change', () => actualizarTabla());
