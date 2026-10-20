@@ -176,9 +176,9 @@ class ServicioPedido:
         return pedido
 
     @staticmethod
-    def consumir_materiales(pedido):
+    def consumir_materiales(pedido, momento='IMPRESION'):
         from inventario.services import ServicioInventario
-        ServicioInventario.consumir_materiales_pedido(pedido)
+        ServicioInventario.consumir_materiales_pedido(pedido, momento)
 
     @staticmethod
     def crear_servicio_portada(pedido):
