@@ -50,13 +50,14 @@
             <table class="table table-sm">
                 <thead><tr><th>Tipo</th><th>Proveedor</th><th>Monto</th><th>Estado</th></tr></thead>
                 <tbody>
-                    {% for s in pedido.servicios_externos.all %}
-                    <tr>
-                        <td>{{ s.get_tipo_display }}</td>
-                        <td>{{ s.proveedor.nombre }}</td>
-                        <td>${{ s.monto|floatformat:2 }}</td>
-                        <td><span class="badge bg-info">{{ s.estado }}</span></td>
-                    </tr>
+                    {% for servicio in pedido.servicios_externos.all %}
+                        {% if servicio.lote %}
+                        <div class="alert alert-info small">
+                            Este pedido pertenece al lote 
+                            <a href="{% url 'pedidos:detalle_lote' servicio.lote.id %}">{{ servicio.lote.numero }}</a>
+                            ({{ servicio.lote.get_tipo_display }})
+                        </div>
+                        {% endif %}
                     {% endfor %}
                 </tbody>
             </table>

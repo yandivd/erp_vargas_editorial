@@ -1,16 +1,17 @@
-from datetime import timezone
 from django.db import transaction
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Q
 from django.http import JsonResponse
 from django.core.paginator import Paginator
+from django.views.decorators.http import require_POST
+import json
 from django import forms
 from decimal import Decimal
-
+from django.utils import timezone
 from django.http import JsonResponse
 from django.template.loader import render_to_string
-
+from datetime import date, timedelta, datetime
 from finanzas.models import MovimientoCaja
 
 from .models import Pedido, ServicioExterno, Book, Estado
@@ -498,15 +499,10 @@ def crear_libro(request):
             
     return redirect('pedidos:lista_libros')
 
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from django.db import transaction
-import json
-
 
 @require_POST
 def cambiar_estado_masivo(request):
-    """Cambia el estado de varios pedidos a la vez."""
+    """Cambia el estado de varios pedidos a la vez, ejecutando la lógica de negocio."""
     try:
         data = json.loads(request.body)
         pedido_ids = data.get('pedido_ids', [])
@@ -520,13 +516,31 @@ def cambiar_estado_masivo(request):
         except Estado.DoesNotExist:
             return JsonResponse({'ok': False, 'error': 'El estado no existe'}, status=404)
 
-        with transaction.atomic():
-            actualizados = Pedido.objects.filter(id__in=pedido_ids).update(estado=nuevo_estado)
+        actualizados = 0
+        errores = []
+
+        for pid in pedido_ids:
+            try:
+                pedido = Pedido.objects.get(id=pid)
+                if pedido.estado_id == nuevo_estado.id:
+                    continue  # Ya está en ese estado, no hacemos nada
+                ServicioPedido.cambiar_estado(
+                    pedido,
+                    nuevo_estado.nombre,
+                    usuario=request.user.username,
+                    notas='Cambio masivo'
+                )
+                actualizados += 1
+            except Pedido.DoesNotExist:
+                errores.append(f'Pedido {pid} no existe')
+            except Exception as e:
+                errores.append(f'Pedido {pid}: {str(e)}')
 
         return JsonResponse({
             'ok': True,
             'actualizados': actualizados,
-            'estado': nuevo_estado.nombre
+            'estado': nuevo_estado.nombre,
+            'errores': errores
         })
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)

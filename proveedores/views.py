@@ -3,8 +3,15 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Sum, Q
 from django.utils import timezone
+from finanzas.services import ServicioFinanzas
 from pedidos.models import ServicioExterno
+from pedidos.services import ServicioPedido
 from .models import Proveedor
+from finanzas.models import MovimientoCaja
+from decimal import Decimal
+from django.views.decorators.http import require_POST
+from django.utils import timezone
+from django.db import transaction
 from finanzas.models import MovimientoCaja
 
 def lista_proveedores(request):
@@ -19,16 +26,17 @@ def lista_proveedores(request):
 
 
 def cuentas_por_pagar(request):
-    """Muestra todos los servicios pendientes de pago."""
     servicios = ServicioExterno.objects.filter(
         estado__in=['SOLICITADO', 'RECIBIDO']
-    ).select_related('proveedor', 'pedido', 'pedido__libro').order_by('estado', 'fecha_solicitud')
+    ).select_related('proveedor', 'pedido', 'pedido__libro').order_by('pedido_id')
     
     total_deuda = servicios.aggregate(total=Sum('monto'))['total'] or 0
+    saldo_caja = ServicioFinanzas.saldo_caja('CUP')
     
     return render(request, 'proveedores/cuentas_por_pagar.html', {
         'servicios': servicios,
-        'total_deuda': total_deuda
+        'total_deuda': total_deuda,
+        'saldo_caja': saldo_caja,
     })
 
 
@@ -63,14 +71,13 @@ def pagar_servicio(request, pk):
                 proveedor=servicio.proveedor,
                 pedido=servicio.pedido
             )
+                        # Verificar si el lote se completa
+            if servicio.lote:
+                ServicioPedido.verificar_y_cerrar_lote(servicio.lote)
+
             messages.success(request, f'Pago de ${servicio.monto} registrado a {servicio.proveedor.nombre}.')
             
     return redirect('proveedores:cuentas_por_pagar')
-
-from django.views.decorators.http import require_POST
-from django.utils import timezone
-from django.db import transaction
-from finanzas.models import MovimientoCaja
 
 @require_POST
 def recibir_lote(request):
@@ -93,12 +100,12 @@ def pagar_lote(request):
     ids = request.POST.getlist('servicios_ids')
     if ids:
         servicios = ServicioExterno.objects.filter(id__in=ids, estado__in=['SOLICITADO', 'RECIBIDO'])
+        lotes_afectados = set()
         
         with transaction.atomic():
             total_pagado = 0
             
             for s in servicios:
-                # 1. Registrar salida de dinero en Caja
                 MovimientoCaja.objects.create(
                     tipo='EGRESO',
                     categoria='PAGO_PROVEEDOR',
@@ -109,26 +116,23 @@ def pagar_lote(request):
                 )
                 total_pagado += s.monto
                 
-                # 2. Marcar como pagado
                 s.estado = 'PAGADO'
                 s.fecha_pago = timezone.now()
-                # Si no estaba "RECIBIDO", lo ponemos como recibido también
                 if not s.fecha_recepcion:
                     s.fecha_recepcion = timezone.now()
-                    s.estado = 'RECIBIDO' # Temporal para guardar la recepción
-                    
                 s.save()
                 
-                # Corregir estado final
-                s.estado = 'PAGADO'
-                s.save()
+                if s.lote:
+                    lotes_afectados.add(s.lote)
+            
+            # Verificar cada lote afectado
+            for lote in lotes_afectados:
+                ServicioPedido.verificar_y_cerrar_lote(lote)
                 
         messages.success(request, f'Se pagaron {len(ids)} servicios por un total de ${total_pagado:.2f}.')
     else:
         messages.warning(request, 'No seleccionaste ningún servicio para pagar.')
     return redirect('proveedores:cuentas_por_pagar')
-
-from decimal import Decimal
 
 def editar_monto_servicio(request, pk):
     """Permite ajustar el monto real de un servicio externo."""

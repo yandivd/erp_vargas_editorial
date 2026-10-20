@@ -25,7 +25,6 @@
 <!-- PANEL DE FILTROS -->
 <div class="card card-kpi p-3 mb-4">
     <form method="get" class="row g-3" id="formFiltros">
-        <!-- Búsqueda -->
         <div class="col-md-4">
             <label class="form-label small fw-bold text-muted">Buscar</label>
             <div class="input-group">
@@ -34,7 +33,6 @@
             </div>
         </div>
         
-        <!-- Estado del Pedido -->
         <div class="col-md-2">
             <label class="form-label small fw-bold text-muted">Estado</label>
             <select name="estado" class="form-select">
@@ -45,7 +43,6 @@
             </select>
         </div>
 
-        <!-- Estado de Pago -->
         <div class="col-md-2">
             <label class="form-label small fw-bold text-muted">Pago</label>
             <select name="pago" class="form-select">
@@ -56,7 +53,6 @@
             </select>
         </div>
 
-        <!-- Fechas -->
         <div class="col-md-4">
             <label class="form-label small fw-bold text-muted">Rango de fechas</label>
             <div class="input-group">
@@ -109,7 +105,6 @@
                 <div class="modal-body p-4">
                     <div id="modal-errors" class="alert alert-danger d-none"></div>
                     
-                    <!-- SECCIÓN CLIENTE -->
                     <div class="mb-4">
                         <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.8rem; letter-spacing: 1px;">
                             <i class="bi bi-person"></i> Datos del Cliente
@@ -152,7 +147,6 @@
 
                     <hr class="text-muted opacity-25">
 
-                    <!-- SECCIÓN LIBRO -->
                     <div class="mb-4">
                         <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.8rem; letter-spacing: 1px;">
                             <i class="bi bi-book"></i> Datos del Libro
@@ -195,7 +189,6 @@
 
                     <hr class="text-muted opacity-25">
 
-                    <!-- DETALLES DEL PEDIDO -->
                     <div class="row g-3 mb-4">
                         <div class="col-md-4">
                             <label class="form-label small text-muted fw-bold">Cantidad</label>
@@ -211,7 +204,6 @@
                         </div>
                     </div>
 
-                    <!-- PRECIOS Y COSTOS -->
                     <div class="bg-light p-3 rounded border">
                         <h6 class="text-uppercase text-muted fw-bold mb-3" style="font-size: 0.75rem; letter-spacing: 1px;">
                             <i class="bi bi-cash-coin"></i> Finanzas del Pedido
@@ -249,7 +241,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- jQuery y Select2 -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
@@ -259,6 +250,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==========================================
     // VARIABLES GLOBALES
     // ==========================================
+    const seleccionados = new Set();
     const form = document.getElementById('formNuevoPedido');
     const paginasInput = document.querySelector('#id_nuevo_libro_paginas');
     const precioInput = document.querySelector('#id_precio_venta');
@@ -269,7 +261,44 @@ document.addEventListener('DOMContentLoaded', function () {
     let usandoClienteNuevo = false;
     let usandoLibroNuevo = false;
 
-    // Función global para calcular el costo
+    // Referencias a elementos de la barra masiva (se usan en varias funciones)
+    const barraMasiva = document.getElementById('barraAccionesMasivas');
+    const contadorSeleccionados = document.getElementById('contadorSeleccionados');
+    const btnAplicarEstado = document.getElementById('btnAplicarEstado');
+    const btnCancelarSeleccion = document.getElementById('btnCancelarSeleccion');
+    const selectNuevoEstado = document.getElementById('nuevoEstadoMasivo');
+
+    // ==========================================
+    // FUNCIONES DE SELECCIÓN MASIVA (GLOBALES)
+    // ==========================================
+    function actualizarBarraMasiva() {
+        const total = seleccionados.size;
+        if (total > 0) {
+            barraMasiva.classList.remove('d-none');
+            contadorSeleccionados.textContent = total;
+        } else {
+            barraMasiva.classList.add('d-none');
+        }
+
+        // Sincronizar el checkTodos según los checkboxes visibles
+        const ct = document.getElementById('checkTodos');
+        if (ct) {
+            const visibles = document.querySelectorAll('.check-pedido');
+            const todosMarcados = visibles.length > 0 && Array.from(visibles).every(cb => cb.checked);
+            ct.checked = todosMarcados;
+        }
+    }
+
+    function sincronizarCheckboxes() {
+        document.querySelectorAll('.check-pedido').forEach(cb => {
+            cb.checked = seleccionados.has(parseInt(cb.value));
+        });
+        actualizarBarraMasiva();
+    }
+
+    // ==========================================
+    // CÁLCULO DE COSTO (MODAL)
+    // ==========================================
     function actualizarCosto() {
         let p = 0;
         let esLibroNuevo = usandoLibroNuevo;
@@ -397,7 +426,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ==========================================
-    // 2. LÓGICA DE FILTROS AJAX (GLOBAL)
+    // 2. LÓGICA DE FILTROS AJAX
     // ==========================================
     const formFiltros = document.getElementById('formFiltros');
     const contenedor = document.getElementById('contenedor-tabla');
@@ -406,7 +435,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const paginacion = document.getElementById('paginacion-ajax');
         if (!paginacion) return;
         
-        // Clonar para eliminar listeners viejos y evitar duplicados
         paginacion.querySelectorAll('a.page-link').forEach(link => {
             link.replaceWith(link.cloneNode(true));
         });
@@ -431,6 +459,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         contenedor.innerHTML = data.html;
                         contenedor.style.opacity = '1';
                         engancharPaginacion();
+                        sincronizarCheckboxes();
                     });
             });
         });
@@ -449,6 +478,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 contenedor.innerHTML = data.html;
                 contenedor.style.opacity = '1';
                 engancharPaginacion();
+                sincronizarCheckboxes();
             })
             .catch(err => {
                 console.error(err);
@@ -517,7 +547,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!book.id) { return book.text; }
         
         const autor = $(book.element).attr('data-autor') || 'Autor desconocido';
-        const paginas = $(book.element).attr('data-paginas') || '0';
         
         const $libro = $(
             `<div class="d-flex justify-content-between align-items-center w-100" style="overflow: hidden; white-space: nowrap;">
@@ -548,54 +577,45 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==========================================
     // 4. SELECCIÓN MÚLTIPLE Y CAMBIO DE ESTADO MASIVO
     // ==========================================
-    const barraMasiva = document.getElementById('barraAccionesMasivas');
-    const contadorSeleccionados = document.getElementById('contadorSeleccionados');
-    const btnAplicarEstado = document.getElementById('btnAplicarEstado');
-    const btnCancelarSeleccion = document.getElementById('btnCancelarSeleccion');
-    const selectNuevoEstado = document.getElementById('nuevoEstadoMasivo');
-
-    function obtenerSeleccionados() {
-        return Array.from(document.querySelectorAll('.check-pedido:checked')).map(cb => parseInt(cb.value));
-    }
-
-    function actualizarBarraMasiva() {
-        const seleccionados = obtenerSeleccionados();
-        if (seleccionados.length > 0) {
-            barraMasiva.classList.remove('d-none');
-            contadorSeleccionados.textContent = seleccionados.length;
-        } else {
-            barraMasiva.classList.add('d-none');
-            const ct = document.getElementById('checkTodos');
-            if (ct) ct.checked = false;
-        }
-    }
-
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('check-pedido')) {
+            const id = parseInt(e.target.value);
+            if (e.target.checked) {
+                seleccionados.add(id);
+            } else {
+                seleccionados.delete(id);
+            }
             actualizarBarraMasiva();
         }
         if (e.target.id === 'checkTodos') {
             const checked = e.target.checked;
-            document.querySelectorAll('.check-pedido').forEach(cb => cb.checked = checked);
+            document.querySelectorAll('.check-pedido').forEach(cb => {
+                const id = parseInt(cb.value);
+                cb.checked = checked;
+                if (checked) {
+                    seleccionados.add(id);
+                } else {
+                    seleccionados.delete(id);
+                }
+            });
             actualizarBarraMasiva();
         }
     });
 
     if (btnCancelarSeleccion) {
         btnCancelarSeleccion.addEventListener('click', () => {
+            seleccionados.clear();
             document.querySelectorAll('.check-pedido').forEach(cb => cb.checked = false);
-            const ct = document.getElementById('checkTodos');
-            if (ct) ct.checked = false;
             actualizarBarraMasiva();
         });
     }
 
     if (btnAplicarEstado) {
         btnAplicarEstado.addEventListener('click', () => {
-            const seleccionados = obtenerSeleccionados();
+            const ids = Array.from(seleccionados);  // <-- Copia del Set
             const estadoId = selectNuevoEstado.value;
 
-            if (seleccionados.length === 0) {
+            if (ids.length === 0) {
                 alert('Selecciona al menos un pedido.');
                 return;
             }
@@ -605,7 +625,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             const nombreEstado = selectNuevoEstado.options[selectNuevoEstado.selectedIndex].text;
-            if (!confirm(`¿Cambiar ${seleccionados.length} pedido(s) al estado "${nombreEstado}"?`)) {
+            if (!confirm(`¿Cambiar ${ids.length} pedido(s) al estado "${nombreEstado}"?`)) {
                 return;
             }
 
@@ -619,19 +639,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     'X-CSRFToken': '{{ csrf_token }}'
                 },
                 body: JSON.stringify({
-                    pedido_ids: seleccionados,
+                    pedido_ids: ids,
                     estado_id: parseInt(estadoId)
                 })
             })
             .then(r => r.json())
             .then(data => {
                 if (data.ok) {
-                    actualizarTabla();
+                    seleccionados.clear();  // <-- Limpia el Set global
                     document.querySelectorAll('.check-pedido').forEach(cb => cb.checked = false);
-                    const ct = document.getElementById('checkTodos');
-                    if (ct) ct.checked = false;
                     selectNuevoEstado.value = '';
                     actualizarBarraMasiva();
+                    actualizarTabla();  // Recarga la tabla
                 } else {
                     alert('Error: ' + (data.error || 'No se pudo cambiar el estado'));
                 }
@@ -646,6 +665,9 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+
+    // Sincronizar al cargar
+    sincronizarCheckboxes();
 });
 </script>
 {% endblock %}
