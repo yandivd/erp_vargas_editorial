@@ -1,0 +1,64 @@
+{% extends 'impresion_termica_base.html' %}
+
+{% block title %}Ticket #{{ pedido.id }}{% endblock %}
+{% block tipo_documento %}Comprobante de venta{% endblock %}
+{% block numero_doc %}{{ pedido.referencia_externa|default:pedido.id }}{% endblock %}
+
+{% block contenido %}
+
+<!-- CLIENTE -->
+<p class="bold">Cliente:</p>
+<p>{{ pedido.cliente.nombre|default:"Venta de stock" }}</p>
+{% if pedido.cliente.telefono or pedido.telefono_entrega %}
+<p>Tel: {{ pedido.telefono_entrega|default:pedido.cliente.telefono }}</p>
+{% endif %}
+{% if pedido.direccion_entrega %}
+<p>Dir: {{ pedido.direccion_entrega }}</p>
+{% endif %}
+
+<div class="separador"></div>
+
+<!-- DETALLE -->
+<table>
+    <thead>
+        <tr>
+            <th>Descripción</th>
+            <th class="cant">Cant</th>
+            <th class="total">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+                {{ pedido.libro.titulo }}
+                {% if pedido.libro.autor %}<br><small>{{ pedido.libro.autor }}</small>{% endif %}
+                {% if pedido.lleva_scotch %}<br><small>+ Scotch</small>{% endif %}
+                {% if pedido.lleva_esquineros %}<br><small>+ Esquineros</small>{% endif %}
+            </td>
+            <td class="cant">{{ pedido.cantidad }}</td>
+            <td class="total">${{ pedido.precio_venta|floatformat:2 }}</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="separador"></div>
+
+<!-- TOTALES -->
+<div class="totales">
+    <div class="fila">
+        <span>Total:</span>
+        <span>${{ pedido.precio_venta|floatformat:2 }}</span>
+    </div>
+    <div class="fila">
+        <span>Anticipo:</span>
+        <span>-${{ pedido.anticipo_recibido|floatformat:2 }}</span>
+    </div>
+    <div class="fila total-final">
+        <span>A PAGAR:</span>
+        <span>${{ pedido.saldo_pendiente|floatformat:2 }}</span>
+    </div>
+</div>
+
+<div class="separador"></div>
+
+{% endblock %}
