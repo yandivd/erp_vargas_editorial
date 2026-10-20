@@ -105,8 +105,8 @@ class Pedido(models.Model):
 
     notas = models.TextField(blank=True, verbose_name='Notas')
 
-    referencia_externa = models.CharField(
-        max_length=50, blank=True, null=True, 
+    referencia_externa = models.PositiveIntegerField(
+        null=True, blank=True, unique=True,
         verbose_name='Referencia Original',
         help_text='Número de pedido del sistema anterior (Excel)'
     )

@@ -1,0 +1,99 @@
+{% extends 'impresion_base.html' %}
+
+{% block title %}Comprobante consolidado{% endblock %}
+{% block tipo_documento %}COMPROBANTE DE ENTREGA{% endblock %}
+{% block numero_doc %}
+    {{ pedidos.first.referencia_externa|stringformat:"05d" }}{% if pedidos.count > 1 %}-{{ pedidos.last.referencia_externa|stringformat:"05d" }}{% endif %}
+{% endblock %}
+
+{% block contenido %}
+
+<!-- DATOS DEL CLIENTE -->
+<div class="row mb-4">
+    <div class="col-6">
+        <h6 class="text-muted">DATOS DEL CLIENTE</h6>
+        {% with primer=pedidos.first %}
+            {% if primer.cliente %}
+                <p class="mb-1"><strong>{{ primer.cliente.nombre }}</strong></p>
+                <p class="mb-1">Tel: {{ primer.cliente.telefono|default:"—" }}</p>
+                <p class="mb-1">Dir: {{ primer.direccion_entrega|default:primer.cliente.direccion|default:"—" }}</p>
+            {% else %}
+                <p class="mb-1"><strong>Venta de Stock</strong></p>
+                <p class="mb-1">Tel: {{ primer.telefono_entrega|default:"—" }}</p>
+                <p class="mb-1">Dir: {{ primer.direccion_entrega|default:"En el taller" }}</p>
+            {% endif %}
+        {% endwith %}
+    </div>
+    <div class="col-6 text-end">
+        <h6 class="text-muted">DETALLES DEL COMPROBANTE</h6>
+        <p class="mb-1">Fecha de emisión: {{ now|date:"d/m/Y" }}</p>
+        <p class="mb-1">Cantidad de pedidos: <strong>{{ cantidad }}</strong></p>
+        {% if un_solo_cliente %}
+            <p class="mb-1">Cliente único: <strong>Sí</strong></p>
+        {% else %}
+            <p class="mb-1">Cliente único: <strong>No (agrupado)</strong></p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- TABLA DE PEDIDOS -->
+<table class="table table-bordered mt-4">
+    <thead class="table-light">
+        <tr>
+            <th style="width: 60px;">Pedido</th>
+            <th>Descripción del Libro</th>
+            <th class="text-center">Páginas</th>
+            <th class="text-center">Cant.</th>
+            <th class="text-end">Precio</th>
+            <th class="text-end">Anticipo</th>
+            <th class="text-end">Saldo</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in pedidos %}
+        <tr>
+            <td class="text-center">
+                #{{ p.referencia_externa|default:p.id }}
+            </td>
+            <td>
+                <strong>{{ p.libro.titulo }}</strong>
+                {% if p.libro.autor %}<br><small>Autor: {{ p.libro.autor }}</small>{% endif %}
+                {% if p.lleva_scotch %}<br><small>+ Scotch</small>{% endif %}
+                {% if p.lleva_esquineros %}<br><small>+ Esquineros</small>{% endif %}
+                {% if not un_solo_cliente %}
+                    <br><small class="text-muted">Cliente: {{ p.cliente.nombre|default:"Stock" }}</small>
+                {% endif %}
+            </td>
+            <td class="text-center">{{ p.libro.paginas }}</td>
+            <td class="text-center">{{ p.cantidad }}</td>
+            <td class="text-end">${{ p.precio_venta|floatformat:2 }}</td>
+            <td class="text-end">${{ p.anticipo_recibido|floatformat:2 }}</td>
+            <td class="text-end {% if p.saldo_pendiente > 0 %}text-danger fw-bold{% endif %}">
+                ${{ p.saldo_pendiente|floatformat:2 }}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- TOTALES GENERALES -->
+<div class="row justify-content-end mt-4">
+    <div class="col-5">
+        <table class="table table-sm">
+            <tr>
+                <td>Total venta:</td>
+                <td class="text-end">${{ total_venta|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>Total anticipos:</td>
+                <td class="text-end">-${{ total_anticipo|floatformat:2 }}</td>
+            </tr>
+            <tr class="fw-bold fs-5 border-top">
+                <td>SALDO TOTAL A PAGAR:</td>
+                <td class="text-end text-danger">${{ total_saldo|floatformat:2 }}</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
