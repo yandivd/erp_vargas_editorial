@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.safestring import mark_safe
 from django.utils import timezone
-
+from django.db.models import Sum
 from clientes.models import Cliente
 from proveedores.models import Proveedor
 
@@ -105,8 +105,8 @@ class Pedido(models.Model):
 
     notas = models.TextField(blank=True, verbose_name='Notas')
 
-    referencia_externa = models.CharField(
-        max_length=50, blank=True, null=True, 
+    referencia_externa = models.PositiveIntegerField(
+        null=True, blank=True, unique=True,
         verbose_name='Referencia Original',
         help_text='Número de pedido del sistema anterior (Excel)'
     )
@@ -224,6 +224,10 @@ class ServicioExterno(models.Model):
     fecha_recepcion = models.DateTimeField(null=True, blank=True)
     fecha_pago = models.DateTimeField(null=True, blank=True)
     notas = models.TextField(blank=True)
+    lote = models.ForeignKey(
+        'LoteServicio', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='servicios'
+    )
 
     class Meta:
         verbose_name = 'Servicio externo'
@@ -232,3 +236,59 @@ class ServicioExterno(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_display()} - Pedido #{self.pedido_id} - ${self.monto}"
+    
+# ============================================================
+# LOTE DE SERVICIO (agrupa servicios externos del mismo proveedor/tipo)
+# ============================================================
+class LoteServicio(models.Model):
+    ESTADO_CHOICES = [
+        ('ABIERTO', 'Abierto'),
+        ('CERRADO', 'Cerrado'),
+        ('PAGADO', 'Pagado'),
+        ('CANCELADO', 'Cancelado'),
+    ]
+
+    numero = models.CharField(max_length=20, unique=True, blank=True)
+    proveedor = models.ForeignKey(
+        Proveedor, on_delete=models.PROTECT, related_name='lotes_servicio'
+    )
+    tipo = models.CharField(max_length=20, choices=ServicioExterno.TIPO_CHOICES)
+    fecha_apertura = models.DateTimeField(auto_now_add=True)
+    fecha_cierre = models.DateTimeField(null=True, blank=True)
+    fecha_pago = models.DateTimeField(null=True, blank=True)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='ABIERTO')
+    notas = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = 'Lote de servicio'
+        verbose_name_plural = 'Lotes de servicio'
+        ordering = ['-fecha_apertura']
+
+    def __str__(self):
+        return f"Lote {self.numero} - {self.get_tipo_display()} ({self.servicios.count()} servicios)"
+
+    def save(self, *args, **kwargs):
+        if not self.numero:
+            from django.utils import timezone
+            prefijo = timezone.now().strftime('%Y%m%d')
+            ultimo = LoteServicio.objects.filter(numero__startswith=f"LOTE-{prefijo}").order_by('-id').first()
+            secuencia = 1
+            if ultimo:
+                try:
+                    secuencia = int(ultimo.numero.split('-')[-1]) + 1
+                except (ValueError, IndexError):
+                    secuencia = 1
+            self.numero = f"LOTE-{prefijo}-{secuencia:03d}"
+        super().save(*args, **kwargs)
+
+    @property
+    def cantidad_servicios(self):
+        return self.servicios.count()
+
+    @property
+    def costo_total(self):
+        return self.servicios.aggregate(t=Sum('monto'))['t'] or 0
+
+    @property
+    def pedidos_ids(self):
+        return list(self.servicios.values_list('pedido_id', flat=True))

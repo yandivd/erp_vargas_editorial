@@ -1,0 +1,82 @@
+{% extends 'impresion_termica_base.html' %}
+
+{% block title %}Comprobante consolidado{% endblock %}
+{% block tipo_documento %}Comprobante de entrega{% endblock %}
+{% block numero_doc %}
+    {{ pedidos.first.referencia_externa|default:pedidos.first.id }}{% if pedidos.count > 1 %}-{{ pedidos.last.referencia_externa|default:pedidos.last.id }}{% endif %}
+{% endblock %}
+
+{% block contenido %}
+
+<!-- CLIENTE -->
+<p class="bold">Cliente:</p>
+{% with primer=pedidos.first %}
+    {% if primer.cliente %}
+        <p>{{ primer.cliente.nombre }}</p>
+        {% if primer.cliente.telefono %}
+        <p>Tel: {{ primer.telefono_entrega|default:primer.cliente.telefono }}</p>
+        {% endif %}
+        {% if primer.direccion_entrega or primer.cliente.direccion %}
+        <p>Dir: {{ primer.direccion_entrega|default:primer.cliente.direccion }}</p>
+        {% endif %}
+    {% else %}
+        <p>Venta de stock</p>
+        {% if primer.telefono_entrega %}
+        <p>Tel: {{ primer.telefono_entrega }}</p>
+        {% endif %}
+    {% endif %}
+{% endwith %}
+
+<p class="subtitulo">Pedidos: {{ cantidad }}</p>
+
+<div class="separador"></div>
+
+<!-- DETALLE -->
+<table>
+    <thead>
+        <tr>
+            <th>Libro</th>
+            <th class="cant">Cant</th>
+            <th class="total">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in pedidos %}
+        <tr>
+            <td>
+                <strong>#{{ p.referencia_externa|default:p.id }}</strong> {{ p.libro.titulo }}
+                {% if p.libro.autor %}<br><small>{{ p.libro.autor }}</small>{% endif %}
+                {% if p.lleva_scotch %}<br><small>+ Scotch</small>{% endif %}
+                {% if p.lleva_esquineros %}<br><small>+ Esquineros</small>{% endif %}
+                {% if not un_solo_cliente %}
+                    <br><small class="text-muted">Cliente: {{ p.cliente.nombre|default:"Stock" }}</small>
+                {% endif %}
+            </td>
+            <td class="cant">{{ p.cantidad }}</td>
+            <td class="total">${{ p.precio_venta|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<div class="separador"></div>
+
+<!-- TOTALES -->
+<div class="totales">
+    <div class="fila">
+        <span>Total venta:</span>
+        <span>${{ total_venta|floatformat:2 }}</span>
+    </div>
+    <div class="fila">
+        <span>Anticipos:</span>
+        <span>-${{ total_anticipo|floatformat:2 }}</span>
+    </div>
+    <div class="fila total-final">
+        <span>A PAGAR:</span>
+        <span>${{ total_saldo|floatformat:2 }}</span>
+    </div>
+</div>
+
+<div class="separador"></div>
+
+{% endblock %}

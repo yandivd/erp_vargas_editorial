@@ -5,15 +5,16 @@ from django.db.models import Sum, Q
 from django.utils import timezone
 from datetime import datetime
 from decimal import Decimal
-from .models import MovimientoCaja, GastoOperativo, CierreCaja
+from .models import MovimientoCaja, GastoOperativo, CierreCaja, LoteDivisa, DetalleVentaDivisa
 from .services import ServicioFinanzas
 
 
+from django.core.paginator import Paginator
+
 def caja(request):
-    """Muestra el flujo de caja y los movimientos."""
+    """Muestra el flujo de caja y los movimientos paginados."""
     movimientos = MovimientoCaja.objects.all().order_by('-fecha')
     
-    # Filtros
     desde = request.GET.get('desde', '')
     hasta = request.GET.get('hasta', '')
     categoria = request.GET.get('categoria', '')
@@ -25,20 +26,36 @@ def caja(request):
     if categoria:
         movimientos = movimientos.filter(categoria=categoria)
         
-    # Totales (calculados sobre TODOS los movimientos, no solo los filtrados, para el resumen general)
-    total_ingresos = MovimientoCaja.objects.filter(tipo='INGRESO').aggregate(t=Sum('monto'))['t'] or 0
-    total_egresos = MovimientoCaja.objects.filter(tipo='EGRESO').aggregate(t=Sum('monto'))['t'] or 0
-    saldo_actual = total_ingresos - total_egresos
+    CATEGORIAS_TRANSFERENCIA = ['COMPRA_DIVISA', 'VENTA_DIVISA']
+
+    total_ingresos = MovimientoCaja.objects.filter(
+        tipo='INGRESO'
+    ).exclude(
+        categoria__in=CATEGORIAS_TRANSFERENCIA
+    ).aggregate(t=Sum('monto'))['t'] or 0
+
+    total_egresos = MovimientoCaja.objects.filter(
+        tipo='EGRESO'
+    ).exclude(
+        categoria__in=CATEGORIAS_TRANSFERENCIA
+    ).aggregate(t=Sum('monto'))['t'] or 0
     
-    # Calcular valor del inventario
+    saldo_actual = total_ingresos - total_egresos
+    saldo_cup = ServicioFinanzas.saldo_caja('CUP')
+    saldo_usd = ServicioFinanzas.saldo_caja('USD')
+    
     materiales = Material.objects.filter(activo=True)
     valor_inventario = sum(m.stock_actual * m.costo_promedio for m in materiales)
     
+    paginator = Paginator(movimientos, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    
     context = {
-        'movimientos': movimientos,
+        'movimientos': page_obj,
         'total_ingresos': total_ingresos,
         'total_egresos': total_egresos,
-        'saldo_actual': saldo_actual,
+        'saldo_actual': saldo_cup,
+        'saldo_usd': saldo_usd,
         'categorias': MovimientoCaja.CATEGORIA_CHOICES,
         'desde': desde,
         'hasta': hasta,
@@ -73,6 +90,33 @@ def registrar_gasto(request):
             )
             messages.success(request, f'Gasto registrado: {concepto} por ${monto}')
             
+    return redirect('finanzas:caja')
+
+def registrar_ingreso(request):
+    """Registra un ingreso manual que no viene de un pedido."""
+    if request.method == 'POST':
+        concepto = request.POST.get('concepto')
+        monto = Decimal(request.POST.get('monto', 0))
+        categoria = request.POST.get('categoria', 'INGRESO_MANUAL')
+        metodo = request.POST.get('metodo', 'EFECTIVO')
+
+        # Validar que la categoría sea una de las permitidas para ingreso manual
+        categorias_validas = ['INGRESO_MANUAL', 'PROPINA', 'MENSAJERIA', 'VENTA_DIRECTA', 'OTRO_INGRESO']
+        if categoria not in categorias_validas:
+            categoria = 'INGRESO_MANUAL'
+
+        if monto > 0 and concepto:
+            MovimientoCaja.objects.create(
+                tipo='INGRESO',
+                categoria=categoria,
+                monto=monto,
+                concepto=concepto,
+                metodo=metodo
+            )
+            messages.success(request, f'Ingreso registrado: {concepto} por ${monto}')
+        else:
+            messages.error(request, 'El concepto y el monto son obligatorios.')
+
     return redirect('finanzas:caja')
 
 from django.shortcuts import render, redirect
@@ -307,3 +351,90 @@ def arqueo_caja(request):
         'cierres': cierres,
         'denominaciones': [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 1]
     })
+
+def gestionar_divisas(request):
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        monto = request.POST.get('monto')
+        tasa = request.POST.get('tasa')
+
+        try:
+            if accion == 'comprar':
+                ServicioFinanzas.comprar_divisa(monto, tasa)
+                messages.success(request, f'Compra de {monto} USD registrada con su lote de costo.')
+            elif accion == 'vender':
+                ganancia = ServicioFinanzas.vender_divisa(monto, tasa)
+                messages.success(request, f'Venta registrada. Ganancia cambiaria: ${ganancia:.2f}')
+        except ValueError as e:
+            messages.error(request, str(e))
+
+        return redirect('finanzas:gestionar_divisas')
+
+    saldo_cup = ServicioFinanzas.saldo_caja('CUP')
+    saldo_usd = ServicioFinanzas.saldo_caja('USD')
+
+    # Para mostrar en pantalla
+    lotes = LoteDivisa.objects.filter(cantidad_disponible__gt=0).order_by('fecha_compra')
+
+    return render(request, 'finanzas/divisas.html', {
+        'saldo_cup': saldo_cup,
+        'saldo_usd': saldo_usd,
+        'lotes': lotes,
+    })
+
+from django.db.models import Sum, F
+
+def reporte_ganancia_cambiaria(desde, hasta):
+    ventas = MovimientoCaja.objects.filter(
+        categoria='VENTA_DIVISA',
+        moneda='USD',
+        tipo='EGRESO',
+        fecha__date__gte=desde,
+        fecha__date__lte=hasta
+    )
+    resultado = []
+    for v in ventas:
+        costo = v.detalles_divisa.aggregate(t=Sum('costo_total'))['t'] or 0
+        ingreso = MovimientoCaja.objects.filter(
+            categoria='VENTA_DIVISA',
+            moneda='CUP',
+            tipo='INGRESO',
+            fecha=v.fecha
+        ).aggregate(t=Sum('monto'))['t'] or 0
+        resultado.append({
+            'venta_id': v.id,
+            'fecha': v.fecha,
+            'usd': v.monto,
+            'ingreso_cup': ingreso,
+            'costo_cup': costo,
+            'ganancia': ingreso - costo,
+        })
+    return resultado
+
+from django.template.loader import render_to_string
+from django.http import JsonResponse
+from django.core.paginator import Paginator
+
+def caja_ajax(request):
+    """Devuelve solo el HTML de la tabla de caja para paginación AJAX."""
+    movimientos = MovimientoCaja.objects.all().order_by('-fecha')
+    
+    desde = request.GET.get('desde', '')
+    hasta = request.GET.get('hasta', '')
+    categoria = request.GET.get('categoria', '')
+    
+    if desde:
+        movimientos = movimientos.filter(fecha__date__gte=desde)
+    if hasta:
+        movimientos = movimientos.filter(fecha__date__lte=hasta)
+    if categoria:
+        movimientos = movimientos.filter(categoria=categoria)
+    
+    paginator = Paginator(movimientos, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    
+    html = render_to_string('finanzas/_tabla_caja.html', {
+        'movimientos': page_obj,
+    }, request=request)
+    
+    return JsonResponse({'html': html})
