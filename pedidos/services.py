@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.utils import timezone
 from core.models import Parametro
 from inventario.models import Material
-from .models import HistorialEstado, ServicioExterno, Estado
+from .models import HistorialEstado, LoteServicio, ServicioExterno, Estado
 from proveedores.models import Proveedor
 
 
@@ -174,6 +174,24 @@ class ServicioPedido:
             ServicioPedido.cobrar_saldo(pedido)
 
         return pedido
+    
+    from .models import LoteServicio
+
+    @staticmethod
+    def _obtener_o_crear_lote(proveedor, tipo):
+        """Devuelve el lote ABIERTO del proveedor+tipo, o crea uno nuevo."""
+        lote = LoteServicio.objects.filter(
+            proveedor=proveedor,
+            tipo=tipo,
+            estado='ABIERTO'
+        ).order_by('-fecha_apertura').first()
+        
+        if not lote:
+            lote = LoteServicio.objects.create(
+                proveedor=proveedor,
+                tipo=tipo
+            )
+        return lote
 
     @staticmethod
     def consumir_materiales(pedido):
@@ -187,9 +205,14 @@ class ServicioPedido:
             return
         monto = Parametro.get('precio_portada', 1080)
         if not ServicioExterno.objects.filter(pedido=pedido, tipo='PORTADA').exists():
+            lote = ServicioPedido._obtener_o_crear_lote(proveedor, 'PORTADA')
             ServicioExterno.objects.create(
-                pedido=pedido, proveedor=proveedor, tipo='PORTADA',
-                monto=monto, estado='SOLICITADO'
+                pedido=pedido,
+                proveedor=proveedor,
+                tipo='PORTADA',
+                monto=monto,
+                estado='SOLICITADO',
+                lote=lote
             )
 
     @staticmethod
@@ -203,9 +226,14 @@ class ServicioPedido:
         else:
             monto = Parametro.get('precio_encuadernacion', 500)
         if not ServicioExterno.objects.filter(pedido=pedido, tipo='ENCUADERNADO').exists():
+            lote = ServicioPedido._obtener_o_crear_lote(proveedor, 'ENCUADERNADO')
             ServicioExterno.objects.create(
-                pedido=pedido, proveedor=proveedor, tipo='ENCUADERNADO',
-                monto=monto, estado='SOLICITADO'
+                pedido=pedido,
+                proveedor=proveedor,
+                tipo='ENCUADERNADO',
+                monto=monto,
+                estado='SOLICITADO',
+                lote=lote
             )
 
     @staticmethod
