@@ -112,6 +112,9 @@
                 <a href="{% url 'pedidos:imprimir_comprobante_termico' pedido.id %}" target="_blank" class="btn btn-outline-dark">
                     <i class="bi bi-receipt"></i> Ticket térmico
                 </a>
+                <a href="{% url 'pedidos:imprimir_pedido_carta' pedido.id %}" target="_blank" class="btn btn-outline-dark">
+                    <i class="bi bi-file-earmark"></i> Comprobante 4×8
+                </a>
                 <a href="{% url 'pedidos:imprimir_servicio' pedido.id %}" target="_blank" class="btn btn-outline-dark">
                     <i class="bi bi-tools"></i> Imprimir Orden de Servicio
                 </a>

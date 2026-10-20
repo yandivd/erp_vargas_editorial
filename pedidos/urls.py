@@ -31,4 +31,6 @@ urlpatterns = [
     path('lotes/<int:pk>/pdf/', views.orden_lote_pdf, name='orden_lote_pdf'),
     path('<int:pk>/ticket/', views.imprimir_comprobante_termico, name='imprimir_comprobante_termico'),
     path('imprimir-comprobantes-termico/', views.imprimir_comprobantes_termico, name='imprimir_comprobantes_termico'),
+    path('<int:pk>/comprobante-carta/', views.imprimir_pedido_carta, name='imprimir_pedido_carta'),
+    path('imprimir-comprobantes-carta/', views.imprimir_comprobantes_lote_carta, name='imprimir_comprobantes_carta'),
 ]

@@ -174,6 +174,10 @@ class Pedido(models.Model):
             return None
         return self.ganancia_bruta / self.horas_invertidas
 
+    @property
+    def direccion_completa(self):
+        return self.direccion_entrega or (self.cliente.direccion if self.cliente else '') or '—'
+
 
 # ============================================================
 # HISTORIAL DE ESTADOS

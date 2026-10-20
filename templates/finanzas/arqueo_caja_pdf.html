@@ -1,0 +1,340 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Arqueo de Caja #{{ cierre.id }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.8cm 1.5cm;
+            @bottom-right {
+                content: "Página " counter(page) " de " counter(pages);
+                font-size: 9pt;
+                color: #888;
+            }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 11pt;
+            color: #222;
+            margin: 0;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #1a3a5c;
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo {
+            height: 70px;
+            width: auto;
+        }
+
+        .empresa-nombre {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #1a3a5c;
+            margin: 0;
+            letter-spacing: 1px;
+        }
+
+        .empresa-sub {
+            font-size: 9pt;
+            color: #666;
+            margin: 2px 0 0 0;
+        }
+
+        .header-right {
+            text-align: right;
+        }
+
+        .doc-titulo {
+            font-size: 14pt;
+            font-weight: bold;
+            color: #1a3a5c;
+            margin: 0;
+        }
+
+        .doc-numero {
+            font-size: 12pt;
+            color: #c0392b;
+            font-weight: bold;
+            margin: 4px 0 0 0;
+        }
+
+        .info-grid {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .info-box {
+            flex: 1;
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
+            padding: 10px 14px;
+            background: #f9f9f9;
+        }
+
+        .info-box h4 {
+            margin: 0 0 6px 0;
+            font-size: 8pt;
+            text-transform: uppercase;
+            color: #888;
+            letter-spacing: 1px;
+        }
+
+        .info-box p {
+            margin: 2px 0;
+            font-size: 10pt;
+        }
+
+        .info-box .valor {
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 18px;
+        }
+
+        thead {
+            background: #1a3a5c;
+            color: white;
+        }
+
+        thead th {
+            padding: 8px 10px;
+            text-align: left;
+            font-size: 9pt;
+            text-transform: uppercase;
+        }
+
+        tbody td {
+            padding: 7px 10px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 10pt;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f5f7fa;
+        }
+
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+
+        .monto { font-weight: bold; color: #c0392b; }
+
+        .totales {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 25px;
+        }
+
+        .totales-box {
+            width: 320px;
+            border: 2px solid #1a3a5c;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .totales-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 14px;
+            font-size: 10pt;
+        }
+
+        .totales-row.total-final {
+            background: #1a3a5c;
+            color: white;
+            font-size: 12pt;
+            font-weight: bold;
+            padding: 12px 14px;
+        }
+
+        .totales-row.total-final .monto-total {
+            color: #f1c40f;
+        }
+
+        .firmas {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 60px;
+        }
+
+        .firma {
+            text-align: center;
+            width: 220px;
+        }
+
+        .firma-linea {
+            border-top: 1px solid #333;
+            margin-top: 50px;
+            padding-top: 6px;
+            font-size: 9pt;
+            color: #555;
+        }
+
+        .notas {
+            background: #fffbe6;
+            border-left: 4px solid #f1c40f;
+            padding: 10px 14px;
+            margin-bottom: 20px;
+            font-size: 9.5pt;
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding-top: 10px;
+            border-top: 1px solid #ccc;
+            font-size: 8pt;
+            color: #888;
+            text-align: center;
+        }
+
+        .badge-cuadro { color: #27ae60; font-weight: bold; }
+        .badge-sobrante { color: #f39c12; font-weight: bold; }
+        .badge-faltante { color: #c0392b; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <!-- CABECERA -->
+    <div class="header">
+        <div class="header-left">
+            <img src="{% static 'img/logo.png' %}" alt="Logo" class="logo">
+            <div>
+                <h1 class="empresa-nombre">VARGAS EDITORIAL</h1>
+                <p class="empresa-sub">Encuadernación artesanal y libros por encargo</p>
+            </div>
+        </div>
+        <div class="header-right">
+            <p class="doc-titulo">ARQUEO DE CAJA</p>
+            <p class="doc-numero">#{{ cierre.id|stringformat:"05d" }}</p>
+        </div>
+    </div>
+
+    <!-- INFO GENERAL -->
+    <div class="info-grid">
+        <div class="info-box">
+            <h4>Fecha del arqueo</h4>
+            <p class="valor">{{ cierre.fecha|date:"d/m/Y H:i" }}</p>
+        </div>
+        <div class="info-box">
+            <h4>Usuario</h4>
+            <p class="valor">{{ cierre.usuario|default:"—" }}</p>
+        </div>
+        <div class="info-box">
+            <h4>Saldo del sistema</h4>
+            <p class="valor">${{ cierre.saldo_sistema|floatformat:2 }}</p>
+        </div>
+    </div>
+
+    <!-- DESGLOSE DE BILLETES -->
+    <h3 style="color:#1a3a5c; font-size:12pt; margin-bottom:8px;">Desglose de efectivo contado</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Denominación</th>
+                <th class="text-center">Cantidad</th>
+                <th class="text-right">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in desglose %}
+            <tr>
+                <td>${{ d.denominacion }}</td>
+                <td class="text-center">{{ d.cantidad }}</td>
+                <td class="text-right monto">${{ d.subtotal|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3" class="text-center" style="color:#999;">No se contaron billetes.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- TRANSFERENCIAS -->
+    {% if transferencia > 0 %}
+    <div class="info-box" style="margin-bottom:20px;">
+        <h4>Transferencias bancarias / tarjeta</h4>
+        <p class="valor">${{ transferencia|floatformat:2 }}</p>
+    </div>
+    {% endif %}
+
+    <!-- TOTALES -->
+    <div class="totales">
+        <div class="totales-box">
+            <div class="totales-row">
+                <span>Efectivo contado:</span>
+                <span>${{ total_efectivo|floatformat:2 }}</span>
+            </div>
+            {% if transferencia > 0 %}
+            <div class="totales-row">
+                <span>Transferencias:</span>
+                <span>${{ transferencia|floatformat:2 }}</span>
+            </div>
+            {% endif %}
+            <div class="totales-row">
+                <span>Total contado:</span>
+                <span>${{ total_contado|floatformat:2 }}</span>
+            </div>
+            <div class="totales-row">
+                <span>Saldo del sistema:</span>
+                <span>${{ saldo_sistema|floatformat:2 }}</span>
+            </div>
+            <div class="totales-row total-final">
+                <span>DIFERENCIA</span>
+                <span class="monto-total">
+                    {% if diferencia == 0 %}
+                        $0.00 (Cuadró)
+                    {% elif diferencia > 0 %}
+                        +${{ diferencia|floatformat:2 }} (Sobrante)
+                    {% else %}
+                        -${{ diferencia|floatformat:2|cut:"-" }} (Faltante)
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTAS -->
+    {% if cierre.notas %}
+    <div class="notas">
+        <strong>Notas:</strong> {{ cierre.notas }}
+    </div>
+    {% endif %}
+
+    <!-- FIRMAS -->
+    <div class="firmas">
+        <div class="firma">
+            <div class="firma-linea">Realizado por</div>
+        </div>
+        <div class="firma">
+            <div class="firma-linea">Revisado por</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Documento generado el {% now "d/m/Y H:i" %} — Vargas Editorial
+    </div>
+
+</body>
+</html>

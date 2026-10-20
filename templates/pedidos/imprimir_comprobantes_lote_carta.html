@@ -1,0 +1,128 @@
+{% extends 'impresion_carta_pequena.html' %}
+{% load static %}
+
+{% block title %}Comprobante consolidado{% endblock %}
+
+{% block etiquetas %}
+<div class="etiqueta">
+
+    <!-- CABECERA -->
+    <div class="etq-header">
+        <img src="{% static 'img/logo.png' %}" alt="Logo" class="etq-logo">
+        <div>
+            <p class="etq-empresa">Vargas Editorial</p>
+            <p class="etq-sub">Tel: +53 54545068</p>
+        </div>
+    </div>
+
+    <!-- CUERPO -->
+    <div class="etq-cuerpo">
+
+        <!-- CLIENTE: nombre, teléfono y dirección siempre -->
+        {% with primer=pedidos.first %}
+        <p>
+            <span class="etq-label">Cliente</span><br>
+            <span class="etq-valor">
+                {% if primer.cliente %}
+                    {{ primer.cliente.nombre }}
+                {% else %}
+                    Varios / Stock
+                {% endif %}
+            </span>
+        </p>
+
+        <p>
+            <span class="etq-label">Tel.</span>
+            <span class="etq-valor">
+                {% if primer.cliente %}
+                    {{ primer.telefono_entrega|default:primer.cliente.telefono|default:"—" }}
+                {% else %}
+                    {{ primer.telefono_entrega|default:"—" }}
+                {% endif %}
+            </span>
+        </p>
+
+        <p>
+            <span class="etq-label">Dir.</span><br>
+            {% if primer.cliente %}
+                {{ primer.direccion_entrega|default:primer.cliente.direccion|default:"—" }}
+            {% else %}
+                {{ primer.direccion_entrega|default:"En el taller" }}
+            {% endif %}
+        </p>
+        {% endwith %}
+
+        <p>
+            <span class="etq-label">Pedidos</span>
+            <span class="etq-valor">{{ cantidad }}</span>
+            &nbsp;·&nbsp;
+            <span class="etq-label">Entrega</span>
+            <span class="etq-valor">{{ pedidos.first.fecha_entrega_prometida|date:"d/m/Y"|default:"—" }}</span>
+        </p>
+
+        <!-- TABLA MINI -->
+        <table class="etq-tabla">
+            <thead>
+                <tr>
+                    <th>Libro</th>
+                    <th class="center">C</th>
+                    <th class="right">$</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pedidos %}
+                <tr>
+                    <td>
+                        {{ p.libro.titulo }}
+                        {% if p.lleva_scotch %}<br><small>+ Scotch</small>{% endif %}
+                        {% if p.lleva_esquineros %}<br><small>+ Esquineros</small>{% endif %}
+                    </td>
+                    <td class="center">{{ p.cantidad }}</td>
+                    <td class="right">${{ p.precio_venta|floatformat:0 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- TOTALES -->
+        <div class="etq-totales">
+            <div class="fila">
+                <span>Total:</span>
+                <span>${{ total_venta|floatformat:0 }}</span>
+            </div>
+            <div class="fila">
+                <span>Anticipo:</span>
+                <span>-${{ total_anticipo|floatformat:0 }}</span>
+            </div>
+            <div class="fila total-final">
+                <span>SALDO:</span>
+                <span class="etq-saldo">${{ total_saldo|floatformat:0 }}</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- PIE -->
+    <div class="etq-footer">
+        <div>
+            <span class="etq-ref-label">Comprobante</span>
+            <span class="etq-ref">
+                {% if cantidad == 1 %}
+                    #{{ pedidos.first.referencia_externa|default:pedidos.first.id }}
+                {% else %}
+                    #{{ pedidos.first.referencia_externa|default:pedidos.first.id }}-{{ pedidos.last.referencia_externa|default:pedidos.last.id }}
+                {% endif %}
+            </span>
+        </div>
+        <div style="text-align:right;">
+            {% if total_saldo > 0 %}
+                <span class="etq-label">Saldo</span><br>
+                <span class="etq-saldo">${{ total_saldo|floatformat:0 }}</span>
+            {% else %}
+                <span class="etq-estado">Pagado</span>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

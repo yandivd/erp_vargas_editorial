@@ -97,6 +97,8 @@
                                     <!-- Icono genérico según nombre -->
                                     <div class="bg-light rounded p-2 me-3">
                                         {% if 'hoja' in m.nombre|lower %}<i class="bi bi-file-earmark-text text-primary fs-5"></i>
+                                        {% elif 'esquinero' in m.nombre|lower %}<i class="bi bi-eject text-primary fs-5"></i>
+                                        {% elif 'cartulina' in m.nombre|lower %}<i class="bi bi-stack text-primary fs-5"></i>
                                         {% elif 'tinta' in m.nombre|lower %}<i class="bi bi-droplet text-info fs-5"></i>
                                         {% elif 'pegamento' in m.nombre|lower %}<i class="bi bi-droplet-half text-warning fs-5"></i>
                                         {% elif 'scotch' in m.nombre|lower or 'cinta' in m.nombre|lower %}<i class="bi bi-tape text-secondary fs-5"></i>

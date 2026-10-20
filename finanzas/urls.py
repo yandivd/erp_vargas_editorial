@@ -14,4 +14,5 @@ urlpatterns = [
     path('reportes/', views.reporte_mensual, name='reportes'),
     path('arqueo/', views.arqueo_caja, name='arqueo_caja'),
     path('divisas/', views.gestionar_divisas, name='gestionar_divisas'),
+    path('arqueo/<int:pk>/pdf/', views.arqueo_caja_pdf, name='arqueo_caja_pdf'),
 ]
