@@ -2,7 +2,7 @@ from django.db import transaction
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.db.models import Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 import json
@@ -18,6 +18,7 @@ from .models import Pedido, ServicioExterno, Book, Estado
 from .services import ServicioPedido, CosteadorPedido
 from clientes.models import Cliente
 from finanzas.services import ServicioFinanzas
+from weasyprint import HTML
 
 class ClienteSelectConTelefono(forms.Select):
     def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
@@ -595,3 +596,20 @@ def pagar_lote(request, pk):
         return redirect('pedidos:detalle_lote', pk=lote.id)
     
     return redirect('pedidos:detalle_lote', pk=lote.id)
+
+def orden_lote_pdf(request, pk):
+    lote = get_object_or_404(LoteServicio, pk=pk)
+    servicios = lote.servicios.select_related(
+        'pedido__libro', 'pedido__cliente'
+    ).order_by('pedido_id')
+
+    html_string = render_to_string('pedidos/orden_lote_pdf.html', {
+        'lote': lote,
+        'servicios': servicios,
+    }, request=request)
+
+    pdf = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
+
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="orden-{lote.numero}.pdf"'
+    return response
