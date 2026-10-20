@@ -18,3 +18,9 @@
 /compras/migrations/__pycache__
 /empleados/__pycache__
 empleados/migrations/__pycache__
+.env
+*.sqlite3
+__pycache__/
+*.pyc
+staticfiles/
+media/
