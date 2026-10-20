@@ -5,7 +5,7 @@ from django.db.models import Sum, Q
 from django.utils import timezone
 from datetime import datetime
 from decimal import Decimal
-from .models import MovimientoCaja, GastoOperativo, CierreCaja
+from .models import MovimientoCaja, GastoOperativo, CierreCaja, LoteDivisa, DetalleVentaDivisa
 from .services import ServicioFinanzas
 
 
@@ -26,9 +26,24 @@ def caja(request):
         movimientos = movimientos.filter(categoria=categoria)
         
     # Totales (calculados sobre TODOS los movimientos, no solo los filtrados, para el resumen general)
-    total_ingresos = MovimientoCaja.objects.filter(tipo='INGRESO').aggregate(t=Sum('monto'))['t'] or 0
-    total_egresos = MovimientoCaja.objects.filter(tipo='EGRESO').aggregate(t=Sum('monto'))['t'] or 0
+    CATEGORIAS_TRANSFERENCIA = ['COMPRA_DIVISA', 'VENTA_DIVISA']
+
+    total_ingresos = MovimientoCaja.objects.filter(
+        tipo='INGRESO'
+    ).exclude(
+        categoria__in=CATEGORIAS_TRANSFERENCIA
+    ).aggregate(t=Sum('monto'))['t'] or 0
+
+    total_egresos = MovimientoCaja.objects.filter(
+        tipo='EGRESO'
+    ).exclude(
+        categoria__in=CATEGORIAS_TRANSFERENCIA
+    ).aggregate(t=Sum('monto'))['t'] or 0
+    
     saldo_actual = total_ingresos - total_egresos
+    
+    saldo_cup = ServicioFinanzas.saldo_caja('CUP')
+    saldo_usd = ServicioFinanzas.saldo_caja('USD')
     
     # Calcular valor del inventario
     materiales = Material.objects.filter(activo=True)
@@ -38,7 +53,8 @@ def caja(request):
         'movimientos': movimientos,
         'total_ingresos': total_ingresos,
         'total_egresos': total_egresos,
-        'saldo_actual': saldo_actual,
+        'saldo_actual': saldo_cup, # Mantenemos esto para no romper el HTML actual
+        'saldo_usd': saldo_usd,
         'categorias': MovimientoCaja.CATEGORIA_CHOICES,
         'desde': desde,
         'hasta': hasta,
@@ -307,3 +323,62 @@ def arqueo_caja(request):
         'cierres': cierres,
         'denominaciones': [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 1]
     })
+
+def gestionar_divisas(request):
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        monto = request.POST.get('monto')
+        tasa = request.POST.get('tasa')
+
+        try:
+            if accion == 'comprar':
+                ServicioFinanzas.comprar_divisa(monto, tasa)
+                messages.success(request, f'Compra de {monto} USD registrada con su lote de costo.')
+            elif accion == 'vender':
+                ganancia = ServicioFinanzas.vender_divisa(monto, tasa)
+                messages.success(request, f'Venta registrada. Ganancia cambiaria: ${ganancia:.2f}')
+        except ValueError as e:
+            messages.error(request, str(e))
+
+        return redirect('finanzas:gestionar_divisas')
+
+    saldo_cup = ServicioFinanzas.saldo_caja('CUP')
+    saldo_usd = ServicioFinanzas.saldo_caja('USD')
+
+    # Para mostrar en pantalla
+    lotes = LoteDivisa.objects.filter(cantidad_disponible__gt=0).order_by('fecha_compra')
+
+    return render(request, 'finanzas/divisas.html', {
+        'saldo_cup': saldo_cup,
+        'saldo_usd': saldo_usd,
+        'lotes': lotes,
+    })
+
+from django.db.models import Sum, F
+
+def reporte_ganancia_cambiaria(desde, hasta):
+    ventas = MovimientoCaja.objects.filter(
+        categoria='VENTA_DIVISA',
+        moneda='USD',
+        tipo='EGRESO',
+        fecha__date__gte=desde,
+        fecha__date__lte=hasta
+    )
+    resultado = []
+    for v in ventas:
+        costo = v.detalles_divisa.aggregate(t=Sum('costo_total'))['t'] or 0
+        ingreso = MovimientoCaja.objects.filter(
+            categoria='VENTA_DIVISA',
+            moneda='CUP',
+            tipo='INGRESO',
+            fecha=v.fecha
+        ).aggregate(t=Sum('monto'))['t'] or 0
+        resultado.append({
+            'venta_id': v.id,
+            'fecha': v.fecha,
+            'usd': v.monto,
+            'ingreso_cup': ingreso,
+            'costo_cup': costo,
+            'ganancia': ingreso - costo,
+        })
+    return resultado

@@ -221,6 +221,9 @@
                 <a href="{% url 'finanzas:caja' %}" class="{% if request.resolver_match.url_name == 'caja' %}active{% endif %}">
                     <i class="bi bi-cash-stack"></i> Caja
                 </a>
+                <a href="{% url 'finanzas:gestionar_divisas' %}" class="{% if request.resolver_match.url_name == 'gestionar_divisas' %}active{% endif %}">
+                    <i class="bi bi-currency-exchange"></i> Divisas (USD)
+                </a>
                 <a href="{% url 'finanzas:reportes' %}" class="{% if request.resolver_match.url_name == 'reportes' %}active{% endif %}">
                     <i class="bi bi-graph-up-arrow"></i> Reportes
                 </a>
