@@ -33,16 +33,6 @@
         }
 
         /* --- SIDEBAR --- */
-        .sidebar {
-            min-height: 100vh;
-            background: var(--bg-sidebar);
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            padding-top: 1rem;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.02);
-            z-index: 100;
-        }
 
         .sidebar .brand {
             padding: 1rem 1.5rem;
@@ -52,10 +42,21 @@
             justify-content: center;
         }
 
-        .sidebar .brand img {
-            max-height: 60px;
-            width: auto;
+        .sidebar .brand {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar .brand .logo-brand {
+            width: 100%;
+            height: auto;
+            max-width: 100%;
+            max-height: none;   /* quita el límite de 60px */
             object-fit: contain;
+            display: block;
         }
 
         .sidebar a {
@@ -160,6 +161,18 @@
             background-color: var(--primary-dark); 
             border-color: var(--primary-dark); 
         }
+
+        .brand {
+            padding: 10px;
+            text-align: center;
+        }
+
+        .brand .logo-brand {
+            width: 100%;
+            height: auto;
+            max-width: 100%;
+            object-fit: contain;
+        }
         
         /* Separador de secciones en el menú */
         .menu-label {
@@ -181,8 +194,7 @@
         <!-- Sidebar -->
         <nav class="col-md-2 sidebar">
             <div class="brand">
-                <!-- Asegúrate de tener tu logo en esta ruta -->
-                <img src="/static/img/logo.png" alt="Vargas Editorial">
+                <img src="/static/img/logo1.jpg" alt="Vargas Editorial" class="logo-brand">
             </div>
             
             <div class="flex-grow-1 overflow-auto">
