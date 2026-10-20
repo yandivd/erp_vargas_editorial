@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block title %}Divisas - Vargas Editorial{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card card-kpi p-3 border-start border-primary border-4">
+            <h6 class="text-muted text-uppercase">Saldo en CUP</h6>
+            <h2 class="mb-0 text-primary">${{ saldo_cup|floatformat:2 }}</h2>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card card-kpi p-3 border-start border-success border-4">
+            <h6 class="text-muted text-uppercase">Saldo en USD</h6>
+            <h2 class="mb-0 text-success">${{ saldo_usd|floatformat:2 }}</h2>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- COMPRAR USD -->
+    <div class="col-md-6">
+        <div class="card card-kpi p-4">
+            <h4 class="fw-bold mb-3">Comprar USD</h4>
+            <p class="small text-muted">Usa CUP de tu caja para comprar dólares.</p>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="comprar">
+                <div class="mb-3">
+                    <label class="form-label">Monto en USD a comprar</label>
+                    <input type="number" name="monto" class="form-control" step="0.01" required placeholder="Ej: 100">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Tasa de cambio (CUP x 1 USD)</label>
+                    <input type="number" name="tasa" class="form-control" step="0.01" required placeholder="Ej: 320">
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Registrar Compra</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- VENDER USD -->
+    <div class="col-md-6">
+        <div class="card card-kpi p-4">
+            <h4 class="fw-bold mb-3">Vender USD</h4>
+            <p class="small text-muted">Vende tus dólares para recuperar CUP.</p>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="vender">
+                <div class="mb-3">
+                    <label class="form-label">Monto en USD a vender</label>
+                    <input type="number" name="monto" class="form-control" step="0.01" required placeholder="Ej: 100">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Tasa de cambio actual (CUP x 1 USD)</label>
+                    <input type="number" name="tasa" class="form-control" step="0.01" required placeholder="Ej: 350">
+                </div>
+                <button type="submit" class="btn btn-success w-100">Registrar Venta</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- TABLA DE LOTES DISPONIBLES -->
+<div class="card card-kpi p-4 mt-4">
+    <h5 class="fw-bold">Lotes de USD disponibles</h5>
+    <table class="table table-sm">
+        <thead>
+            <tr><th>Fecha</th><th>USD disponibles</th><th>Costo (CUP/USD)</th></tr>
+        </thead>
+        <tbody>
+            {% for lote in lotes %}
+            <tr>
+                <td>{{ lote.fecha_compra|date:"d/m/Y" }}</td>
+                <td>{{ lote.cantidad_disponible|floatformat:2 }}</td>
+                <td>{{ lote.precio_compra|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3">No hay lotes disponibles.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

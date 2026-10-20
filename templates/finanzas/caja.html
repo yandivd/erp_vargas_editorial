@@ -16,17 +16,16 @@
 <!-- Resumen -->
 <div class="row g-3 mb-4">
     <div class="alert alert-info d-flex justify-content-between align-items-center shadow-sm">
-    <div>
-        <h5 class="mb-0"><i class="bi bi-wallet2"></i> Capital Total del Negocio</h5>
-        <small>Efectivo en Caja + Valor del Inventario</small>
+        <div>
+            <h5 class="mb-0"><i class="bi bi-wallet2"></i> Capital Total del Negocio</h5>
+            <small>Efectivo en Caja + Valor del Inventario</small>
+        </div>
+        <div class="text-end">
+            <h3 class="mb-0 fw-bold">${{ saldo_actual|add:valor_inventario|floatformat:2 }}</h3>
+            <small>Efectivo: ${{ saldo_actual|floatformat:2 }} | Inventario: ${{ valor_inventario|floatformat:2 }}</small>
+        </div>
     </div>
-    <div class="text-end">
-        <h3 class="mb-0 fw-bold">${{ saldo_actual|add:valor_inventario|floatformat:2 }}</h3>
-        <small>Efectivo: ${{ saldo_actual|floatformat:2 }} | Inventario: ${{ valor_inventario|floatformat:2 }}</small>
-    </div>
-</div>
     <div class="col-md-4">
-        
         <div class="card card-kpi p-3 border-start border-success border-4">
             <small class="text-muted">Ingresos Totales</small>
             <h3 class="mb-0 text-success">${{ total_ingresos|floatformat:2 }}</h3>
@@ -41,7 +40,10 @@
     <div class="col-md-4">
         <div class="card card-kpi p-3 border-start border-primary border-4">
             <small class="text-muted">Saldo en Caja</small>
-            <h3 class="mb-0 text-primary">${{ saldo_actual|floatformat:2 }}</h3>
+            <h3 class="mb-0 text-primary">${{ saldo_actual|floatformat:2 }} CUP</h3>
+            {% if saldo_usd > 0 %}
+                <small class="text-success fw-bold">+ ${{ saldo_usd|floatformat:2 }} USD</small>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -90,7 +92,13 @@
                 <tr>
                     <td>{{ mov.fecha|date:"d/m/Y H:i" }}</td>
                     <td>
-                        {% if mov.tipo == 'INGRESO' %}
+                        {% if mov.categoria == 'COMPRA_DIVISA' or mov.categoria == 'VENTA_DIVISA' %}
+                            <span class="badge bg-secondary">Transferencia</span>
+                        {% elif mov.categoria == 'GANANCIA_CAMBIARIA' %}
+                            <span class="badge bg-success">Ganancia cambiaria</span>
+                        {% elif mov.categoria == 'PERDIDA_CAMBIARIA' %}
+                            <span class="badge bg-danger">Pérdida cambiaria</span>
+                        {% elif mov.tipo == 'INGRESO' %}
                             <span class="badge bg-success">Ingreso</span>
                         {% else %}
                             <span class="badge bg-danger">Egreso</span>
@@ -98,8 +106,25 @@
                     </td>
                     <td>{{ mov.concepto }}</td>
                     <td><small>{{ mov.get_categoria_display }}</small></td>
-                    <td class="fw-bold {% if mov.tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">
-                        {% if mov.tipo == 'INGRESO' %}+{% else %}-{% endif %}${{ mov.monto|floatformat:2 }}
+                    <td class="fw-bold
+                        {% if mov.categoria == 'COMPRA_DIVISA' or mov.categoria == 'VENTA_DIVISA' %}
+                            text-secondary
+                        {% elif mov.categoria == 'GANANCIA_CAMBIARIA' or mov.tipo == 'INGRESO' %}
+                            text-success
+                        {% else %}
+                            text-danger
+                        {% endif %}">
+                        {% if mov.categoria == 'COMPRA_DIVISA' or mov.categoria == 'VENTA_DIVISA' %}
+                            ↔
+                        {% elif mov.tipo == 'INGRESO' %}
+                            +
+                        {% else %}
+                            -
+                        {% endif %}
+                        ${{ mov.monto|floatformat:2 }}
+                        {% if mov.moneda == 'USD' %}
+                            <small class="text-muted">USD</small>
+                        {% endif %}
                     </td>
                 </tr>
                 {% empty %}
