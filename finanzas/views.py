@@ -9,11 +9,12 @@ from .models import MovimientoCaja, GastoOperativo, CierreCaja, LoteDivisa, Deta
 from .services import ServicioFinanzas
 
 
+from django.core.paginator import Paginator
+
 def caja(request):
-    """Muestra el flujo de caja y los movimientos."""
+    """Muestra el flujo de caja y los movimientos paginados."""
     movimientos = MovimientoCaja.objects.all().order_by('-fecha')
     
-    # Filtros
     desde = request.GET.get('desde', '')
     hasta = request.GET.get('hasta', '')
     categoria = request.GET.get('categoria', '')
@@ -25,7 +26,6 @@ def caja(request):
     if categoria:
         movimientos = movimientos.filter(categoria=categoria)
         
-    # Totales (calculados sobre TODOS los movimientos, no solo los filtrados, para el resumen general)
     CATEGORIAS_TRANSFERENCIA = ['COMPRA_DIVISA', 'VENTA_DIVISA']
 
     total_ingresos = MovimientoCaja.objects.filter(
@@ -41,19 +41,20 @@ def caja(request):
     ).aggregate(t=Sum('monto'))['t'] or 0
     
     saldo_actual = total_ingresos - total_egresos
-    
     saldo_cup = ServicioFinanzas.saldo_caja('CUP')
     saldo_usd = ServicioFinanzas.saldo_caja('USD')
     
-    # Calcular valor del inventario
     materiales = Material.objects.filter(activo=True)
     valor_inventario = sum(m.stock_actual * m.costo_promedio for m in materiales)
     
+    paginator = Paginator(movimientos, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    
     context = {
-        'movimientos': movimientos,
+        'movimientos': page_obj,
         'total_ingresos': total_ingresos,
         'total_egresos': total_egresos,
-        'saldo_actual': saldo_cup, # Mantenemos esto para no romper el HTML actual
+        'saldo_actual': saldo_cup,
         'saldo_usd': saldo_usd,
         'categorias': MovimientoCaja.CATEGORIA_CHOICES,
         'desde': desde,
@@ -409,3 +410,31 @@ def reporte_ganancia_cambiaria(desde, hasta):
             'ganancia': ingreso - costo,
         })
     return resultado
+
+from django.template.loader import render_to_string
+from django.http import JsonResponse
+from django.core.paginator import Paginator
+
+def caja_ajax(request):
+    """Devuelve solo el HTML de la tabla de caja para paginación AJAX."""
+    movimientos = MovimientoCaja.objects.all().order_by('-fecha')
+    
+    desde = request.GET.get('desde', '')
+    hasta = request.GET.get('hasta', '')
+    categoria = request.GET.get('categoria', '')
+    
+    if desde:
+        movimientos = movimientos.filter(fecha__date__gte=desde)
+    if hasta:
+        movimientos = movimientos.filter(fecha__date__lte=hasta)
+    if categoria:
+        movimientos = movimientos.filter(categoria=categoria)
+    
+    paginator = Paginator(movimientos, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    
+    html = render_to_string('finanzas/_tabla_caja.html', {
+        'movimientos': page_obj,
+    }, request=request)
+    
+    return JsonResponse({'html': html})
