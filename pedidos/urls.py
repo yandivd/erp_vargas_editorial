@@ -27,4 +27,5 @@ urlpatterns = [
     path('<int:pk>/imprimir-pedido/', views.imprimir_pedido, name='imprimir_pedido'),
     path('<int:pk>/imprimir-servicio/', views.imprimir_orden_servicio, name='imprimir_servicio'),
     path('<int:pk>/asignar-cliente/', views.asignar_cliente_y_cobrar, name='asignar_cliente'),
+    path('lotes/<int:pk>/pdf/', views.orden_lote_pdf, name='orden_lote_pdf'),
 ]
