@@ -1,0 +1,194 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Ticket{% endblock %}</title>
+    <style>
+        @page {
+            size: 80mm auto;   /* 80mm de ancho. Para 58mm cambia a 58mm auto */
+            margin: 2mm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', 'Consolas', monospace;
+            font-size: 9pt;
+            color: #000;
+            margin: 0;
+            padding: 0;
+            width: 76mm;   /* 80mm - márgenes. Para 58mm usa 54mm */
+        }
+
+        .ticket {
+            width: 100%;
+        }
+
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .bold { font-weight: bold; }
+
+        .logo {
+            max-width: 40mm;
+            max-height: 20mm;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto 2mm auto;
+        }
+
+        .empresa {
+            font-size: 11pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+        }
+
+        .subtitulo {
+            font-size: 8pt;
+            margin: 1mm 0;
+        }
+
+        .separador {
+            border-top: 1px dashed #000;
+            margin: 2mm 0;
+        }
+
+        .separador-doble {
+            border-top: 2px solid #000;
+            margin: 2mm 0;
+        }
+
+        .doc-titulo {
+            font-size: 10pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 2mm 0;
+        }
+
+        .doc-numero {
+            font-size: 9pt;
+            margin: 0;
+        }
+
+        /* Tabla de items */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8.5pt;
+        }
+
+        table th {
+            text-align: left;
+            border-bottom: 1px solid #000;
+            padding: 1mm 0;
+            font-size: 8pt;
+            text-transform: uppercase;
+        }
+
+        table td {
+            padding: 1mm 0;
+            vertical-align: top;
+        }
+
+        .cant { width: 10%; text-align: center; }
+        .precio { width: 25%; text-align: right; }
+        .total { width: 30%; text-align: right; }
+
+        .totales {
+            margin-top: 2mm;
+        }
+
+        .totales .fila {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9pt;
+            margin: 1mm 0;
+        }
+
+        .totales .fila.total-final {
+            font-size: 11pt;
+            font-weight: bold;
+            border-top: 2px solid #000;
+            padding-top: 1.5mm;
+            margin-top: 1.5mm;
+        }
+
+        .nota {
+            font-size: 7.5pt;
+            text-align: center;
+            margin: 2mm 0;
+        }
+
+        .footer {
+            font-size: 7.5pt;
+            text-align: center;
+            margin-top: 3mm;
+        }
+
+        .no-print {
+            text-align: center;
+            margin: 5mm 0;
+        }
+
+        .no-print button {
+            font-size: 10pt;
+            padding: 2mm 5mm;
+            margin: 0 2mm;
+            cursor: pointer;
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Botones (no se imprimen) -->
+    <div class="no-print">
+        <button onclick="window.print()">🖨 Imprimir</button>
+        <button onclick="window.close()">✕ Cerrar</button>
+    </div>
+
+    <div class="ticket">
+
+        <!-- CABECERA -->
+        <div class="center">
+            <img src="{% static 'img/logo.png' %}" alt="Logo" class="logo">
+            <p class="empresa">Vargas Editorial</p>
+            <p class="subtitulo">Libros por encargo y encuadernación</p>
+            <p class="subtitulo">Tel: +53 54545068</p>
+            <p class="subtitulo">Artemisa, Cuba</p>
+        </div>
+
+        <div class="separador"></div>
+
+        <!-- TÍTULO DEL DOCUMENTO -->
+        <div class="center">
+            <p class="doc-titulo">{% block tipo_documento %}TICKET{% endblock %}</p>
+            <p class="doc-numero">No. <strong>{% block numero_doc %}0000{% endblock %}</strong></p>
+            <p class="doc-numero">{% now "d/m/Y H:i" %}</p>
+        </div>
+
+        <div class="separador"></div>
+
+        <!-- CONTENIDO -->
+        {% block contenido %}{% endblock %}
+
+        <div class="separador-doble"></div>
+
+        <!-- PIE -->
+        <div class="footer">
+            <p>Gracias por confiar en nosotros</p>
+            <p>__________________________</p>
+            <p>Firma / Sello</p>
+        </div>
+
+    </div>
+
+</body>
+</html>

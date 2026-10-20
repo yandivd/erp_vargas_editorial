@@ -17,7 +17,9 @@ def dashboard(request):
     inicio_mes = hoy.replace(day=1)
     
     # --- KPIs PRINCIPALES ---
-    saldo_caja = ServicioFinanzas.saldo_caja()
+    saldo_caja_cup = ServicioFinanzas.saldo_caja('CUP')
+    saldo_caja_usd = ServicioFinanzas.saldo_caja('USD')
+    # Para la tarjeta principal, mostramos el CUP. Luego pasamos ambos al context.
     
     # Pedidos activos
     estados_inactivos = Estado.objects.filter(nombre__in=['Borrador', 'Entregado', 'Cancelado']).values_list('id', flat=True)
@@ -70,7 +72,8 @@ def dashboard(request):
         proyeccion.append({'mes': mes_futuro, 'monto': float(promedio_mensual)})
 
     context = {
-        'saldo_caja': saldo_caja,
+        'saldo_caja': saldo_caja_cup,
+        'saldo_caja_usd': saldo_caja_usd,
         'pedidos_pendientes': pedidos_pendientes,
         'por_cobrar': por_cobrar,
         'por_pagar': por_pagar,

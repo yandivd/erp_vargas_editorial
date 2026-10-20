@@ -24,7 +24,7 @@
             <button type="submit" formaction="{% url 'proveedores:recibir_lote' %}" class="btn btn-warning fw-bold">
                 <i class="bi bi-box-arrow-in-down"></i> Marcar como Recibidos
             </button>
-            <button type="submit" formaction="{% url 'proveedores:pagar_lote' %}" class="btn btn-success fw-bold" onclick="return confirm('¿Registrar el pago de los servicios seleccionados? Se restará de la caja.')">
+            <button type="button" id="btnPagarSeleccionados" class="btn btn-success fw-bold">
                 <i class="bi bi-cash-stack"></i> Pagar Seleccionados
             </button>
         </div>
@@ -50,7 +50,7 @@
                     {% for s in servicios %}
                     <tr>
                         <td class="text-center">
-                            <input class="form-check-input check-servicio" type="checkbox" name="servicios_ids" value="{{ s.id }}">
+                            <input class="form-check-input check-servicio" type="checkbox" name="servicios_ids" value="{{ s.id }}" data-monto="{{ s.monto }}">
                         </td>
                         <td>
                             <a href="{% url 'pedidos:detalle' s.pedido.id %}" class="text-dark fw-bold text-decoration-none">
@@ -70,7 +70,6 @@
                             {% endif %}
                         </td>
                         <td class="text-end">
-                            <!-- Botones individuales -->
                             {% if s.estado == 'SOLICITADO' %}
                             <a href="{% url 'proveedores:recibir_servicio' s.id %}" class="btn btn-sm btn-outline-warning" title="Marcar Recibido">
                                 <i class="bi bi-box-arrow-in-down"></i>
@@ -78,7 +77,6 @@
                             {% endif %}
                             
                             {% if s.estado != 'PAGADO' %}
-                            <!-- Botón para editar el monto -->
                             <button type="button" class="btn btn-sm btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modalMonto-{{ s.id }}" title="Ajustar Monto">
                                 <i class="bi bi-pencil-square"></i>
                             </button>
@@ -101,7 +99,7 @@
     </div>
 </form>
 
-<!-- MODALES DE EDICIÓN (FUERA DE LA TABLA) -->
+<!-- MODALES DE EDICIÓN -->
 {% for s in servicios %}
     {% if s.estado != 'PAGADO' %}
     <div class="modal fade" id="modalMonto-{{ s.id }}" tabindex="-1">
@@ -133,16 +131,103 @@
     </div>
     {% endif %}
 {% endfor %}
+
+<!-- MODAL DE CONFIRMACIÓN DE PAGO MASIVO -->
+<div class="modal fade" id="modalConfirmarPago" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-cash-coin"></i> Confirmar pago</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="mb-3">Vas a pagar <strong id="modalCantidad">0</strong> servicio(s) por un total de:</p>
+                <h2 class="text-danger text-center mb-4">$<span id="modalTotal">0.00</span></h2>
+                <div class="alert alert-warning d-flex justify-content-between align-items-center mb-0">
+                    <span><i class="bi bi-wallet2"></i> Saldo actual en caja:</span>
+                    <strong>${{ saldo_caja|floatformat:2 }}</strong>
+                </div>
+                <div class="alert alert-info d-flex justify-content-between align-items-center mt-2 mb-0">
+                    <span><i class="bi bi-arrow-down-circle"></i> Saldo después del pago:</span>
+                    <strong id="modalSaldoDespues">$0.00</strong>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarPago">
+                    <i class="bi bi-check-lg"></i> Sí, pagar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    // Función para seleccionar/deseleccionar todos los checkboxes
-    function toggleTodos(source) {
-        const checkboxes = document.querySelectorAll('.check-servicio');
-        checkboxes.forEach(cb => {
+document.addEventListener('DOMContentLoaded', function () {
+    // ==========================================
+    // 1. SELECCIONAR TODOS
+    // ==========================================
+    window.toggleTodos = function(source) {
+        document.querySelectorAll('.check-servicio').forEach(cb => {
             cb.checked = source.checked;
         });
+    };
+
+    // ==========================================
+    // 2. PAGO MASIVO CON MODAL BONITO
+    // ==========================================
+    const formLote = document.getElementById('formLote');
+    const btnPagar = document.getElementById('btnPagarSeleccionados');
+    const modalEl = document.getElementById('modalConfirmarPago');
+    const modal = new bootstrap.Modal(modalEl);
+    const btnConfirmar = document.getElementById('btnConfirmarPago');
+
+    // Saldo en caja pasado desde el servidor
+    const saldoCaja = parseFloat('{{ saldo_caja|floatformat:2 }}'.replace(',', '.')) || 0;
+
+    if (btnPagar) {
+        btnPagar.addEventListener('click', function () {
+            const checks = document.querySelectorAll('.check-servicio:checked');
+            
+            if (checks.length === 0) {
+                alert('Selecciona al menos un servicio para pagar.');
+                return;
+            }
+
+            // Calcular total leyendo data-monto
+            let total = 0;
+            checks.forEach(cb => {
+                total += parseFloat(cb.dataset.monto || 0);
+            });
+
+            // Llenar el modal
+            document.getElementById('modalCantidad').textContent = checks.length;
+            document.getElementById('modalTotal').textContent = total.toFixed(2);
+
+            const saldoDespues = saldoCaja - total;
+            const saldoDespuesEl = document.getElementById('modalSaldoDespues');
+            saldoDespuesEl.textContent = '$' + saldoDespues.toFixed(2);
+            saldoDespuesEl.classList.remove('text-danger', 'text-success');
+            saldoDespuesEl.classList.add(saldoDespues < 0 ? 'text-danger' : 'text-success');
+
+            modal.show();
+        });
     }
+
+    if (btnConfirmar) {
+        btnConfirmar.addEventListener('click', function () {
+            btnConfirmar.disabled = true;
+            btnConfirmar.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+            
+            // Enviar el formulario al endpoint de pago masivo
+            const formData = new FormData(formLote);
+            // Cambiar el action al endpoint de pago
+            formLote.action = "{% url 'proveedores:pagar_lote' %}";
+            formLote.submit();
+        });
+    }
+});
 </script>
 {% endblock %}

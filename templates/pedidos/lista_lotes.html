@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Lotes de Servicio{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-boxes"></i> Lotes de Servicio</h2>
+</div>
+
+<div class="card card-kpi">
+    <table class="table table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Número</th>
+                <th>Proveedor</th>
+                <th>Tipo</th>
+                <th>Servicios</th>
+                <th>Total</th>
+                <th>Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lote in lotes %}
+            <tr>
+                <td><strong>{{ lote.numero }}</strong></td>
+                <td>{{ lote.proveedor.nombre }}</td>
+                <td>{{ lote.get_tipo_display }}</td>
+                <td>{{ lote.cantidad_servicios }}</td>
+                <td class="fw-bold text-danger">${{ lote.costo_total|floatformat:2 }}</td>
+                <td>
+                    <span class="badge bg-{% if lote.estado == 'ABIERTO' %}warning{% elif lote.estado == 'CERRADO' %}info{% elif lote.estado == 'PAGADO' %}success{% else %}secondary{% endif %}">
+                        {{ lote.get_estado_display }}
+                    </span>
+                </td>
+                <td class="text-end">
+                    <a href="{% url 'pedidos:detalle_lote' lote.id %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i> Ver
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" class="text-center text-muted py-4">No hay lotes todavía.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

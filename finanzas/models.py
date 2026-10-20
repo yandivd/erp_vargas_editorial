@@ -12,13 +12,22 @@ class MovimientoCaja(models.Model):
     CATEGORIA_CHOICES = [
         ('ANTICIPO_CLIENTE', 'Anticipo de cliente'),
         ('SALDO_CLIENTE', 'Saldo de cliente'),
+        ('INGRESO_MANUAL', 'Ingreso manual'),
+        ('PROPINA', 'Propina'),
+        ('MENSAJERIA', 'Mensajería / Envío'),
+        ('VENTA_DIRECTA', 'Venta directa'),
+        ('OTRO_INGRESO', 'Otro ingreso'),
         ('PAGO_PROVEEDOR', 'Pago a proveedor'),
         ('COMPRA_MATERIAL', 'Compra de material'),
         ('GASTO_OPERATIVO', 'Gasto operativo'),
         ('PAGO_NOMINA', 'Pago de Nómina'),
-        ('RETIRO_UTILIDADES', 'Retiro de Utilidades'), # <-- NUEVA
+        ('RETIRO_UTILIDADES', 'Retiro de Utilidades'),
         ('COMPRA_ACTIVO', 'Compra de activo fijo'),
-        ('OTRO', 'Otro'),
+        ('TRANSFERENCIA', 'Transferencia entre cuentas'),
+        ('COMPRA_DIVISA', 'Compra de divisa'),
+        ('VENTA_DIVISA', 'Venta de divisa'),
+        ('GANANCIA_CAMBIARIA', 'Ganancia por diferencia cambiaria'),
+        ('PERDIDA_CAMBIARIA', 'Pérdida por diferencia cambiaria'),
     ]
     METODO_CHOICES = [
         ('EFECTIVO', 'Efectivo'),
@@ -26,6 +35,12 @@ class MovimientoCaja(models.Model):
         ('TARJETA', 'Tarjeta'),
         ('OTRO', 'Otro'),
     ]
+
+    MONEDA_CHOICES = [
+        ('CUP', 'Peso Cubano (CUP)'),
+        ('USD', 'Dólar (USD)'),
+    ]
+    moneda = models.CharField(max_length=3, choices=MONEDA_CHOICES, default='CUP', verbose_name='Moneda')
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     categoria = models.CharField(max_length=30, choices=CATEGORIA_CHOICES)
     monto = models.DecimalField(max_digits=12, decimal_places=2)
@@ -140,3 +155,28 @@ class CierreCaja(models.Model):
 
     def __str__(self):
         return f"Cierre {self.fecha.strftime('%d/%m/%Y %H:%M')}"
+
+class LoteDivisa(models.Model):
+    fecha_compra = models.DateTimeField(auto_now_add=True)
+    cantidad_usd = models.DecimalField(max_digits=12, decimal_places=2)
+    precio_compra = models.DecimalField(max_digits=12, decimal_places=2, help_text="CUP por 1 USD")
+    cantidad_disponible = models.DecimalField(max_digits=12, decimal_places=2)
+    referencia = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        ordering = ['fecha_compra']  # FIFO
+
+    def __str__(self):
+        return f"Lote {self.id}: {self.cantidad_disponible} USD @ {self.precio_compra}"
+
+class DetalleVentaDivisa(models.Model):
+    movimiento_venta = models.ForeignKey(
+        MovimientoCaja, on_delete=models.CASCADE, related_name='detalles_divisa'
+    )
+    lote = models.ForeignKey(LoteDivisa, on_delete=models.PROTECT)
+    cantidad_usd = models.DecimalField(max_digits=12, decimal_places=2)
+    costo_unitario = models.DecimalField(max_digits=12, decimal_places=2)
+    costo_total = models.DecimalField(max_digits=12, decimal_places=2)
+
+    def __str__(self):
+        return f"Venta {self.movimiento_venta_id}: {self.cantidad_usd} USD del lote {self.lote_id}"
