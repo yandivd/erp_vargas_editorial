@@ -1,3 +1,4 @@
+from datetime import timezone
 from django.db import transaction
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
@@ -9,6 +10,8 @@ from decimal import Decimal
 
 from django.http import JsonResponse
 from django.template.loader import render_to_string
+
+from finanzas.models import MovimientoCaja
 
 from .models import Pedido, ServicioExterno, Book, Estado
 from .services import ServicioPedido, CosteadorPedido
@@ -494,3 +497,87 @@ def crear_libro(request):
             messages.error(request, 'El título y las páginas son obligatorios.')
             
     return redirect('pedidos:lista_libros')
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.db import transaction
+import json
+
+
+@require_POST
+def cambiar_estado_masivo(request):
+    """Cambia el estado de varios pedidos a la vez."""
+    try:
+        data = json.loads(request.body)
+        pedido_ids = data.get('pedido_ids', [])
+        estado_id = data.get('estado_id')
+
+        if not pedido_ids or not estado_id:
+            return JsonResponse({'ok': False, 'error': 'Faltan datos'}, status=400)
+
+        try:
+            nuevo_estado = Estado.objects.get(id=estado_id)
+        except Estado.DoesNotExist:
+            return JsonResponse({'ok': False, 'error': 'El estado no existe'}, status=404)
+
+        with transaction.atomic():
+            actualizados = Pedido.objects.filter(id__in=pedido_ids).update(estado=nuevo_estado)
+
+        return JsonResponse({
+            'ok': True,
+            'actualizados': actualizados,
+            'estado': nuevo_estado.nombre
+        })
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+    
+from .models import LoteServicio
+
+def cerrar_lote(request, pk):
+    lote = get_object_or_404(LoteServicio, pk=pk)
+    if request.method == 'POST' and lote.estado == 'ABIERTO':
+        lote.estado = 'CERRADO'
+        lote.fecha_cierre = timezone.now()
+        lote.save()
+        messages.success(request, f'Lote {lote.numero} cerrado con {lote.cantidad_servicios} servicios. Total: ${lote.costo_total}')
+    return redirect('pedidos:detalle_lote', pk=lote.id)
+
+def lista_lotes(request):
+    lotes = LoteServicio.objects.select_related('proveedor').all()
+    return render(request, 'pedidos/lista_lotes.html', {'lotes': lotes})
+
+
+def detalle_lote(request, pk):
+    lote = get_object_or_404(LoteServicio, pk=pk)
+    servicios = lote.servicios.select_related('pedido__libro', 'pedido__cliente').all()
+    return render(request, 'pedidos/detalle_lote.html', {
+        'lote': lote,
+        'servicios': servicios,
+    })
+
+
+def pagar_lote(request, pk):
+    lote = get_object_or_404(LoteServicio, pk=pk)
+    if request.method == 'POST' and lote.estado == 'CERRADO':
+        with transaction.atomic():
+            for servicio in lote.servicios.filter(estado__in=['SOLICITADO', 'RECIBIDO']):
+                MovimientoCaja.objects.create(
+                    tipo='EGRESO',
+                    categoria='PAGO_PROVEEDOR',
+                    monto=servicio.monto,
+                    concepto=f'Pago {servicio.get_tipo_display()} - Pedido #{servicio.pedido.id} ({lote.numero})',
+                    proveedor=lote.proveedor,
+                    pedido=servicio.pedido
+                )
+                servicio.estado = 'PAGADO'
+                servicio.fecha_pago = timezone.now()
+                servicio.save()
+            
+            lote.estado = 'PAGADO'
+            lote.fecha_pago = timezone.now()
+            lote.save()
+        
+        messages.success(request, f'Lote {lote.numero} pagado. Total: ${lote.costo_total}')
+        return redirect('pedidos:detalle_lote', pk=lote.id)
+    
+    return redirect('pedidos:detalle_lote', pk=lote.id)

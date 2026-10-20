@@ -3,6 +3,9 @@
     <table class="table table-hover mb-0 align-middle">
         <thead class="table-light">
             <tr>
+                <th style="width: 30px;">
+                    <input type="checkbox" id="checkTodos" class="form-check-input">
+                </th>
                 <th>Ref</th>
                 <th>Libro</th>
                 <th>Cliente</th>
@@ -16,6 +19,9 @@
         <tbody>
             {% for p in pedidos %}
             <tr>
+                <td>
+                    <input type="checkbox" class="form-check-input check-pedido" value="{{ p.id }}">
+                </td>
                 <td>
                     {% if p.referencia_externa %}
                         <span class="badge bg-secondary">{{ p.referencia_externa }}</span>
@@ -60,7 +66,7 @@
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="8" class="text-center text-muted py-5">
+            <tr><td colspan="9" class="text-center text-muted py-5">
                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                 No se encontraron pedidos con esos filtros.
             </td></tr>

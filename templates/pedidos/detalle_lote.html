@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Lote {{ lote.numero }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0"><i class="bi bi-boxes"></i> {{ lote.numero }}</h2>
+        <p class="text-muted mb-0">{{ lote.get_tipo_display }} — {{ lote.proveedor.nombre }}</p>
+    </div>
+    <span class="badge bg-info fs-6">{{ lote.get_estado_display }}</span>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card card-kpi p-3">
+            <small class="text-muted">Servicios</small>
+            <h3 class="mb-0">{{ lote.cantidad_servicios }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-kpi p-3">
+            <small class="text-muted">Total a pagar</small>
+            <h3 class="mb-0 text-danger">${{ lote.costo_total|floatformat:2 }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-kpi p-3">
+            <small class="text-muted">Apertura</small>
+            <h3 class="mb-0">{{ lote.fecha_apertura|date:"d/m/Y H:i" }}</h3>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-kpi p-3">
+            <small class="text-muted">Cierre</small>
+            <h3 class="mb-0">{{ lote.fecha_cierre|date:"d/m/Y H:i"|default:"—" }}</h3>
+        </div>
+    </div>
+</div>
+
+<div class="card card-kpi p-3 mb-4">
+    <h5>Servicios incluidos</h5>
+    <table class="table table-sm">
+        <thead>
+            <tr><th>Pedido</th><th>Libro</th><th>Cliente</th><th>Monto</th><th>Estado</th></tr>
+        </thead>
+        <tbody>
+            {% for s in servicios %}
+            <tr>
+                <td><a href="{% url 'pedidos:detalle' s.pedido.id %}">#{{ s.pedido.id }}</a></td>
+                <td>{{ s.pedido.libro.titulo }}</td>
+                <td>{{ s.pedido.cliente.nombre|default:"[ Stock ]" }}</td>
+                <td>${{ s.monto|floatformat:2 }}</td>
+                <td>{{ s.get_estado_display }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card card-kpi p-3">
+    <h5>Acciones</h5>
+    <form method="post" class="d-flex gap-2">
+        {% csrf_token %}
+        {% if lote.estado == 'ABIERTO' %}
+        <button formaction="{% url 'pedidos:cerrar_lote' lote.id %}" class="btn btn-info">
+            <i class="bi bi-lock"></i> Cerrar lote
+        </button>
+        {% endif %}
+        {% if lote.estado == 'CERRADO' %}
+        <button formaction="{% url 'pedidos:pagar_lote' lote.id %}" class="btn btn-danger">
+            <i class="bi bi-cash"></i> Pagar lote (${{ lote.costo_total|floatformat:2 }})
+        </button>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}
