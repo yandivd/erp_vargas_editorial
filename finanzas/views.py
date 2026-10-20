@@ -1,3 +1,5 @@
+import os
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib import messages
@@ -5,6 +7,8 @@ from django.db.models import Sum, Q
 from django.utils import timezone
 from datetime import datetime
 from decimal import Decimal
+
+from config import settings
 from .models import MovimientoCaja, GastoOperativo, CierreCaja, LoteDivisa, DetalleVentaDivisa
 from .services import ServicioFinanzas
 
@@ -462,6 +466,9 @@ def arqueo_caja_pdf(request, pk):
             })
             total_efectivo += subtotal
 
+    # Ruta absoluta del logo para WeasyPrint
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
+
     html_string = render_to_string('finanzas/arqueo_caja_pdf.html', {
         'cierre': cierre,
         'desglose': desglose,
@@ -470,6 +477,7 @@ def arqueo_caja_pdf(request, pk):
         'total_contado': cierre.efectivo_real,
         'saldo_sistema': cierre.saldo_sistema,
         'diferencia': cierre.diferencia,
+        'logo_path': f'file:///{logo_path.replace(os.sep, "/")}',
     }, request=request)
 
     pdf = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
