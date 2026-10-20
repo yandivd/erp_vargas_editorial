@@ -91,6 +91,33 @@ def registrar_gasto(request):
             
     return redirect('finanzas:caja')
 
+def registrar_ingreso(request):
+    """Registra un ingreso manual que no viene de un pedido."""
+    if request.method == 'POST':
+        concepto = request.POST.get('concepto')
+        monto = Decimal(request.POST.get('monto', 0))
+        categoria = request.POST.get('categoria', 'INGRESO_MANUAL')
+        metodo = request.POST.get('metodo', 'EFECTIVO')
+
+        # Validar que la categoría sea una de las permitidas para ingreso manual
+        categorias_validas = ['INGRESO_MANUAL', 'PROPINA', 'MENSAJERIA', 'VENTA_DIRECTA', 'OTRO_INGRESO']
+        if categoria not in categorias_validas:
+            categoria = 'INGRESO_MANUAL'
+
+        if monto > 0 and concepto:
+            MovimientoCaja.objects.create(
+                tipo='INGRESO',
+                categoria=categoria,
+                monto=monto,
+                concepto=concepto,
+                metodo=metodo
+            )
+            messages.success(request, f'Ingreso registrado: {concepto} por ${monto}')
+        else:
+            messages.error(request, 'El concepto y el monto son obligatorios.')
+
+    return redirect('finanzas:caja')
+
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils import timezone
