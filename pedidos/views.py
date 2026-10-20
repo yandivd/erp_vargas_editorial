@@ -709,3 +709,34 @@ def imprimir_comprobantes_termico(request):
         'total_saldo': total_saldo,
         'un_solo_cliente': un_solo_cliente,
     })
+
+def imprimir_pedido_carta(request, pk):
+    pedido = get_object_or_404(Pedido, pk=pk)
+    return render(request, 'pedidos/imprimir_pedido_carta.html', {'pedido': pedido})
+
+
+def imprimir_comprobantes_lote_carta(request):
+    ids = request.GET.getlist('ids')
+    if not ids:
+        messages.error(request, 'No seleccionaste pedidos para imprimir.')
+        return redirect('pedidos:lista')
+
+    pedidos = Pedido.objects.filter(id__in=ids).select_related(
+        'cliente', 'libro', 'estado'
+    ).order_by('cliente__nombre', 'fecha_pedido', 'id')
+
+    if not pedidos.exists():
+        messages.error(request, 'No se encontraron pedidos con esos IDs.')
+        return redirect('pedidos:lista')
+
+    total_venta = sum(p.precio_venta for p in pedidos)
+    total_anticipo = sum(p.anticipo_recibido for p in pedidos)
+    total_saldo = sum(p.saldo_pendiente for p in pedidos)
+
+    return render(request, 'pedidos/imprimir_comprobantes_lote_carta.html', {
+        'pedidos': pedidos,
+        'cantidad': pedidos.count(),
+        'total_venta': total_venta,
+        'total_anticipo': total_anticipo,
+        'total_saldo': total_saldo,
+    })

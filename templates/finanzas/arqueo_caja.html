@@ -121,6 +121,7 @@
                         <th>Real</th>
                         <th>Diferencia</th>
                         <th>Notas</th>
+                        <th class="text-end">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -139,9 +140,14 @@
                             {% endif %}
                         </td>
                         <td><small class="text-muted">{{ c.notas|truncatechars:30 }}</small></td>
+                        <td class="text-end">
+                            <a href="{% url 'finanzas:arqueo_caja_pdf' c.id %}" target="_blank" class="btn btn-sm btn-outline-danger" title="Descargar PDF">
+                                <i class="bi bi-file-earmark-pdf"></i> PDF
+                            </a>
+                        </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="5" class="text-center text-muted py-4">No hay arqueos registrados.</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4">No hay arqueos registrados.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

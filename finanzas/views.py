@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.shortcuts import render, redirect
+from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib import messages
 from django.db.models import Sum, Q
 from django.utils import timezone
@@ -438,3 +438,42 @@ def caja_ajax(request):
     }, request=request)
     
     return JsonResponse({'html': html})
+
+from django.template.loader import render_to_string
+from django.http import HttpResponse
+from weasyprint import HTML
+
+def arqueo_caja_pdf(request, pk):
+    """Genera un PDF con el detalle de un arqueo de caja."""
+    cierre = get_object_or_404(CierreCaja, pk=pk)
+
+    # Reconstruir el desglose de billetes legible
+    denominaciones = [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 1]
+    desglose = []
+    total_efectivo = 0
+    for d in denominaciones:
+        cant = getattr(cierre, f'b_{d}', 0)
+        if cant > 0:
+            subtotal = cant * d
+            desglose.append({
+                'denominacion': d,
+                'cantidad': cant,
+                'subtotal': subtotal,
+            })
+            total_efectivo += subtotal
+
+    html_string = render_to_string('finanzas/arqueo_caja_pdf.html', {
+        'cierre': cierre,
+        'desglose': desglose,
+        'total_efectivo': total_efectivo,
+        'transferencia': cierre.transferencia,
+        'total_contado': cierre.efectivo_real,
+        'saldo_sistema': cierre.saldo_sistema,
+        'diferencia': cierre.diferencia,
+    }, request=request)
+
+    pdf = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
+
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="arqueo-{cierre.id}-{cierre.fecha.strftime("%Y%m%d")}.pdf"'
+    return response

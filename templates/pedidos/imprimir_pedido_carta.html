@@ -1,0 +1,64 @@
+{% extends 'impresion_carta_pequena.html' %}
+{% load static %}
+
+{% block title %}Comprobante #{{ pedido.id }}{% endblock %}
+
+{% block etiquetas %}
+<div class="etiqueta">
+
+    <!-- CABECERA -->
+    <div class="etq-header">
+        <img src="{% static 'img/logo.png' %}" alt="Logo" class="etq-logo">
+        <div>
+            <p class="etq-empresa">Vargas Editorial</p>
+            <p class="etq-sub">Tel: +53 54545068</p>
+        </div>
+    </div>
+
+    <!-- CUERPO -->
+    <div class="etq-cuerpo">
+        <p>
+            <span class="etq-label">Cliente</span><br>
+            <span class="etq-valor">{{ pedido.cliente.nombre|default:"Stock"|truncatechars:22 }}</span>
+        </p>
+        <p>
+            <span class="etq-label">Libro</span><br>
+            <span class="etq-titulo-libro">{{ pedido.libro.titulo }}</span>
+        </p>
+        <p>
+            <span class="etq-label">Págs.</span>
+            <span class="etq-valor">{{ pedido.libro.paginas }}</span>
+            &nbsp;·&nbsp;
+            <span class="etq-label">Cant.</span>
+            <span class="etq-valor">{{ pedido.cantidad }}</span>
+        </p>
+        <p>
+            <span class="etq-label">Entrega</span><br>
+            <span class="etq-valor">{{ pedido.fecha_entrega_prometida|date:"d/m/Y"|default:"—" }}</span>
+        </p>
+        {% if pedido.direccion_entrega or pedido.cliente.direccion %}
+        <p>
+            <span class="etq-label">Dir.</span><br>
+            {{ pedido.direccion_entrega|default:pedido.cliente.direccion|truncatechars:28 }}
+        </p>
+        {% endif %}
+    </div>
+
+    <!-- PIE -->
+    <div class="etq-footer">
+        <div>
+            <span class="etq-ref-label">Pedido</span>
+            <span class="etq-ref">#{{ pedido.referencia_externa|default:pedido.id }}</span>
+        </div>
+        <div style="text-align:right;">
+            {% if pedido.saldo_pendiente > 0 %}
+                <span class="etq-label">Saldo</span><br>
+                <span class="etq-saldo">${{ pedido.saldo_pendiente|floatformat:0 }}</span>
+            {% else %}
+                <span class="etq-estado">Pagado</span>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

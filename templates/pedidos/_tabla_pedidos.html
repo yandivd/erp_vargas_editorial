@@ -35,7 +35,19 @@
                 </td>
                 <td>
                     <strong>{{ p.cliente.nombre|default:"[ Stock ]" }}</strong><br>
-                    <small class="text-muted"><i class="bi bi-telephone"></i> {% if p.cliente %}{{ p.telefono_entrega|default:p.cliente.telefono|default:"—" }}{% else %}{{ p.telefono_entrega|default:"—" }}{% endif %}</small>
+                    <small class="text-muted">
+                        <i class="bi bi-telephone"></i>
+                        {% if p.cliente %}
+                            {{ p.telefono_entrega|default:p.cliente.telefono|default:"—" }}
+                        {% else %}
+                            {{ p.telefono_entrega|default:"—" }}
+                        {% endif %}
+                    </small>
+                    <br>
+                    <small class="text-muted" title="{{ p.direccion_completa }}">
+                        <i class="bi bi-geo-alt"></i>
+                        {{ p.direccion_completa|truncatechars:40 }}
+                    </small>
                 </td>
                 <td>
                     <small class="text-muted d-block">Pedido: {{ p.fecha_pedido|date:"d/m/Y" }}</small>
@@ -85,13 +97,25 @@
         {% if pedidos.has_previous %}
             <li class="page-item"><a class="page-link" href="#" data-page="1">&laquo;</a></li>
             <li class="page-item"><a class="page-link" href="#" data-page="{{ pedidos.previous_page_number }}">Anterior</a></li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+            <li class="page-item disabled"><span class="page-link">Anterior</span></li>
         {% endif %}
-        
-        <li class="page-item active"><span class="page-link">{{ pedidos.number }}</span></li>
-        
+
+        {% for num in pedidos.paginator.page_range %}
+            {% if pedidos.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > pedidos.number|add:'-3' and num < pedidos.number|add:'3' %}
+                <li class="page-item"><a class="page-link" href="#" data-page="{{ num }}">{{ num }}</a></li>
+            {% endif %}
+        {% endfor %}
+
         {% if pedidos.has_next %}
             <li class="page-item"><a class="page-link" href="#" data-page="{{ pedidos.next_page_number }}">Siguiente</a></li>
             <li class="page-item"><a class="page-link" href="#" data-page="{{ pedidos.paginator.num_pages }}">&raquo;</a></li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+            <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
         {% endif %}
     </ul>
 </div>
