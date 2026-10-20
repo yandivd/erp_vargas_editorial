@@ -9,17 +9,17 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <a href="{% url 'pedidos:lista_lotes' %}" class="btn btn-outline-warning me-2">
+    <div class="d-flex gap-2">
+        <a href="{% url 'pedidos:lista_lotes' %}" class="btn btn-outline-warning">
             <i class="bi bi-boxes"></i> Lotes de servicio
         </a>
-        <a href="{% url 'pedidos:lista_entregados' %}" class="btn btn-outline-primary me-2">
+        <a href="{% url 'pedidos:lista_entregados' %}" class="btn btn-outline-primary">
             <i class="bi bi-archive"></i> Ver Historial
         </a>
-        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoPedido">
-            <i class="bi bi-plus-lg"></i> Nuevo pedido
-        </button>
     </div>
+    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoPedido">
+        <i class="bi bi-plus-lg"></i> Nuevo pedido
+    </button>
 </div>
 
 <!-- PANEL DE FILTROS -->
@@ -546,13 +546,10 @@ document.addEventListener('DOMContentLoaded', function () {
     function formatLibro(book) {
         if (!book.id) { return book.text; }
         
-        const autor = $(book.element).attr('data-autor') || 'Autor desconocido';
-        
         const $libro = $(
             `<div class="d-flex justify-content-between align-items-center w-100" style="overflow: hidden; white-space: nowrap;">
                 <span style="text-overflow: ellipsis; overflow: hidden;">
-                    <strong>${book.text}</strong> 
-                    <small class="text-muted ms-2">(${autor})</small>
+                    <strong>${book.text}</strong>
                 </span>
             </div>`
         );

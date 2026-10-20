@@ -32,8 +32,46 @@
 </div>
 
 <!-- Modal Nuevo Libro (igual que antes) -->
+<!-- Modal Nuevo Libro -->
 <div class="modal fade" id="modalNuevoLibro" tabindex="-1">
-    <!-- ... contenido del modal ... -->
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="bi bi-book"></i> Registrar Nuevo Libro</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'pedidos:crear_libro' %}" id="formNuevoLibro">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Título *</label>
+                        <input type="text" name="titulo" class="form-control" placeholder="Ej: Cien años de soledad" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">Autor</label>
+                        <input type="text" name="autor" class="form-control" placeholder="Ej: Gabriel García Márquez">
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Páginas *</label>
+                            <input type="number" name="paginas" id="nuevo_libro_paginas" class="form-control" min="1" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Precio Base ($) *</label>
+                            <input type="number" name="precio" id="nuevo_libro_precio" class="form-control" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div id="precio-aviso-nuevo" class="small text-muted" style="display:none;">
+                        <span class="spinner-border spinner-border-sm"></span> Calculando precio sugerido...
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Guardar Libro</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -142,6 +180,42 @@ document.addEventListener('DOMContentLoaded', function () {
                 inputPrecio.value = 0;
                 aviso.style.display = 'none';
             }
+        });
+    }
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // ==========================================
+    // CÁLCULO DE PRECIO AUTOMÁTICO (Nuevo Libro)
+    // ==========================================
+    const inputPaginas = document.getElementById('nuevo_libro_paginas');
+    const inputPrecio = document.getElementById('nuevo_libro_precio');
+    const aviso = document.getElementById('precio-aviso-nuevo');
+
+    if (inputPaginas && inputPrecio) {
+        inputPaginas.addEventListener('input', function () {
+            const paginas = parseInt(this.value) || 0;
+
+            if (paginas < 1) {
+                aviso.style.display = 'none';
+                return;
+            }
+
+            aviso.style.display = 'block';
+
+            fetch(`/pedidos/calcular-costo/?paginas=${paginas}&lleva_scotch=false&lleva_esquineros=false`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.ok) {
+                        inputPrecio.value = data.costo.precio_sugerido;
+                    }
+                    aviso.style.display = 'none';
+                })
+                .catch(() => {
+                    aviso.style.display = 'none';
+                });
         });
     }
 });

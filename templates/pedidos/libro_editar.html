@@ -17,7 +17,7 @@
                 {% endfor %}
             {% endif %}
 
-            <form method="post">
+            <form method="post" id="formEditarLibro">
                 {% csrf_token %}
                 <div class="mb-3">
                     <label class="form-label">Título *</label>
@@ -30,17 +30,56 @@
                 <div class="row g-2 mb-3">
                     <div class="col-md-6">
                         <label class="form-label">Páginas *</label>
-                        <input type="number" name="paginas" class="form-control" value="{{ libro.paginas }}" min="1" required>
+                        <input type="number" name="paginas" id="id_paginas" class="form-control" value="{{ libro.paginas }}" min="1" required>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Precio Base ($) *</label>
-                        <input type="number" name="precio" class="form-control" value="{{ libro.precio }}" step="0.01" min="0" required>
+                        <input type="number" name="precio" id="id_precio" class="form-control" value="{{ libro.precio }}" step="0.01" min="0" required>
                     </div>
                 </div>
-                
+
+                <div id="precio-aviso" class="small text-muted mb-3" style="display:none;">
+                    <span class="spinner-border spinner-border-sm"></span> Recalculando precio...
+                </div>
+
                 <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Guardar Cambios</button>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const inputPaginas = document.getElementById('id_paginas');
+    const inputPrecio = document.getElementById('id_precio');
+    const aviso = document.getElementById('precio-aviso');
+
+    if (!inputPaginas || !inputPrecio) return;
+
+    inputPaginas.addEventListener('input', function () {
+        const paginas = parseInt(this.value) || 0;
+
+        if (paginas < 1) {
+            aviso.style.display = 'none';
+            return;
+        }
+
+        aviso.style.display = 'block';
+
+        fetch(`/pedidos/calcular-costo/?paginas=${paginas}&lleva_scotch=false&lleva_esquineros=false`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    inputPrecio.value = data.costo.precio_sugerido;
+                }
+                aviso.style.display = 'none';
+            })
+            .catch(() => {
+                aviso.style.display = 'none';
+            });
+    });
+});
+</script>
 {% endblock %}
