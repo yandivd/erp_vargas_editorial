@@ -5,6 +5,7 @@ app_name = 'finanzas'
 
 urlpatterns = [
     path('caja/', views.caja, name='caja'),
+    path('caja/ajax/', views.caja_ajax, name='caja_ajax'),
     path('gasto/', views.registrar_gasto, name='registrar_gasto'),
     path('ingreso/', views.registrar_ingreso, name='registrar_ingreso'),
     path('activos/', views.lista_activos, name='activos'),

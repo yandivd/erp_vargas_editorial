@@ -54,7 +54,7 @@
 
 <!-- Filtros -->
 <div class="card card-kpi p-3 mb-3">
-    <form method="get" class="row g-2 align-items-end">
+    <form method="get" class="row g-2 align-items-end" id="formFiltrosCaja">
         <div class="col-md-3">
             <label class="form-label small">Desde</label>
             <input type="date" name="desde" class="form-control" value="{{ desde }}">
@@ -78,65 +78,9 @@
     </form>
 </div>
 
-<!-- Tabla de Movimientos -->
-<div class="card card-kpi">
-    <div class="table-responsive">
-        <table class="table table-hover mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>Fecha</th>
-                    <th>Tipo</th>
-                    <th>Concepto</th>
-                    <th>Categoría</th>
-                    <th>Monto</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for mov in movimientos %}
-                <tr>
-                    <td>{{ mov.fecha|date:"d/m/Y H:i" }}</td>
-                    <td>
-                        {% if mov.categoria == 'COMPRA_DIVISA' or mov.categoria == 'VENTA_DIVISA' %}
-                            <span class="badge bg-secondary">Transferencia</span>
-                        {% elif mov.categoria == 'GANANCIA_CAMBIARIA' %}
-                            <span class="badge bg-success">Ganancia cambiaria</span>
-                        {% elif mov.categoria in 'INGRESO_MANUAL,PROPINA,MENSAJERIA,VENTA_DIRECTA,OTRO_INGRESO' %}
-                            <span class="badge bg-success-subtle text-success border border-success">Ingreso manual</span>
-                        {% elif mov.tipo == 'INGRESO' %}
-                            <span class="badge bg-success">Ingreso</span>
-                        {% else %}
-                            <span class="badge bg-danger">Egreso</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ mov.concepto }}</td>
-                    <td><small>{{ mov.get_categoria_display }}</small></td>
-                    <td class="fw-bold
-                        {% if mov.categoria == 'COMPRA_DIVISA' or mov.categoria == 'VENTA_DIVISA' %}
-                            text-secondary
-                        {% elif mov.categoria == 'GANANCIA_CAMBIARIA' or mov.tipo == 'INGRESO' %}
-                            text-success
-                        {% else %}
-                            text-danger
-                        {% endif %}">
-                        {% if mov.categoria == 'COMPRA_DIVISA' or mov.categoria == 'VENTA_DIVISA' %}
-                            ↔
-                        {% elif mov.tipo == 'INGRESO' %}
-                            +
-                        {% else %}
-                            -
-                        {% endif %}
-                        ${{ mov.monto|floatformat:2 }}
-                        {% if mov.moneda == 'USD' %}
-                            <small class="text-muted">USD</small>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="5" class="text-center text-muted py-4">No hay movimientos registrados</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<!-- Tabla de Movimientos (contenedor AJAX) -->
+<div class="card card-kpi" id="contenedor-caja">
+    {% include 'finanzas/_tabla_caja.html' %}
 </div>
 
 <!-- Modal Gasto -->
@@ -201,6 +145,15 @@
                             <option value="OTRO_INGRESO">Otro ingreso</option>
                         </select>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Método</label>
+                        <select name="metodo" class="form-select">
+                            <option value="EFECTIVO">Efectivo</option>
+                            <option value="TRANSFERENCIA">Transferencia</option>
+                            <option value="TARJETA">Tarjeta</option>
+                            <option value="OTRO">Otro</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -210,4 +163,72 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const contenedor = document.getElementById('contenedor-caja');
+    const formFiltros = document.getElementById('formFiltrosCaja');
+    if (!contenedor) return;
+
+    function engancharPaginacion() {
+        const paginacion = document.getElementById('paginacion-caja');
+        if (!paginacion) return;
+
+        // Clonar para eliminar listeners viejos
+        paginacion.querySelectorAll('a.page-link').forEach(link => {
+            link.replaceWith(link.cloneNode(true));
+        });
+
+        const paginacionNueva = document.getElementById('paginacion-caja');
+        if (!paginacionNueva) return;
+
+        paginacionNueva.querySelectorAll('a.page-link').forEach(link => {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                const page = this.getAttribute('data-page');
+                if (!page) return;
+                cargarPagina(page);
+            });
+        });
+    }
+
+    function cargarPagina(page) {
+        const params = new URLSearchParams();
+        if (formFiltros) {
+            new FormData(formFiltros).forEach((value, key) => {
+                if (value) params.append(key, value);
+            });
+        }
+        params.set('page', page);
+
+        contenedor.style.opacity = '0.5';
+        fetch(`{% url 'finanzas:caja_ajax' %}?${params.toString()}`)
+            .then(r => r.json())
+            .then(data => {
+                contenedor.innerHTML = data.html;
+                contenedor.style.opacity = '1';
+                engancharPaginacion();
+            })
+            .catch(err => {
+                console.error(err);
+                contenedor.style.opacity = '1';
+            });
+    }
+
+    // Interceptar el submit del filtro para que recargue por AJAX
+    if (formFiltros) {
+        formFiltros.addEventListener('submit', function (e) {
+            e.preventDefault();
+            cargarPagina(1);
+        });
+        formFiltros.querySelectorAll('select, input[type="date"]').forEach(el => {
+            el.addEventListener('change', () => cargarPagina(1));
+        });
+    }
+
+    engancharPaginacion();
+});
+</script>
 {% endblock %}
