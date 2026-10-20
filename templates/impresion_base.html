@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -7,7 +8,14 @@
     <style>
         body { background: #f4f6f9; font-family: Arial, sans-serif; }
         .documento { background: white; max-width: 800px; margin: 30px auto; padding: 40px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        
+
+        /* Logo */
+        .logo-img {
+            max-height: 70px;
+            max-width: 180px;
+            object-fit: contain;
+        }
+
         /* Reglas para la impresora */
         @media print {
             body { background: white; }
@@ -27,11 +35,13 @@
 
     <!-- El Papel -->
     <div class="documento">
-        <div class="row mb-4 border-bottom pb-3">
+        <div class="row mb-4 border-bottom pb-3 align-items-center">
             <div class="col-8">
-                <h2 class="mb-0">ERP Libros</h2>
-                <p class="text-muted mb-0">Taller de encuadernación y diseño</p>
-                <p class="text-muted mb-0">Tel: +53 5XXXXXXX | La Habana, Cuba</p>
+                <div class="d-flex flex-column align-items-start">
+                    <img src="{% static 'img/logo.png' %}" alt="Logo Vargas Editorial" class="logo-img mb-2">
+                    <p class="text-muted mb-0 small">Libros por encargo y encuadernación artesanal</p>
+                    <p class="text-muted mb-0 small">Tel: +53 54545068 | Artemisa, Cuba</p>
+                </div>
             </div>
             <div class="col-4 text-end">
                 <h4 class="mb-0">{% block tipo_documento %}DOCUMENTO{% endblock %}</h4>
