@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Pedido, HistorialEstado, ServicioExterno, Book, Estado
+from django.utils import timezone
+from .models import (
+    Pedido, HistorialEstado, ServicioExterno, Book, Estado, LoteServicio
+)
 from .services import ServicioPedido
 
 
@@ -10,7 +13,6 @@ from .services import ServicioPedido
 class BookAdmin(admin.ModelAdmin):
     list_display = ('titulo', 'autor', 'paginas',)
     search_fields = ('titulo', 'autor')
-    # list_filter = ('tipo_tapa',)
 
 
 # ==========================================
@@ -18,12 +20,10 @@ class BookAdmin(admin.ModelAdmin):
 # ==========================================
 @admin.register(Estado)
 class EstadoAdmin(admin.ModelAdmin):
-    # El primer campo (colored_name) será el enlace. 
-    # Luego ponemos orden, es_final y activo (estos sí son editables)
     list_display = ('colored_name', 'orden', 'es_final', 'activo')
     list_editable = ('orden', 'es_final', 'activo')
     ordering = ('orden',)
-    
+
     def colored_name(self, obj):
         return obj.colored_name()
     colored_name.short_description = 'Nombre'
@@ -32,11 +32,6 @@ class EstadoAdmin(admin.ModelAdmin):
 # ==========================================
 # ADMIN DE PEDIDOS
 # ==========================================
-from django.contrib import admin
-from .models import Pedido, HistorialEstado, ServicioExterno, Book, Estado
-from .services import ServicioPedido
-
-
 class HistorialEstadoInline(admin.TabularInline):
     model = HistorialEstado
     extra = 0
@@ -45,14 +40,12 @@ class HistorialEstadoInline(admin.TabularInline):
 
 @admin.register(Pedido)
 class PedidoAdmin(admin.ModelAdmin):
-    # Agregamos 'id' y 'referencia_externa' al principio para que sean lo primero que veas
     list_display = (
-        'id', 'referencia_externa', 'get_titulo_libro', 'cliente', 'get_paginas', 'precio_venta',
-        'anticipo_recibido', 'saldo_pendiente', 'estado',
+        'id', 'referencia_externa', 'get_titulo_libro', 'cliente', 'get_paginas',
+        'precio_venta', 'anticipo_recibido', 'saldo_pendiente', 'estado',
         'fecha_entrega_prometida', 'esta_atrasado'
     )
     list_filter = ('estado', 'lleva_scotch', 'lleva_esquineros')
-    # Agregamos la referencia a los campos de búsqueda
     search_fields = ('referencia_externa', 'libro__titulo', 'libro__autor', 'cliente__nombre')
     readonly_fields = ('fecha_pedido', 'saldo_pendiente')
     inlines = [HistorialEstadoInline]
@@ -60,7 +53,6 @@ class PedidoAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Datos del libro', {
-            # Agregamos 'referencia_externa' aquí para que sea editable
             'fields': ('referencia_externa', 'cliente', 'libro', 'cantidad',
                        'lleva_scotch', 'lleva_esquineros')
         }),
@@ -78,8 +70,7 @@ class PedidoAdmin(admin.ModelAdmin):
             'fields': ('notas',)
         }),
     )
-    
-    # Columnas personalizadas para leer datos desde 'libro'
+
     @admin.display(description='Libro')
     def get_titulo_libro(self, obj):
         return obj.libro.titulo
@@ -87,28 +78,27 @@ class PedidoAdmin(admin.ModelAdmin):
     @admin.display(description='Páginas')
     def get_paginas(self, obj):
         return obj.libro.paginas
-    
+
     actions = ['accion_cambiar_a_impreso', 'accion_cambiar_a_entregado']
-    
+
     @admin.action(description='Marcar como Impreso (consume materiales)')
     def accion_cambiar_a_impreso(self, request, queryset):
         for pedido in queryset:
             ServicioPedido.cambiar_estado(pedido, 'Impreso', usuario=request.user.username)
         self.message_user(request, f'{queryset.count()} pedidos marcados como Impresos.')
-    
+
     @admin.action(description='Marcar como Entregado')
     def accion_cambiar_a_entregado(self, request, queryset):
         for pedido in queryset:
             ServicioPedido.cambiar_estado(pedido, 'Entregado', usuario=request.user.username)
         self.message_user(request, f'{queryset.count()} pedidos entregados.')
-    
+
     def save_model(self, request, obj, form, change):
         """Detecta si cambió el estado y ejecuta la lógica."""
         if change:
             anterior = Pedido.objects.get(pk=obj.pk)
             if anterior.estado != obj.estado:
                 super().save_model(request, obj, form, change)
-                # Aquí pasamos obj.estado.nombre en lugar del objeto entero
                 ServicioPedido.cambiar_estado(
                     obj, obj.estado.nombre, usuario=request.user.username,
                     notas='Cambio desde admin'
@@ -127,12 +117,79 @@ class HistorialEstadoAdmin(admin.ModelAdmin):
 
 
 # ==========================================
+# ADMIN DE LOTES DE SERVICIO
+# ==========================================
+class ServicioExternoInline(admin.TabularInline):
+    """Muestra los servicios que componen un lote."""
+    model = ServicioExterno
+    extra = 0
+    fields = ('pedido', 'tipo', 'monto', 'estado', 'fecha_solicitud')
+    readonly_fields = ('fecha_solicitud',)
+    can_delete = False
+    show_change_link = True
+
+
+@admin.register(LoteServicio)
+class LoteServicioAdmin(admin.ModelAdmin):
+    list_display = (
+        'numero', 'proveedor', 'tipo', 'cantidad_servicios_display',
+        'costo_total_display', 'estado', 'fecha_apertura', 'fecha_cierre'
+    )
+    list_filter = ('estado', 'tipo', 'proveedor')
+    search_fields = ('numero', 'proveedor__nombre')
+    readonly_fields = ('numero', 'fecha_apertura', 'fecha_cierre', 'fecha_pago')
+    inlines = [ServicioExternoInline]
+
+    fieldsets = (
+        ('Identificación', {
+            'fields': ('numero', 'proveedor', 'tipo', 'estado')
+        }),
+        ('Fechas', {
+            'fields': ('fecha_apertura', 'fecha_cierre', 'fecha_pago')
+        }),
+        ('Notas', {
+            'fields': ('notas',)
+        }),
+    )
+
+    @admin.display(description='Servicios')
+    def cantidad_servicios_display(self, obj):
+        return obj.cantidad_servicios
+
+    @admin.display(description='Total')
+    def costo_total_display(self, obj):
+        return f"${obj.costo_total:.2f}"
+
+
+# ==========================================
 # ADMIN DE SERVICIOS EXTERNOS
 # ==========================================
 @admin.register(ServicioExterno)
 class ServicioExternoAdmin(admin.ModelAdmin):
-    list_display = ('pedido', 'tipo', 'proveedor', 'monto', 'estado',
-                    'fecha_solicitud', 'fecha_recepcion', 'fecha_pago')
-    list_filter = ('tipo', 'estado', 'proveedor')
-    search_fields = ('pedido__libro__titulo', 'proveedor__nombre')
-    readonly_fields = ('fecha_solicitud',)
+    list_display = (
+        'id', 'pedido', 'tipo', 'proveedor', 'monto', 'estado',
+        'lote', 'fecha_solicitud', 'fecha_recepcion', 'fecha_pago'
+    )
+    list_filter = ('tipo', 'estado', 'proveedor', 'lote')
+    search_fields = (
+        'pedido__libro__titulo', 'pedido__cliente__nombre',
+        'proveedor__nombre', 'lote__numero'
+    )
+    list_select_related = ('pedido', 'pedido__libro', 'proveedor', 'lote')
+    readonly_fields = ('fecha_solicitud', 'fecha_recepcion', 'fecha_pago')
+
+    fieldsets = (
+        ('Pedido y proveedor', {
+            'fields': ('pedido', 'proveedor', 'tipo', 'monto')
+        }),
+        ('Lote', {
+            'fields': ('lote',),
+            'description': 'Lote al que pertenece este servicio. Se asigna automáticamente al cambiar el pedido a "Pendiente a Carátula" o "Pendiente a Encuadernado".'
+        }),
+        ('Estado y fechas', {
+            'fields': ('estado', 'fecha_solicitud', 'fecha_recepcion', 'fecha_pago')
+        }),
+        ('Notas', {
+            'fields': ('notas',)
+        }),
+    )

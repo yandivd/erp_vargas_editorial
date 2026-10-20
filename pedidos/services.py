@@ -261,3 +261,21 @@ class ServicioPedido:
                     material_esq, cant_esq, pedido,
                     motivo=f'Esquineros instalados para {pedido.libro.titulo}'
                 )
+
+    @staticmethod
+    def verificar_y_cerrar_lote(lote):
+        """Si todos los servicios del lote están PAGADOS, cierra el lote como PAGADO."""
+        if not lote:
+            return False
+        if lote.estado == 'PAGADO':
+            return False
+        total = lote.servicios.count()
+        pagados = lote.servicios.filter(estado='PAGADO').count()
+        if total > 0 and total == pagados:
+            lote.estado = 'PAGADO'
+            lote.fecha_pago = timezone.now()
+            if not lote.fecha_cierre:
+                lote.fecha_cierre = timezone.now()
+            lote.save()
+            return True
+        return False
