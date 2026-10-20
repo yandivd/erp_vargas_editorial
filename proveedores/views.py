@@ -28,7 +28,10 @@ def lista_proveedores(request):
 def cuentas_por_pagar(request):
     servicios = ServicioExterno.objects.filter(
         estado__in=['SOLICITADO', 'RECIBIDO']
-    ).select_related('proveedor', 'pedido', 'pedido__libro').order_by('pedido_id')
+    ).select_related('proveedor', 'pedido', 'pedido__libro').order_by(
+        'proveedor__nombre',           # 1º por proveedor
+        'pedido__referencia_externa',  # 2º por referencia del pedido
+    )
     
     total_deuda = servicios.aggregate(total=Sum('monto'))['total'] or 0
     saldo_caja = ServicioFinanzas.saldo_caja('CUP')
