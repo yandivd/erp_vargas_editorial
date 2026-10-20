@@ -80,6 +80,12 @@
             <button type="button" id="btnAplicarEstado" class="btn btn-warning">
                 <i class="bi bi-arrow-repeat"></i> Aplicar
             </button>
+            <button type="button" id="btnImprimirSeleccionados" class="btn btn-primary">
+                <i class="bi bi-printer"></i> Imprimir comprobante
+            </button>
+            <button type="button" id="btnImprimirTermico" class="btn btn-dark">
+                <i class="bi bi-receipt"></i> Ticket térmico
+            </button>
             <button type="button" id="btnCancelarSeleccion" class="btn btn-outline-secondary">
                 Cancelar
             </button>
@@ -665,6 +671,46 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Sincronizar al cargar
     sincronizarCheckboxes();
+
+    const btnImprimir = document.getElementById('btnImprimirSeleccionados');
+
+    if (btnImprimir) {
+        btnImprimir.addEventListener('click', function () {
+            const ids = Array.from(seleccionados);
+            if (ids.length === 0) {
+                alert('Selecciona al menos un pedido para imprimir.');
+                return;
+            }
+
+            const params = new URLSearchParams();
+            ids.forEach(id => params.append('ids', id));
+
+            window.open(
+                `{% url 'pedidos:imprimir_comprobantes_masivo' %}?${params.toString()}`,
+                '_blank'
+            );
+        });
+    }
+
+    const btnImprimirTermico = document.getElementById('btnImprimirTermico');
+
+    if (btnImprimirTermico) {
+        btnImprimirTermico.addEventListener('click', function () {
+            const ids = Array.from(seleccionados);
+            if (ids.length === 0) {
+                alert('Selecciona al menos un pedido para imprimir.');
+                return;
+            }
+
+            const params = new URLSearchParams();
+            ids.forEach(id => params.append('ids', id));
+
+            window.open(
+                `{% url 'pedidos:imprimir_comprobantes_termico' %}?${params.toString()}`,
+                '_blank'
+            );
+        });
+    }
 });
 </script>
 {% endblock %}

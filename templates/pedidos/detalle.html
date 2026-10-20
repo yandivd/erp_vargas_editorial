@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 
-{% block title %}Pedido #{{ pedido.id }} - ERP Libros{% endblock %}
+{% block title %}Pedido #{{ pedido.rereferencia_externa }} - ERP Libros{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">Pedido #{{ pedido.id }} — {{ pedido.libro.titulo }}</h2>
+    <h2 class="mb-0">Pedido #{{ pedido.referencia_externa }} — {{ pedido.libro.titulo }}</h2>
     <a href="{% url 'pedidos:lista' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
 </div>
 
@@ -103,24 +103,14 @@
                 <button class="btn btn-primary w-100">Avanzar estado</button>
             </form>
         </div>
-
-        <div class="card card-kpi p-3 mb-3">
-            <h5>Registrar anticipo</h5>
-            <form method="post" action="{% url 'pedidos:registrar_anticipo' pedido.id %}">
-                {% csrf_token %}
-                <input type="number" name="monto" class="form-control mb-2" placeholder="Monto" step="0.01" required>
-                <select name="metodo" class="form-select mb-2">
-                    <option value="EFECTIVO">Efectivo</option>
-                    <option value="TRANSFERENCIA">Transferencia</option>
-                </select>
-                <button class="btn btn-success w-100">Registrar</button>
-            </form>
-        </div>
                 <div class="card card-kpi p-3 mb-3">
             <h5><i class="bi bi-printer"></i> Documentos</h5>
             <div class="d-grid gap-2">
                 <a href="{% url 'pedidos:imprimir_pedido' pedido.id %}" target="_blank" class="btn btn-outline-dark">
                     <i class="bi bi-receipt"></i> Imprimir Comprobante de Pedido
+                </a>
+                <a href="{% url 'pedidos:imprimir_comprobante_termico' pedido.id %}" target="_blank" class="btn btn-outline-dark">
+                    <i class="bi bi-receipt"></i> Ticket térmico
                 </a>
                 <a href="{% url 'pedidos:imprimir_servicio' pedido.id %}" target="_blank" class="btn btn-outline-dark">
                     <i class="bi bi-tools"></i> Imprimir Orden de Servicio

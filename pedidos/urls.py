@@ -20,6 +20,7 @@ urlpatterns = [
     path('lotes/<int:pk>/', views.detalle_lote, name='detalle_lote'),
     path('lotes/<int:pk>/cerrar/', views.cerrar_lote, name='cerrar_lote'),
     path('lotes/<int:pk>/pagar/', views.pagar_lote, name='pagar_lote'),
+    path('imprimir-comprobantes/', views.imprimir_comprobantes_masivo, name='imprimir_comprobantes_masivo'),
     path('<int:pk>/', views.detalle, name='detalle'),
     path('<int:pk>/cambiar-estado/', views.cambiar_estado, name='cambiar_estado'),
     path('<int:pk>/confirmar/', views.confirmar_pedido, name='confirmar'),
@@ -28,4 +29,6 @@ urlpatterns = [
     path('<int:pk>/imprimir-servicio/', views.imprimir_orden_servicio, name='imprimir_servicio'),
     path('<int:pk>/asignar-cliente/', views.asignar_cliente_y_cobrar, name='asignar_cliente'),
     path('lotes/<int:pk>/pdf/', views.orden_lote_pdf, name='orden_lote_pdf'),
+    path('<int:pk>/ticket/', views.imprimir_comprobante_termico, name='imprimir_comprobante_termico'),
+    path('imprimir-comprobantes-termico/', views.imprimir_comprobantes_termico, name='imprimir_comprobantes_termico'),
 ]
