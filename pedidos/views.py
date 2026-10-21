@@ -864,6 +864,7 @@ def crear_entrega(request):
             messages.error(request, 'No se encontraron pedidos.')
             return redirect('pedidos:crear_entrega')
 
+        # Verificar que todos sean del mismo cliente
         clientes = set(p.cliente_id for p in pedidos if p.cliente_id)
         if len(clientes) > 1:
             messages.error(request, 'Todos los pedidos deben ser del mismo cliente.')
@@ -888,8 +889,12 @@ def crear_entrega(request):
         messages.success(request, f'Entrega #{entrega.id} creada con {pedidos.count()} pedidos de {cliente.nombre}.')
         return redirect('pedidos:detalle_entrega', pk=entrega.id)
 
+    # GET: pedidos disponibles
     pedidos_disponibles = Pedido.objects.filter(
-        estado__nombre='Listo para Entregar'
+        estado__nombre='Listo para Entregar',
+        cliente__isnull=False,           # <-- solo con cliente
+    ).exclude(
+        entregas__isnull=False           # <-- que no estén ya en una entrega
     ).select_related('cliente', 'libro', 'estado').order_by('referencia_externa')
 
     return render(request, 'pedidos/crear_entrega.html', {
