@@ -127,9 +127,7 @@ class ServicioPedido:
 
     @staticmethod
     def cambiar_estado(pedido, nombre_nuevo_estado, usuario='', notas=''):
-        """Cambia el estado del pedido y ejecuta acciones automáticas."""
         estado_anterior = pedido.estado
-
         nuevo_estado = Estado.objects.get(nombre=nombre_nuevo_estado)
 
         if estado_anterior and estado_anterior.id == nuevo_estado.id:
@@ -148,21 +146,14 @@ class ServicioPedido:
             notas=notas
         )
 
-        # Acciones automáticas por estado
-        if nuevo_estado.nombre == 'Impreso':
-            ServicioPedido.consumir_materiales(pedido, momento='IMPRESION')
-
-        elif nuevo_estado.nombre == 'Pegado':
-            ServicioPedido.consumir_materiales(pedido, momento='PEGADO')
-
-        elif nuevo_estado.nombre == 'Pendiente a Carátula':
+        # Acciones automáticas
+        if nuevo_estado.nombre == 'Pendiente a Carátula':
             ServicioPedido.crear_servicio_portada(pedido)
 
         elif nuevo_estado.nombre == 'Pendiente a Encuadernado':
             ServicioPedido.crear_servicio_encuadernado(pedido)
 
         elif nuevo_estado.nombre == 'Listo para Entregar':
-            # Consume esquineros (si lleva) y materiales de empaque
             ServicioPedido.consumir_materiales(pedido, momento='ENTREGA')
 
         elif nuevo_estado.nombre == 'Entregado':
@@ -187,8 +178,7 @@ class ServicioPedido:
         return lote
 
     @staticmethod
-    def consumir_materiales(pedido, momento='IMPRESION'):
-        """Consume los materiales del pedido según la etapa."""
+    def consumir_materiales(pedido, momento='ENTREGA'):
         from inventario.services import ServicioInventario
         return ServicioInventario.consumir_materiales_pedido(pedido, momento)
 
