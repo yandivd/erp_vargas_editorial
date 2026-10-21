@@ -10,8 +10,8 @@ from django.utils import timezone
 from django import forms
 from decimal import Decimal
 import json
-
-from .models import Pedido, ServicioExterno, Book, Estado, LoteServicio
+from django.db import models
+from .models import CodigoDescuento, Pedido, ServicioExterno, Book, Estado, LoteServicio
 from .services import ServicioPedido, CosteadorPedido
 from clientes.models import Cliente
 from finanzas.services import ServicioFinanzas
@@ -60,7 +60,10 @@ class NuevoPedidoForm(forms.Form):
     nuevo_cliente_nombre = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre nuevo'}))
     nuevo_cliente_telefono = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono'}))
     nuevo_cliente_direccion = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Dirección (opcional)'}))
-
+    codigo_descuento = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput()
+    )
     libro = forms.ModelChoiceField(
         queryset=Book.objects.all(),
         required=False,
@@ -337,13 +340,38 @@ def nuevo_pedido_modal(request):
                     precio=form.cleaned_data.get('precio_venta', 0)
                 )
 
-            # 3. Siguiente referencia
+            # 3. Procesar código de descuento
+            codigo_str = form.cleaned_data.get('codigo_descuento', '').strip().upper()
+            cod_obj = None
+            descuento = Decimal('0')
+
+            if codigo_str:
+                try:
+                    cod_obj = CodigoDescuento.objects.get(codigo__iexact=codigo_str)
+                    if not cod_obj.vigente:
+                        return JsonResponse({
+                            'ok': False,
+                            'errors': {'codigo_descuento': ['El código está expirado o inactivo.']}
+                        })
+                    if not cod_obj.aplica_a_libro(libro):
+                        return JsonResponse({
+                            'ok': False,
+                            'errors': {'codigo_descuento': ['El código no aplica a este libro.']}
+                        })
+                    descuento = form.cleaned_data['precio_venta'] * (cod_obj.porcentaje / Decimal('100'))
+                except CodigoDescuento.DoesNotExist:
+                    return JsonResponse({
+                        'ok': False,
+                        'errors': {'codigo_descuento': ['Código de descuento no válido.']}
+                    })
+
+            # 4. Siguiente referencia
             siguiente_ref = _siguiente_referencia()
 
-            # 4. Estado inicial: Pendiente a impresión
+            # 5. Estado inicial: Pendiente a impresión
             estado_inicial = Estado.objects.get(nombre='Pendiente a impresión')
 
-            # 5. Crear el pedido ya en producción
+            # 6. Crear el pedido ya en producción, con descuento
             pedido = Pedido.objects.create(
                 cliente=cliente,
                 libro=libro,
@@ -351,6 +379,8 @@ def nuevo_pedido_modal(request):
                 lleva_scotch=form.cleaned_data.get('lleva_scotch', False),
                 lleva_esquineros=form.cleaned_data.get('lleva_esquineros', False),
                 precio_venta=form.cleaned_data['precio_venta'],
+                descuento_aplicado=descuento,
+                codigo_descuento=cod_obj,
                 anticipo_requerido=form.cleaned_data.get('anticipo_requerido') or 0,
                 estado=estado_inicial,
                 fecha_entrega_prometida=form.cleaned_data.get('fecha_entrega_prometida'),
@@ -360,16 +390,21 @@ def nuevo_pedido_modal(request):
                 referencia_externa=siguiente_ref,
             )
 
-            # 6. Registrar el anticipo en caja (si es mayor a 0)
+            # 7. Incrementar uso del código
+            if cod_obj:
+                cod_obj.usos_actuales += 1
+                cod_obj.save(update_fields=['usos_actuales'])
+
+            # 8. Registrar el anticipo en caja (si es mayor a 0)
             anticipo = form.cleaned_data.get('anticipo_requerido') or 0
             if anticipo > 0:
                 ServicioFinanzas.registrar_anticipo(
                     pedido,
                     monto=anticipo,
-                    metodo='EFECTIVO'  # o el que uses por defecto
+                    metodo='EFECTIVO'
                 )
 
-            # 7. Registrar el cambio de estado en el historial
+            # 9. Registrar el cambio de estado en el historial
             ServicioPedido.cambiar_estado(
                 pedido,
                 'Pendiente a impresión',
@@ -740,3 +775,64 @@ def imprimir_comprobantes_lote_carta(request):
         'total_anticipo': total_anticipo,
         'total_saldo': total_saldo,
     })
+
+def validar_codigo_descuento(request):
+    """Valida un código de descuento y devuelve el porcentaje y el nuevo precio."""
+    codigo = request.GET.get('codigo', '').strip().upper()
+    precio = Decimal(request.GET.get('precio', 0))
+    libro_id = request.GET.get('libro_id')
+
+    if not codigo:
+        return JsonResponse({'ok': False, 'error': 'Ingresa un código'})
+
+    try:
+        cod = CodigoDescuento.objects.get(codigo__iexact=codigo)
+    except CodigoDescuento.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'Código no válido'})
+
+    if not cod.vigente:
+        return JsonResponse({'ok': False, 'error': 'Código expirado o inactivo'})
+
+    # Verificar condición por libro
+    if libro_id:
+        try:
+            libro = Book.objects.get(id=libro_id)
+            if not cod.aplica_a_libro(libro):
+                return JsonResponse({'ok': False, 'error': 'El código no aplica a este libro'})
+        except Book.DoesNotExist:
+            pass
+
+    # Calcular descuento
+    descuento = precio * (cod.porcentaje / Decimal('100'))
+    precio_final = precio - descuento
+
+    return JsonResponse({
+        'ok': True,
+        'porcentaje': float(cod.porcentaje),
+        'descuento': float(descuento),
+        'precio_final': float(precio_final),
+        'descripcion': cod.descripcion,
+    })
+
+def codigos_vigentes(request):
+    """Devuelve los códigos de descuento activos y vigentes."""
+    from django.utils import timezone
+    hoy = timezone.now().date()
+
+    codigos = CodigoDescuento.objects.filter(activo=True).filter(
+        Q(fecha_inicio__isnull=True) | Q(fecha_inicio__lte=hoy)
+    ).filter(
+        Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=hoy)
+    ).filter(
+        Q(usos_maximos__isnull=True) | Q(usos_actuales__lt=models.F('usos_maximos'))
+    ).order_by('codigo')
+
+    data = [{
+        'id': c.id,
+        'codigo': c.codigo,
+        'descripcion': c.descripcion,
+        'porcentaje': float(c.porcentaje),
+        'categoria': c.categoria,
+    } for c in codigos]
+
+    return JsonResponse({'ok': True, 'codigos': data})
