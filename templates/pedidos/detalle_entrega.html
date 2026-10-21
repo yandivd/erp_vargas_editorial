@@ -7,6 +7,9 @@
         <p class="text-muted mb-0">{{ entrega.cliente.nombre }} — {{ entrega.cantidad_pedidos }} pedidos</p>
     </div>
     <div class="d-flex gap-2">
+        <a href="{% url 'pedidos:lista_entregas' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
         <a href="{% url 'pedidos:imprimir_entrega' entrega.id %}" target="_blank" class="btn btn-outline-dark">
             <i class="bi bi-printer"></i> Imprimir
         </a>
