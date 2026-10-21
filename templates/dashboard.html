@@ -3,7 +3,6 @@
 
 {% block extra_css %}
 <style>
-    /* Colores basados en el Logo y el Base */
     :root {
         --brand-blue: #3b82f6;
         --brand-blue-light: #eff6ff;
@@ -12,60 +11,13 @@
         --border-color: #e2e8f0;
     }
 
-    /* Tarjetas de KPIs */
-    .kpi-card {
-        background: #ffffff;
-        border-radius: 12px;
-        border: 1px solid var(--border-color);
-        padding: 20px;
-        position: relative;
-        overflow: hidden;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
-    }
-    .kpi-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
-    }
-    
-    /* Bordes de color para las tarjetas */
-    .kpi-card.ingresos { border-top: 4px solid #10b981; }
-    .kpi-card.gastos { border-top: 4px solid #ef4444; }
-    .kpi-card.saldo { border-top: 4px solid #3b82f6; }
-    .kpi-card.margen { border-top: 4px solid #f59e0b; }
-
-    .kpi-label {
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-weight: 700;
-        color: var(--text-muted);
-        margin-bottom: 8px;
-    }
-    .kpi-value {
-        font-size: 1.8rem;
-        font-weight: 800;
-        color: var(--text-main);
-        margin: 0;
-        line-height: 1;
-    }
-    .kpi-icon {
-        position: absolute;
-        top: 15px;
-        right: 15px;
-        font-size: 2rem;
-        opacity: 0.1;
-        color: var(--text-main);
-    }
-
-    /* Tarjetas de secciones */
     .section-card {
         background: #ffffff;
         border-radius: 12px;
         border: 1px solid var(--border-color);
         padding: 24px;
-        height: 100%;
         box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+        margin-bottom: 1rem;
     }
     .section-card h4 {
         font-size: 1.1rem;
@@ -76,283 +28,505 @@
         align-items: center;
         gap: 10px;
     }
-    
-    /* Contenedor de gráficos */
+
+    .kpi-card {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
+    }
+    .kpi-card.ingresos { border-top: 4px solid #10b981; }
+    .kpi-card.gastos { border-top: 4px solid #ef4444; }
+    .kpi-card.saldo { border-top: 4px solid #3b82f6; }
+    .kpi-card.margen { border-top: 4px solid #f59e0b; }
+    .kpi-card.pedidos { border-top: 4px solid #8b5cf6; }
+    .kpi-card.clientes { border-top: 4px solid #06b6d4; }
+    .kpi-card.ventas { border-top: 4px solid #ec4899; }
+    .kpi-card.promedio { border-top: 4px solid #f97316; }
+
+    .kpi-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 700;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+    }
+    .kpi-value {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: var(--text-main);
+        margin: 0;
+        line-height: 1;
+    }
+
     .chart-container {
         position: relative;
         height: 280px;
         width: 100%;
     }
+    .chart-container-sm {
+        position: relative;
+        height: 220px;
+        width: 100%;
+    }
 
-    /* Tablas limpias */
     .table-clean {
         width: 100%;
         border-collapse: collapse;
     }
     .table-clean th {
         text-align: left;
-        padding: 12px 10px;
-        font-size: 0.75rem;
+        padding: 10px 8px;
+        font-size: 0.7rem;
         text-transform: uppercase;
         color: var(--text-muted);
         border-bottom: 2px solid var(--border-color);
         font-weight: 700;
     }
     .table-clean td {
-        padding: 12px 10px;
+        padding: 10px 8px;
         border-bottom: 1px solid var(--border-color);
-        font-size: 0.9rem;
-        color: var(--text-main);
-        vertical-align: middle;
+        font-size: 0.85rem;
     }
     .table-clean tr:hover td {
         background-color: #f8fafc;
+    }
+
+    .heatmap-cell {
+        width: 28px;
+        height: 28px;
+        border-radius: 4px;
+        display: inline-block;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<!-- CABECERA CON FILTROS -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
-        <h2 class="mb-0 fw-bold"><i class="bi bi-grid-1x2 text-primary"></i> Resumen General</h2>
-        <p class="text-muted mb-0">Estado actual de Vargas Editorial</p>
+        <h2 class="mb-0 fw-bold"><i class="bi bi-grid-1x2 text-primary"></i> Dashboard</h2>
+        <p class="text-muted mb-0">Análisis completo del negocio</p>
     </div>
-    <span class="badge bg-primary px-3 py-2 rounded-pill">{% now "d \d\e F \d\e Y" %}</span>
+    <form method="get" class="d-flex gap-2 align-items-end">
+        <div>
+            <label class="form-label small text-muted mb-0">Desde</label>
+            <input type="date" name="desde" class="form-control form-control-sm" value="{{ desde }}">
+        </div>
+        <div>
+            <label class="form-label small text-muted mb-0">Hasta</label>
+            <input type="date" name="hasta" class="form-control form-control-sm" value="{{ hasta }}">
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-filter"></i> Filtrar</button>
+    </form>
 </div>
 
-<!-- FILA 1: KPIs FINANCIEROS -->
+<!-- ========================================== -->
+<!-- 1. KPIs PRINCIPALES -->
+<!-- ========================================== -->
 <div class="row g-3 mb-4">
-    <!-- Caja CUP -->
     <div class="col-md-3">
-        <div class="card card-kpi p-3 border-start border-success border-4 h-100">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Caja en CUP</small>
-                    <h3 class="mb-0 text-success fw-bold">${{ saldo_caja|floatformat:2 }}</h3>
-                </div>
-                <div class="bg-success bg-opacity-10 p-3 rounded-circle text-success">
-                    <i class="bi bi-cash-stack fs-3"></i>
-                </div>
-            </div>
+        <div class="kpi-card ingresos">
+            <div class="kpi-label">Ingresos</div>
+            <div class="kpi-value text-success">${{ ingresos|floatformat:2 }}</div>
         </div>
     </div>
-    
-    <!-- Caja USD -->
     <div class="col-md-3">
-        <div class="card card-kpi p-3 border-start border-primary border-4 h-100">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Caja en USD</small>
-                    <h3 class="mb-0 text-primary fw-bold">${{ saldo_caja_usd|floatformat:2 }}</h3>
-                </div>
-                <div class="bg-primary bg-opacity-10 p-3 rounded-circle text-primary">
-                    <i class="bi bi-currency-dollar fs-3"></i>
-                </div>
-            </div>
+        <div class="kpi-card gastos">
+            <div class="kpi-label">Gastos</div>
+            <div class="kpi-value text-danger">${{ gastos|floatformat:2 }}</div>
         </div>
     </div>
-
-    <!-- Por Cobrar -->
     <div class="col-md-3">
-        <div class="card card-kpi p-3 border-start border-warning border-4 h-100">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Por Cobrar</small>
-                    <h3 class="mb-0 text-warning fw-bold">${{ por_cobrar|floatformat:2 }}</h3>
-                </div>
-                <div class="bg-warning bg-opacity-10 p-3 rounded-circle text-warning">
-                    <i class="bi bi-person-lines-fill fs-3"></i>
-                </div>
-            </div>
+        <div class="kpi-card saldo">
+            <div class="kpi-label">Saldo Neto</div>
+            <div class="kpi-value {% if saldo_neto >= 0 %}text-primary{% else %}text-danger{% endif %}">${{ saldo_neto|floatformat:2 }}</div>
         </div>
     </div>
-
-    <!-- Por Pagar -->
     <div class="col-md-3">
-        <div class="card card-kpi p-3 border-start border-danger border-4 h-100">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Por Pagar</small>
-                    <h3 class="mb-0 text-danger fw-bold">${{ por_pagar|floatformat:2 }}</h3>
-                </div>
-                <div class="bg-danger bg-opacity-10 p-3 rounded-circle text-danger">
-                    <i class="bi bi-truck fs-3"></i>
-                </div>
-            </div>
+        <div class="kpi-card margen">
+            <div class="kpi-label">Margen de Ganancia</div>
+            <div class="kpi-value {% if margen >= 30 %}text-success{% elif margen >= 10 %}text-warning{% else %}text-danger{% endif %}">{{ margen|floatformat:1 }}%</div>
         </div>
     </div>
 </div>
 
-<!-- FILA 2: GRÁFICOS -->
 <div class="row g-3 mb-4">
-    <div class="col-md-8">
+    <div class="col-md-3">
+        <div class="kpi-card pedidos">
+            <div class="kpi-label">Pedidos Totales</div>
+            <div class="kpi-value">{{ total_pedidos }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card clientes">
+            <div class="kpi-label">Clientes Únicos</div>
+            <div class="kpi-value">{{ clientes_unicos }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card ventas">
+            <div class="kpi-label">Ventas</div>
+            <div class="kpi-value">${{ ventas|floatformat:2 }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="kpi-card promedio">
+            <div class="kpi-label">Ganancia Promedio</div>
+            <div class="kpi-value">${{ ganancia_promedio|floatformat:2 }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 2. DESGLOSE POR TIPO DE INGRESO + CATEGORÍAS -->
+<!-- ========================================== -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
         <div class="section-card">
-            <h4><i class="bi bi-graph-up-arrow text-primary"></i> Proyección de Ingresos (6 meses)</h4>
+            <h4><i class="bi bi-pie-chart text-success"></i> Desglose por Tipo de Ingreso</h4>
+            <div class="chart-container-sm">
+                <canvas id="chartDesgloseIngresos"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="section-card">
+            <h4><i class="bi bi-bar-chart text-primary"></i> Categorías de Ingreso</h4>
+            <table class="table-clean">
+                <thead>
+                    <tr><th>Categoría</th><th class="text-end">Total</th></tr>
+                </thead>
+                <tbody>
+                    {% for c in categorias_ingreso %}
+                    <tr>
+                        <td>{{ c.categoria }}</td>
+                        <td class="text-end fw-bold">${{ c.total|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="2" class="text-center text-muted">Sin ingresos.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 3. COSTO UNITARIO POR CONSUMO -->
+<!-- ========================================== -->
+<div class="section-card mb-4">
+    <h4><i class="bi bi-box-seam text-warning"></i> Costo Unitario por Consumo de Materiales</h4>
+    <table class="table-clean">
+        <thead>
+            <tr>
+                <th>Material</th>
+                <th class="text-end">Cantidad</th>
+                <th class="text-end">Costo Total</th>
+                <th class="text-end">Costo Unitario</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in costo_unitario %}
+            <tr>
+                <td>{{ c.material }}</td>
+                <td class="text-end">{{ c.cantidad|floatformat:2 }} {{ c.unidad }}</td>
+                <td class="text-end">${{ c.costo_total|floatformat:2 }}</td>
+                <td class="text-end fw-bold">${{ c.costo_unitario|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted">Sin consumos registrados.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ========================================== -->
+<!-- 4. TENDENCIA MENSUAL Y PROYECCIÓN -->
+<!-- ========================================== -->
+<div class="row g-3 mb-4">
+    <div class="col-md-7">
+        <div class="section-card">
+            <h4><i class="bi bi-graph-up-arrow text-primary"></i> Tendencia Mensual</h4>
+            <div class="chart-container">
+                <canvas id="chartTendencia"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="section-card">
+            <h4><i class="bi bi-graph-up text-info"></i> Proyección (6 meses)</h4>
             <div class="chart-container">
                 <canvas id="chartProyeccion"></canvas>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="section-card">
-            <h4><i class="bi bi-pie-chart-fill text-warning"></i> Distribución de Gastos</h4>
-            <div class="chart-container">
-                <canvas id="chartGastos"></canvas>
+</div>
+
+<!-- ========================================== -->
+<!-- 5. INGRESOS VS GASTOS POR SEMANA -->
+<!-- ========================================== -->
+<div class="section-card mb-4">
+    <h4><i class="bi bi-bar-chart-line text-success"></i> Ingresos vs Gastos por Semana</h4>
+    <div class="chart-container">
+        <canvas id="chartSemanal"></canvas>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 6. MAPA DE CALOR POR ACTIVIDAD -->
+<!-- ========================================== -->
+<div class="section-card mb-4">
+    <h4><i class="bi bi-grid-3x3 text-danger"></i> Mapa de Calor por Actividad (día × hora)</h4>
+    <div class="table-responsive">
+        <table class="table table-sm table-bordered mb-0">
+            <thead>
+                <tr>
+                    <th></th>
+                    {% for h in calor.horas %}
+                    <th class="text-center small">{{ h }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in calor.filas %}
+                <tr>
+                    <td class="fw-bold">{{ fila.dia }}</td>
+                    {% for celda in fila.valores %}
+                    <td class="text-center" style="padding: 2px;">
+                        {% if celda > 0 %}
+                            {% widthratio celda calor.max 1 as alpha %}
+                            <div class="heatmap-cell"
+                                 style="background-color: rgba(59, 130, 246, {{ alpha }});"
+                                 title="{{ celda }} movimientos"></div>
+                        {% else %}
+                            <div class="heatmap-cell" style="background-color: #f1f5f9;"></div>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- 7. LISTADO DE TRANSACCIONES -->
+<!-- ========================================== -->
+<div class="section-card mb-4">
+    <h4><i class="bi bi-list-ul text-secondary"></i> Últimas Transacciones</h4>
+    <table class="table-clean">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Concepto</th>
+                <th>Categoría</th>
+                <th class="text-end">Monto</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in transacciones %}
+            <tr>
+                <td>{{ t.fecha|date:"d/m/Y H:i" }}</td>
+                <td>
+                    {% if t.tipo == 'INGRESO' %}
+                    <span class="badge bg-success">Ingreso</span>
+                    {% else %}
+                    <span class="badge bg-danger">Egreso</span>
+                    {% endif %}
+                </td>
+                <td>{{ t.concepto }}</td>
+                <td><small>{{ t.get_categoria_display }}</small></td>
+                <td class="text-end fw-bold {% if t.tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">
+                    {% if t.tipo == 'INGRESO' %}+{% else %}-{% endif %}${{ t.monto|floatformat:2 }}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="text-center text-muted">Sin transacciones.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ========================================== -->
+<!-- 8. ANÁLISIS EXHAUSTIVO POR CATEGORÍA -->
+<!-- ========================================== -->
+<div class="section-card mb-4">
+    <h4><i class="bi bi-table text-dark"></i> Análisis por Categoría</h4>
+    <table class="table-clean">
+        <thead>
+            <tr>
+                <th>Categoría</th>
+                <th>Tipo</th>
+                <th class="text-end">Cantidad</th>
+                <th class="text-end">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for a in analisis_categorias %}
+            <tr>
+                <td>{{ a.categoria }}</td>
+                <td>
+                    {% if a.tipo == 'INGRESO' %}
+                    <span class="badge bg-success">Ingreso</span>
+                    {% else %}
+                    <span class="badge bg-danger">Egreso</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">{{ a.cantidad }}</td>
+                <td class="text-end fw-bold">${{ a.total|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted">Sin datos.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ========================================== -->
+<!-- 9. CONSEJOS PERSONALIZADOS -->
+<!-- ========================================== -->
+<div class="section-card mb-4">
+    <h4><i class="bi bi-lightbulb text-warning"></i> Consejos Personalizados</h4>
+    <div class="row g-3">
+        {% for c in consejos %}
+        <div class="col-md-6">
+            <div class="alert alert-{{ c.tipo }} mb-0">
+                <strong>{{ c.titulo }}</strong><br>
+                {{ c.texto }}
             </div>
         </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-success mb-0">
+                <strong>¡Todo en orden!</strong><br>
+                No hay alertas por ahora.
+            </div>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
-<!-- FILA 3: TABLAS DE DATOS -->
-<div class="row g-3 mb-4">
-    <div class="col-md-6">
-        <div class="section-card">
-            <h4><i class="bi bi-trophy-fill text-warning"></i> Top Libros Más Vendidos</h4>
-            <table class="table-clean">
-                <thead>
-                    <tr>
-                        <th>Libro</th>
-                        <th class="text-end">Pedidos</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for l in top_libros %}
-                    <tr>
-                        <td><strong>{{ l.titulo }}</strong><br><small class="text-muted">{{ l.autor|default:"" }}</small></td>
-                        <td class="text-end"><span class="badge bg-primary rounded-pill">{{ l.num_pedidos }}</span></td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="2" class="text-center text-muted py-4">No hay ventas registradas.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="section-card">
-            <h4><i class="bi bi-people-fill text-info"></i> Mejores Clientes (VIP)</h4>
-            <table class="table-clean">
-                <thead>
-                    <tr>
-                        <th>Cliente</th>
-                        <th class="text-end">Libros</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in top_clientes %}
-                    <tr>
-                        <td>
-                            <strong>{{ c.nombre }}</strong><br>
-                            <small class="text-muted"><i class="bi bi-telephone"></i> {{ c.telefono|default:"Sin teléfono" }}</small>
-                        </td>
-                        <td class="text-end"><span class="badge bg-info text-dark rounded-pill">{{ c.libros_comprados }}</span></td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="2" class="text-center text-muted py-4">No hay clientes aún.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- FILA 4: ALERTAS -->
-<div class="row g-3">
-    <div class="col-md-6">
-        <div class="section-card border-start border-danger border-4">
-            <h4 class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Pedidos Atrasados</h4>
-            <ul class="list-unstyled mb-0">
-                {% for p in pedidos_atrasados %}
-                <li class="mb-3 pb-3 border-bottom">
-                    <a href="{% url 'pedidos:detalle' p.id %}" class="text-dark fw-bold text-decoration-none">
-                        #{{ p.referencia_externa|default:p.id }} {{ p.libro.titulo }}
-                    </a><br>
-                    <small class="text-danger"><i class="bi bi-clock-history"></i> Debía entregarse el {{ p.fecha_entrega_prometida|date:"d/m/Y" }}</small>
-                </li>
-                {% empty %}
-                <li class="text-muted">¡Todo al día! No hay pedidos atrasados. 🎉</li>
-                {% endfor %}
-            </ul>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="section-card border-start border-warning border-4">
-            <h4 class="text-warning"><i class="bi bi-box-seam-fill"></i> Alerta de Stock Bajo</h4>
-            <ul class="list-unstyled mb-0">
-                {% for m in materiales_bajos %}
-                <li class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
-                    <span class="fw-bold">{{ m.nombre }}</span>
-                    <span class="badge bg-danger rounded-pill">Quedan {{ m.stock_actual|floatformat:0 }} {{ m.unidad_medida }}</span>
-                </li>
-                {% empty %}
-                <li class="text-muted">El inventario está saludable.</li>
-                {% endfor %}
-            </ul>
-        </div>
-    </div>
-</div>
-
-<!-- DATOS PARA GRÁFICOS (Ocultos) -->
-{{ proyeccion|json_script:"proyeccion-data" }}
-{{ gastos_por_cat|json_script:"gastos-data" }}
-
+<!-- DATOS PARA GRÁFICOS -->
+{{ desglose_ingresos|json_script:"data-desglose" }}
+{{ tendencia|json_script:"data-tendencia" }}
+{{ proyeccion|json_script:"data-proyeccion" }}
+{{ semanal|json_script:"data-semanal" }}
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // 1. Gráfico de Proyección
-    const proyeccionData = JSON.parse(document.getElementById('proyeccion-data').textContent);
-    const ctxProyeccion = document.getElementById('chartProyeccion').getContext('2d');
-    
-    new Chart(ctxProyeccion, {
-        type: 'line',
-        data: {
-            labels: proyeccionData.map(d => d.mes),
-            datasets: [{
-                label: 'Proyección ($)',
-                data: proyeccionData.map(d => d.monto),
-                borderColor: '#3b82f6', // Azul del logo
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3,
-                tension: 0.4,
-                fill: true,
-                pointBackgroundColor: '#ffffff',
-                pointBorderColor: '#3b82f6',
-                pointBorderWidth: 2,
-                pointRadius: 5
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { 
-                y: { beginAtZero: true, grid: { borderDash: [5, 5], color: '#e2e8f0' }, ticks: { callback: function(value) { return '$' + value; } } }, 
-                x: { grid: { display: false } } 
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Desglose de ingresos (doughnut)
+    const desglose = JSON.parse(document.getElementById('data-desglose').textContent);
+    if (desglose.length > 0) {
+        new Chart(document.getElementById('chartDesgloseIngresos'), {
+            type: 'doughnut',
+            data: {
+                labels: desglose.map(d => d.categoria),
+                datasets: [{
+                    data: desglose.map(d => d.total),
+                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } } },
+                cutout: '65%'
             }
-        }
-    });
+        });
+    }
 
-    // 2. Gráfico de Gastos
-    const gastosData = JSON.parse(document.getElementById('gastos-data').textContent);
-    const ctxGastos = document.getElementById('chartGastos').getContext('2d');
-    
-    new Chart(ctxGastos, {
-        type: 'doughnut',
-        data: {
-            labels: gastosData.map(g => g.categoria),
-            datasets: [{
-                data: gastosData.map(g => g.total),
-                backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#64748b'],
-                borderWidth: 2,
-                borderColor: '#ffffff'
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true, boxWidth: 8 } } },
-            cutout: '75%'
-        }
-    });
+    // 2. Tendencia mensual
+    const tendencia = JSON.parse(document.getElementById('data-tendencia').textContent);
+    if (tendencia.length > 0) {
+        new Chart(document.getElementById('chartTendencia'), {
+            type: 'line',
+            data: {
+                labels: tendencia.map(t => t.mes),
+                datasets: [
+                    {
+                        label: 'Ingresos',
+                        data: tendencia.map(t => t.ingresos),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                    },
+                    {
+                        label: 'Gastos',
+                        data: tendencia.map(t => t.gastos),
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: v => '$' + v } }
+                }
+            }
+        });
+    }
+
+    // 3. Proyección
+    const proyeccion = JSON.parse(document.getElementById('data-proyeccion').textContent);
+    if (proyeccion.length > 0) {
+        new Chart(document.getElementById('chartProyeccion'), {
+            type: 'bar',
+            data: {
+                labels: proyeccion.map(p => p.mes),
+                datasets: [
+                    { label: 'Ingresos proy.', data: proyeccion.map(p => p.ingresos), backgroundColor: '#3b82f6' },
+                    { label: 'Gastos proy.', data: proyeccion.map(p => p.gastos), backgroundColor: '#f59e0b' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
+            }
+        });
+    }
+
+    // 4. Semanal
+    const semanal = JSON.parse(document.getElementById('data-semanal').textContent);
+    if (semanal.length > 0) {
+        new Chart(document.getElementById('chartSemanal'), {
+            type: 'bar',
+            data: {
+                labels: semanal.map(s => s.semana),
+                datasets: [
+                    { label: 'Ingresos', data: semanal.map(s => s.ingresos), backgroundColor: '#10b981' },
+                    { label: 'Gastos', data: semanal.map(s => s.gastos), backgroundColor: '#ef4444' }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
+            }
+        });
+    }
+});
 </script>
 {% endblock %}
