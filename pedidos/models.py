@@ -61,6 +61,50 @@ class Estado(models.Model):
         return mark_safe(f'<span style="color: {self.color}; font-weight: bold;">{self.nombre}</span>')
     colored_name.short_description = 'Nombre'
 
+class CodigoDescuento(models.Model):
+    codigo = models.CharField(max_length=50, unique=True, verbose_name='Código')
+    descripcion = models.CharField(max_length=200, blank=True, verbose_name='Descripción')
+    porcentaje = models.DecimalField(max_digits=5, decimal_places=2, verbose_name='Porcentaje de descuento')
+    fecha_inicio = models.DateField(null=True, blank=True, verbose_name='Válido desde')
+    fecha_fin = models.DateField(null=True, blank=True, verbose_name='Válido hasta')
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+    # Condición opcional: solo aplica a libros de cierta categoría/género
+    categoria = models.CharField(
+        max_length=50, blank=True, verbose_name='Categoría (opcional)',
+        help_text='Si se indica, el descuento solo aplica a libros de esta categoría'
+    )
+    usos_maximos = models.PositiveIntegerField(null=True, blank=True, verbose_name='Usos máximos')
+    usos_actuales = models.PositiveIntegerField(default=0, verbose_name='Usos actuales')
+
+    class Meta:
+        verbose_name = 'Código de descuento'
+        verbose_name_plural = 'Códigos de descuento'
+        ordering = ['-fecha_inicio', 'codigo']
+
+    def __str__(self):
+        return f"{self.codigo} ({self.porcentaje}%)"
+
+    @property
+    def vigente(self):
+        from django.utils import timezone
+        hoy = timezone.now().date()
+        if not self.activo:
+            return False
+        if self.fecha_inicio and hoy < self.fecha_inicio:
+            return False
+        if self.fecha_fin and hoy > self.fecha_fin:
+            return False
+        if self.usos_maximos and self.usos_actuales >= self.usos_maximos:
+            return False
+        return True
+
+    def aplica_a_libro(self, libro):
+        """Devuelve True si el código aplica al libro dado."""
+        if not self.categoria:
+            return True
+        # Asumimos que Book tiene un campo 'categoria' o 'genero'
+        return getattr(libro, 'categoria', '') == self.categoria
+
 
 # ============================================================
 # PEDIDO
@@ -109,6 +153,14 @@ class Pedido(models.Model):
         null=True, blank=True, unique=True,
         verbose_name='Referencia Original',
         help_text='Número de pedido del sistema anterior (Excel)'
+    )
+    codigo_descuento = models.ForeignKey(
+        CodigoDescuento, on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name='Código de descuento'
+    )
+    descuento_aplicado = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Descuento aplicado'
     )
 
     class Meta:
@@ -296,3 +348,51 @@ class LoteServicio(models.Model):
     @property
     def pedidos_ids(self):
         return list(self.servicios.values_list('pedido_id', flat=True))
+    
+
+class Entrega(models.Model):
+    cliente = models.ForeignKey(
+        Cliente, on_delete=models.PROTECT, related_name='entregas',
+        verbose_name='Cliente'
+    )
+    pedidos = models.ManyToManyField(
+        Pedido, related_name='entregas', verbose_name='Pedidos'
+    )
+    direccion = models.TextField(blank=True, verbose_name='Dirección de entrega')
+    costo_mensajeria = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Costo de mensajería'
+    )
+    fecha_entrega = models.DateField(null=True, blank=True, verbose_name='Fecha de entrega')
+    notas = models.TextField(blank=True, verbose_name='Notas')
+    entregado = models.BooleanField(default=False, verbose_name='¿Ya se entregó?')
+    fecha_entrega_real = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de entrega real')
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de creación')
+
+    class Meta:
+        verbose_name = 'Entrega'
+        verbose_name_plural = 'Entregas'
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return f"Entrega {self.id} - {self.cliente.nombre} ({self.pedidos.count()} pedidos)"
+
+    @property
+    def total_pedidos(self):
+        return sum(p.precio_venta for p in self.pedidos.all())
+
+    @property
+    def total_anticipos(self):
+        return sum(p.anticipo_recibido for p in self.pedidos.all())
+
+    @property
+    def saldo_pedidos(self):
+        return sum(p.saldo_pendiente for p in self.pedidos.all())
+
+    @property
+    def total_a_cobrar(self):
+        return self.saldo_pedidos + self.costo_mensajeria
+
+    @property
+    def cantidad_pedidos(self):
+        return self.pedidos.count()

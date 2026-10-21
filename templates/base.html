@@ -204,6 +204,9 @@
                 <a href="{% url 'pedidos:lista' %}" class="{% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'lista' %}active{% endif %}">
                     <i class="bi bi-journal-text"></i> Pedidos (Taller)
                 </a>
+                <a href="{% url 'pedidos:lista_entregas' %}" class="{% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'lista_entregas' %}active{% endif %}">
+                    <i class="bi bi-truck"></i> Entregas
+                </a>
                 <a href="{% url 'pedidos:lista_entregados' %}" class="{% if request.resolver_match.url_name == 'lista_entregados' %}active{% endif %}">
                     <i class="bi bi-archive"></i> Historial Entregados
                 </a>

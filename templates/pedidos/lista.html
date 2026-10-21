@@ -232,7 +232,20 @@
                                     {{ form.anticipo_requerido }}
                                 </div>
                             </div>
+                            <div class="col-md-4">
+                                <label class="form-label small text-muted fw-bold">Código de descuento</label>
+                                <div class="input-group">
+                                    <select id="selectCodigoDescuento" class="form-select">
+                                        <option value="">Sin descuento</option>
+                                    </select>
+                                    <button type="button" id="btnAplicarDescuento" class="btn btn-outline-success">
+                                        <i class="bi bi-tag"></i> Aplicar
+                                    </button>
+                                </div>
+                            </div>
                         </div>
+                        <input type="hidden" name="descuento_aplicado" id="id_descuento_aplicado" value="0">
+                        <div id="descuento-info" class="mt-2 small text-success d-none"></div>
                         <div id="costo-mini" class="mt-3 small text-muted text-center py-2">
                             Ingresa las páginas para calcular el costo real.
                         </div>
@@ -269,8 +282,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let usandoClienteNuevo = false;
     let usandoLibroNuevo = false;
+    let anticipoEditado = false;
 
-    // Referencias a elementos de la barra masiva (se usan en varias funciones)
+    // Referencias a elementos de la barra masiva
     const barraMasiva = document.getElementById('barraAccionesMasivas');
     const contadorSeleccionados = document.getElementById('contadorSeleccionados');
     const btnAplicarEstado = document.getElementById('btnAplicarEstado');
@@ -278,7 +292,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const selectNuevoEstado = document.getElementById('nuevoEstadoMasivo');
 
     // ==========================================
-    // FUNCIONES DE SELECCIÓN MASIVA (GLOBALES)
+    // FUNCIONES DE SELECCIÓN MASIVA
     // ==========================================
     function actualizarBarraMasiva() {
         const total = seleccionados.size;
@@ -289,7 +303,6 @@ document.addEventListener('DOMContentLoaded', function () {
             barraMasiva.classList.add('d-none');
         }
 
-        // Sincronizar el checkTodos según los checkboxes visibles
         const ct = document.getElementById('checkTodos');
         if (ct) {
             const visibles = document.querySelectorAll('.check-pedido');
@@ -321,7 +334,10 @@ document.addEventListener('DOMContentLoaded', function () {
             const anticipoBase = opcionSeleccionada.getAttribute('data-anticipo');
             
             if (precioInput) precioInput.value = precioBase;
-            if (anticipoInput) anticipoInput.value = anticipoBase;
+            // Solo sobrescribir el anticipo si el usuario no lo ha editado
+            if (anticipoInput && !anticipoEditado) {
+                anticipoInput.value = anticipoBase;
+            }
             
         } else if (esLibroNuevo && paginasInput && paginasInput.value) {
             p = paginasInput.value;
@@ -341,12 +357,140 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (d.ok) {
                     if (esLibroNuevo) {
                         precioInput.value = d.costo.precio_sugerido;
-                        anticipoInput.value = d.costo.anticipo_sugerido;
+                        if (anticipoInput && !anticipoEditado) {
+                            anticipoInput.value = d.costo.anticipo_sugerido;
+                        }
                     }
                     const gan = (parseFloat(precioInput.value) || 0) - d.costo.costo_total;
                     costoPanel.innerHTML = `Costo de producción: <strong>$${d.costo.costo_total}</strong> — Ganancia estimada: <strong class="${gan >= 0 ? 'text-success' : 'text-danger'}">$${gan.toFixed(2)}</strong>`;
                 }
             });
+    }
+
+    // ==========================================
+    // CÓDIGO DE DESCUENTO
+    // ==========================================
+    const selectCodigo = document.getElementById('selectCodigoDescuento');
+    const btnAplicarDescuento = document.getElementById('btnAplicarDescuento');
+    const inputCodigo = document.getElementById('id_codigo_descuento');
+    const descuentoInfo = document.getElementById('descuento-info');
+    const inputDescuento = document.getElementById('id_descuento_aplicado');
+
+    let precioOriginal = null;
+    let anticipoOriginal = null;
+    let descuentoActivo = false;
+
+    function cargarCodigos() {
+        if (!selectCodigo) return;
+        fetch('{% url "pedidos:codigos_vigentes" %}')
+            .then(r => r.json())
+            .then(data => {
+                selectCodigo.innerHTML = '<option value="">Sin descuento</option>';
+                if (data.ok) {
+                    data.codigos.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.codigo;
+                        opt.textContent = `${c.codigo} - ${c.porcentaje}%`;
+                        opt.dataset.porcentaje = c.porcentaje;
+                        opt.dataset.descripcion = c.descripcion || '';
+                        selectCodigo.appendChild(opt);
+                    });
+                }
+            })
+            .catch(err => console.error('Error cargando códigos:', err));
+    }
+
+    const modalNuevoPedido = document.getElementById('modalNuevoPedido');
+    if (modalNuevoPedido) {
+        modalNuevoPedido.addEventListener('shown.bs.modal', cargarCodigos);
+    }
+
+    function resetearDescuento() {
+        if (descuentoActivo && precioOriginal !== null) {
+            precioInput.value = precioOriginal;
+            if (anticipoOriginal !== null) {
+                anticipoInput.value = anticipoOriginal;
+            }
+        }
+        inputDescuento.value = 0;
+        if (inputCodigo) inputCodigo.value = '';
+        if (selectCodigo) selectCodigo.value = '';
+        descuentoInfo.classList.add('d-none');
+        descuentoInfo.innerHTML = '';
+        descuentoActivo = false;
+        precioOriginal = null;
+        anticipoOriginal = null;
+        btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i> Aplicar';
+        btnAplicarDescuento.classList.remove('btn-outline-danger');
+        btnAplicarDescuento.classList.add('btn-outline-success');
+    }
+
+    if (btnAplicarDescuento && selectCodigo) {
+        btnAplicarDescuento.addEventListener('click', function () {
+            if (descuentoActivo) {
+                resetearDescuento();
+                return;
+            }
+
+            const codigo = selectCodigo.value;
+            const precio = parseFloat(precioInput.value) || 0;
+            const libroId = libroSelect ? libroSelect.value : '';
+
+            if (!codigo) {
+                alert('Selecciona un código de descuento.');
+                return;
+            }
+
+            if (precio <= 0) {
+                alert('El precio de venta debe ser mayor a 0.');
+                return;
+            }
+
+            const params = new URLSearchParams({
+                codigo: codigo,
+                precio: precio,
+                libro_id: libroId
+            });
+
+            fetch(`{% url 'pedidos:validar_descuento' %}?${params.toString()}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.ok) {
+                        precioOriginal = precio;
+                        anticipoOriginal = parseFloat(anticipoInput.value) || 0;
+
+                        precioInput.value = data.precio_final.toFixed(2);
+                        anticipoInput.value = (data.precio_final / 2).toFixed(2);
+                        inputDescuento.value = data.descuento;
+                        if (inputCodigo) inputCodigo.value = codigo;
+
+                        descuentoInfo.classList.remove('d-none');
+                        descuentoInfo.innerHTML = `
+                            <strong>${data.descripcion || 'Descuento aplicado'}</strong><br>
+                            ${data.porcentaje}% → -$${data.descuento.toFixed(2)}<br>
+                            Precio final: <strong>$${data.precio_final.toFixed(2)}</strong>
+                        `;
+
+                        descuentoActivo = true;
+
+                        btnAplicarDescuento.innerHTML = '<i class="bi bi-x-circle"></i> Quitar';
+                        btnAplicarDescuento.classList.remove('btn-outline-success');
+                        btnAplicarDescuento.classList.add('btn-outline-danger');
+                    } else {
+                        alert(data.error || 'Código no válido');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Error al validar el código.');
+                });
+        });
+
+        selectCodigo.addEventListener('change', function () {
+            if (descuentoActivo) {
+                resetearDescuento();
+            }
+        });
     }
 
     // ==========================================
@@ -369,13 +513,30 @@ document.addEventListener('DOMContentLoaded', function () {
         if (libroSelect) libroSelect.addEventListener('change', actualizarCosto);
         if (paginasInput) paginasInput.addEventListener('input', actualizarCosto);
         if (precioInput) precioInput.addEventListener('input', actualizarCosto);
-        if (anticipoInput) anticipoInput.addEventListener('input', actualizarCosto);
+        
+        // El anticipo solo marca el flag, no dispara actualizarCosto
+        if (anticipoInput) {
+            anticipoInput.addEventListener('input', () => {
+                anticipoEditado = true;
+            });
+        }
         
         const scotchCheck = document.querySelector('#id_lleva_scotch');
         if (scotchCheck) scotchCheck.addEventListener('change', actualizarCosto);
         
         const esquinerosCheck = document.querySelector('#id_lleva_esquineros');
         if (esquinerosCheck) esquinerosCheck.addEventListener('change', actualizarCosto);
+
+        if (precioInput) {
+            precioInput.addEventListener('input', function () {
+                if (descuentoActivo) {
+                    resetearDescuento();
+                    btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i> Aplicar';
+                    btnAplicarDescuento.classList.remove('btn-outline-danger');
+                    btnAplicarDescuento.classList.add('btn-outline-success');
+                }
+            });
+        }
 
         form.addEventListener('submit', function (e) {
             e.preventDefault();
@@ -576,7 +737,22 @@ document.addEventListener('DOMContentLoaded', function () {
         matcher: matchCustom
     });
 
-    $('#id_libro').on('select2:select select2:clear', function (e) {
+    $('#id_libro').on('select2:select', function (e) {
+        anticipoEditado = false;
+        if (descuentoActivo) {
+            resetearDescuento();
+            btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i> Aplicar';
+            btnAplicarDescuento.classList.remove('btn-outline-danger');
+            btnAplicarDescuento.classList.add('btn-outline-success');
+        }
+        actualizarCosto();
+    });
+
+    $('#id_libro').on('select2:clear', function (e) {
+        anticipoEditado = false;
+        if (descuentoActivo) {
+            resetearDescuento();
+        }
         actualizarCosto();
     });
 
@@ -618,7 +794,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (btnAplicarEstado) {
         btnAplicarEstado.addEventListener('click', () => {
-            const ids = Array.from(seleccionados);  // <-- Copia del Set
+            const ids = Array.from(seleccionados);
             const estadoId = selectNuevoEstado.value;
 
             if (ids.length === 0) {
@@ -652,11 +828,11 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(r => r.json())
             .then(data => {
                 if (data.ok) {
-                    seleccionados.clear();  // <-- Limpia el Set global
+                    seleccionados.clear();
                     document.querySelectorAll('.check-pedido').forEach(cb => cb.checked = false);
                     selectNuevoEstado.value = '';
                     actualizarBarraMasiva();
-                    actualizarTabla();  // Recarga la tabla
+                    actualizarTabla();
                 } else {
                     alert('Error: ' + (data.error || 'No se pudo cambiar el estado'));
                 }
@@ -672,7 +848,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Sincronizar al cargar
     sincronizarCheckboxes();
 
     const btnImprimir = document.getElementById('btnImprimirSeleccionados');
@@ -715,16 +890,19 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    const btnCarta = document.getElementById('btnImprimirCarta');
-    if (btnCarta) {
-        btnCarta.addEventListener('click', function () {
+    const btnImprimirCarta = document.getElementById('btnImprimirCarta');
+
+    if (btnImprimirCarta) {
+        btnImprimirCarta.addEventListener('click', function () {
             const ids = Array.from(seleccionados);
             if (ids.length === 0) {
-                alert('Selecciona al menos un pedido.');
+                alert('Selecciona al menos un pedido para imprimir.');
                 return;
             }
+
             const params = new URLSearchParams();
             ids.forEach(id => params.append('ids', id));
+
             window.open(
                 `{% url 'pedidos:imprimir_comprobantes_carta' %}?${params.toString()}`,
                 '_blank'
