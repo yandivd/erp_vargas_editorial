@@ -1,3 +1,4 @@
+import os
 from django.db import transaction
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
@@ -11,6 +12,8 @@ from django import forms
 from decimal import Decimal
 import json
 from django.db import models
+
+from config import settings
 from .models import CodigoDescuento, Pedido, ServicioExterno, Book, Estado, LoteServicio
 from .services import ServicioPedido, CosteadorPedido
 from clientes.models import Cliente
@@ -694,6 +697,9 @@ def pagar_lote(request, pk):
 
 
 def orden_lote_pdf(request, pk):
+
+    # Ruta absoluta del logo para WeasyPrint
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
     lote = get_object_or_404(LoteServicio, pk=pk)
     servicios = lote.servicios.select_related(
         'pedido__libro', 'pedido__cliente'
@@ -702,6 +708,7 @@ def orden_lote_pdf(request, pk):
     html_string = render_to_string('pedidos/orden_lote_pdf.html', {
         'lote': lote,
         'servicios': servicios,
+        'logo_path': f'file:///{logo_path.replace(os.sep, "/")}',
     }, request=request)
 
     pdf = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
@@ -711,10 +718,15 @@ def orden_lote_pdf(request, pk):
     return response
 
 def imprimir_comprobante_termico(request, pk):
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
     pedido = get_object_or_404(Pedido, pk=pk)
-    return render(request, 'pedidos/imprimir_comprobante_termico.html', {'pedido': pedido})
+    return render(request, 'pedidos/imprimir_comprobante_termico.html', {
+        'pedido': pedido,
+        'logo_path': f'file:///{logo_path.replace(os.sep, "/")}',
+        })
 
 def imprimir_comprobantes_termico(request):
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
     """Genera un ticket térmico consolidado con varios pedidos seleccionados."""
     ids = request.GET.getlist('ids')
     if not ids:
@@ -743,6 +755,7 @@ def imprimir_comprobantes_termico(request):
         'total_anticipo': total_anticipo,
         'total_saldo': total_saldo,
         'un_solo_cliente': un_solo_cliente,
+        'logo_path': f'file:///{logo_path.replace(os.sep, "/")}',
     })
 
 def imprimir_pedido_carta(request, pk):
