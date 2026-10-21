@@ -73,7 +73,7 @@ class CosteadorPedido:
 
         # --- TOTAL ---
         total = (
-            costo_papel + costo_tinta + costo_pegamento + costo_scotch + costo_esquineros+
+            costo_papel + costo_tinta + costo_pegamento + costo_scotch + costo_esquineros +
             costo_portada + costo_encuadernacion + costo_electricidad + costo_diseno
         )
 
@@ -96,29 +96,23 @@ class CosteadorPedido:
         costo = self.calcular()
         costo_total = Decimal(str(costo['costo_total']))
         paginas = Decimal(str(self.pedido.paginas))
-        
-        # Parámetros de márgenes y páginas
+
         pag_min = Decimal(str(Parametro.get('paginas_min', 100)))
         pag_max = Decimal(str(Parametro.get('paginas_max', 1000)))
         margen_min = Decimal(str(Parametro.get('margen_min', 0.8)))
         margen_max = Decimal(str(Parametro.get('margen_max', 2.0)))
-        
-        # Evitar división por cero
+
         if pag_max == pag_min:
             pag_max = pag_min + 1
-            
-        # Fórmula del Excel: Margen dinámico
-        # = Margen_Min + ((Páginas - Pág_Min) / (Pág_Max - Pág_Min)) * (Margen_Max - Margen_Min)
+
         proporcion = (min(max(paginas, pag_min), pag_max) - pag_min) / (pag_max - pag_min)
         margen = margen_min + (proporcion * (margen_max - margen_min))
-        
-        # Precio base = Costo * (1 + Margen)
+
         precio_base = costo_total * (Decimal('1') + margen)
-        
-        # Redondear hacia arriba a la centena más cercana (CEILING(..., 100))
+
         import math
         precio_final = math.ceil(precio_base / 100) * 100
-        
+
         return Decimal(str(precio_final))
 
 
@@ -135,8 +129,7 @@ class ServicioPedido:
     def cambiar_estado(pedido, nombre_nuevo_estado, usuario='', notas=''):
         """Cambia el estado del pedido y ejecuta acciones automáticas."""
         estado_anterior = pedido.estado
-        
-        # Buscar el objeto Estado por su nombre
+
         nuevo_estado = Estado.objects.get(nombre=nombre_nuevo_estado)
 
         if estado_anterior and estado_anterior.id == nuevo_estado.id:
@@ -155,27 +148,27 @@ class ServicioPedido:
             notas=notas
         )
 
-        # Acciones automáticas
-                # Acciones automáticas
+        # Acciones automáticas por estado
         if nuevo_estado.nombre == 'Impreso':
             ServicioPedido.consumir_materiales(pedido, momento='IMPRESION')
-            
-        elif nuevo_estado.nombre == 'Pendiente a Carátula': # <-- CORREGIDO
+
+        elif nuevo_estado.nombre == 'Pegado':
+            ServicioPedido.consumir_materiales(pedido, momento='PEGADO')
+
+        elif nuevo_estado.nombre == 'Pendiente a Carátula':
             ServicioPedido.crear_servicio_portada(pedido)
-            
+
         elif nuevo_estado.nombre == 'Pendiente a Encuadernado':
             ServicioPedido.crear_servicio_encuadernado(pedido)
-            
+
         elif nuevo_estado.nombre == 'Listo para Entregar':
-            ServicioPedido.consumir_esquineros(pedido)
-            ServicioPedido.consumir_materiales(pedido, momento='EMPAQUE')
-            
+            # Consume esquineros (si lleva) y materiales de empaque
+            ServicioPedido.consumir_materiales(pedido, momento='ENTREGA')
+
         elif nuevo_estado.nombre == 'Entregado':
             ServicioPedido.cobrar_saldo(pedido)
 
         return pedido
-    
-    from .models import LoteServicio
 
     @staticmethod
     def _obtener_o_crear_lote(proveedor, tipo):
@@ -185,7 +178,7 @@ class ServicioPedido:
             tipo=tipo,
             estado='ABIERTO'
         ).order_by('-fecha_apertura').first()
-        
+
         if not lote:
             lote = LoteServicio.objects.create(
                 proveedor=proveedor,
@@ -195,8 +188,9 @@ class ServicioPedido:
 
     @staticmethod
     def consumir_materiales(pedido, momento='IMPRESION'):
+        """Consume los materiales del pedido según la etapa."""
         from inventario.services import ServicioInventario
-        ServicioInventario.consumir_materiales_pedido(pedido, momento)
+        return ServicioInventario.consumir_materiales_pedido(pedido, momento)
 
     @staticmethod
     def crear_servicio_portada(pedido):
@@ -240,27 +234,9 @@ class ServicioPedido:
     def cobrar_saldo(pedido):
         """Al entregar, registra el cobro del saldo en caja si queda pendiente."""
         from finanzas.services import ServicioFinanzas
-        
-        # Solo cobramos si hay algo pendiente
+
         if pedido.saldo_pendiente > 0:
             ServicioFinanzas.registrar_saldo(pedido, monto=pedido.saldo_pendiente)
-
-    @staticmethod
-    def consumir_esquineros(pedido):
-        """Al estar listo para entregar, descuenta los esquineros si el pedido los lleva."""
-        if pedido.lleva_esquineros:
-            from inventario.services import ServicioInventario
-            from inventario.models import Material
-            from core.models import Parametro
-            from decimal import Decimal
-            
-            material_esq = Material.objects.filter(nombre__iexact='esquineros', activo=True).first()
-            if material_esq:
-                cant_esq = Decimal(str(Parametro.get('esquineros_por_libro', 4)))
-                ServicioInventario.registrar_consumo(
-                    material_esq, cant_esq, pedido,
-                    motivo=f'Esquineros instalados para {pedido.libro.titulo}'
-                )
 
     @staticmethod
     def verificar_y_cerrar_lote(lote):
