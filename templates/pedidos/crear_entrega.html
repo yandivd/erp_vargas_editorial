@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}Nueva Entrega{% endblock %}
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-truck"></i> Nueva Entrega</h2>
+
+<form method="post" id="formEntrega">
+    {% csrf_token %}
+    <div class="card card-kpi p-4 mb-4">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Cliente</label>
+                <input type="text" id="clienteNombre" class="form-control" readonly placeholder="Selecciona pedidos...">
+                <small class="text-muted">Se deduce de los pedidos seleccionados. Todos deben ser del mismo cliente.</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Fecha de entrega</label>
+                <input type="date" name="fecha_entrega" class="form-control">
+            </div>
+            <div class="col-md-12">
+                <label class="form-label">Dirección de entrega</label>
+                <textarea name="direccion" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Costo de mensajería</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="number" name="costo_mensajeria" id="costoMensajeria" class="form-control" step="0.01" value="0">
+                </div>
+                <small class="text-muted">Pon 0 si no cobras mensajería.</small>
+            </div>
+            <div class="col-md-12">
+                <label class="form-label">Notas</label>
+                <textarea name="notas" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-kpi p-3 mb-3">
+        <h5>Pedidos disponibles <span class="text-muted small">(Listos para entregar)</span></h5>
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-sm table-hover">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="checkTodos" class="form-check-input"></th>
+                        <th>Ref</th>
+                        <th>Libro</th>
+                        <th>Cliente</th>
+                        <th>Estado</th>
+                        <th>Saldo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in pedidos_disponibles %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="pedido_ids" value="{{ p.id }}"
+                                   class="form-check-input check-pedido"
+                                   data-cliente-id="{{ p.cliente_id }}"
+                                   data-cliente-nombre="{{ p.cliente.nombre|default:'Stock' }}">
+                        </td>
+                        <td>#{{ p.referencia_externa|default:p.id }}</td>
+                        <td>{{ p.libro.titulo }}</td>
+                        <td>{{ p.cliente.nombre|default:"Stock" }}</td>
+                        <td>{{ p.estado.nombre }}</td>
+                        <td>${{ p.saldo_pendiente|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-4">No hay pedidos listos para entregar.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Crear entrega</button>
+    <a href="{% url 'pedidos:lista_entregas' %}" class="btn btn-outline-secondary">Cancelar</a>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkTodos = document.getElementById('checkTodos');
+    const checks = document.querySelectorAll('.check-pedido');
+    const clienteNombre = document.getElementById('clienteNombre');
+    const form = document.getElementById('formEntrega');
+
+    function actualizarCliente() {
+        const seleccionados = document.querySelectorAll('.check-pedido:checked');
+        if (seleccionados.length === 0) {
+            clienteNombre.value = '';
+            clienteNombre.classList.remove('is-invalid');
+            return;
+        }
+        const clienteIds = new Set();
+        const nombres = new Set();
+        seleccionados.forEach(cb => {
+            clienteIds.add(cb.dataset.clienteId);
+            nombres.add(cb.dataset.clienteNombre);
+        });
+        if (clienteIds.size > 1) {
+            clienteNombre.value = '⚠ Varios clientes seleccionados';
+            clienteNombre.classList.add('is-invalid');
+        } else {
+            clienteNombre.value = nombres.values().next().value;
+            clienteNombre.classList.remove('is-invalid');
+        }
+    }
+
+    if (checkTodos) {
+        checkTodos.addEventListener('change', function() {
+            checks.forEach(c => c.checked = this.checked);
+            actualizarCliente();
+        });
+    }
+
+    checks.forEach(c => c.addEventListener('change', actualizarCliente));
+
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const seleccionados = document.querySelectorAll('.check-pedido:checked');
+            if (seleccionados.length === 0) {
+                e.preventDefault();
+                alert('Selecciona al menos un pedido.');
+                return;
+            }
+            const clienteIds = new Set();
+            seleccionados.forEach(cb => clienteIds.add(cb.dataset.clienteId));
+            if (clienteIds.size > 1) {
+                e.preventDefault();
+                alert('Todos los pedidos deben ser del mismo cliente.');
+                return;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

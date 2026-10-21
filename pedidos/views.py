@@ -836,3 +836,122 @@ def codigos_vigentes(request):
     } for c in codigos]
 
     return JsonResponse({'ok': True, 'codigos': data})
+
+from .models import Entrega
+
+def lista_entregas(request):
+    """Lista todas las entregas."""
+    entregas = Entrega.objects.select_related('cliente').prefetch_related('pedidos').order_by('-fecha_creacion')
+    return render(request, 'pedidos/lista_entregas.html', {'entregas': entregas})
+
+
+def crear_entrega(request):
+    """Crea una entrega a partir de pedidos seleccionados."""
+    if request.method == 'POST':
+        pedido_ids = request.POST.getlist('pedido_ids')
+        direccion = request.POST.get('direccion', '')
+        costo_mensajeria = Decimal(request.POST.get('costo_mensajeria', 0) or 0)
+        fecha_entrega = request.POST.get('fecha_entrega') or None
+        notas = request.POST.get('notas', '')
+
+        if not pedido_ids:
+            messages.error(request, 'Debes seleccionar al menos un pedido.')
+            return redirect('pedidos:crear_entrega')
+
+        pedidos = Pedido.objects.filter(id__in=pedido_ids).select_related('cliente')
+
+        if not pedidos.exists():
+            messages.error(request, 'No se encontraron pedidos.')
+            return redirect('pedidos:crear_entrega')
+
+        clientes = set(p.cliente_id for p in pedidos if p.cliente_id)
+        if len(clientes) > 1:
+            messages.error(request, 'Todos los pedidos deben ser del mismo cliente.')
+            return redirect('pedidos:crear_entrega')
+
+        if not clientes:
+            messages.error(request, 'Los pedidos deben tener un cliente asignado.')
+            return redirect('pedidos:crear_entrega')
+
+        cliente = pedidos.first().cliente
+
+        with transaction.atomic():
+            entrega = Entrega.objects.create(
+                cliente=cliente,
+                direccion=direccion,
+                costo_mensajeria=costo_mensajeria,
+                fecha_entrega=fecha_entrega,
+                notas=notas,
+            )
+            entrega.pedidos.set(pedidos)
+
+        messages.success(request, f'Entrega #{entrega.id} creada con {pedidos.count()} pedidos de {cliente.nombre}.')
+        return redirect('pedidos:detalle_entrega', pk=entrega.id)
+
+    pedidos_disponibles = Pedido.objects.filter(
+        estado__nombre='Listo para Entregar'
+    ).select_related('cliente', 'libro', 'estado').order_by('referencia_externa')
+
+    return render(request, 'pedidos/crear_entrega.html', {
+        'pedidos_disponibles': pedidos_disponibles,
+    })
+
+
+def detalle_entrega(request, pk):
+    entrega = get_object_or_404(Entrega, pk=pk)
+    pedidos = entrega.pedidos.select_related('libro', 'cliente', 'estado').all()
+
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        if accion == 'entregar':
+            with transaction.atomic():
+                entrega.entregado = True
+                entrega.fecha_entrega_real = timezone.now()
+                entrega.save()
+
+                # Cambiar estado de cada pedido a "Entregado"
+                for pedido in pedidos:
+                    if pedido.estado.nombre != 'Entregado':
+                        ServicioPedido.cambiar_estado(
+                            pedido,
+                            'Entregado',
+                            usuario=request.user.username,
+                            notas=f'Entrega #{entrega.id} marcada como entregada'
+                        )
+
+                # Cobrar la mensajería en caja (si tiene costo)
+                if entrega.costo_mensajeria > 0:
+                    from finanzas.models import MovimientoCaja
+                    MovimientoCaja.objects.create(
+                        tipo='INGRESO',
+                        categoria='MENSAJERIA',
+                        monto=entrega.costo_mensajeria,
+                        concepto=f'Mensajería entrega #{entrega.id} - {entrega.cliente.nombre}',
+                        cliente=entrega.cliente
+                    )
+
+            messages.success(request, f'Entrega #{entrega.id} marcada como entregada. {pedidos.count()} pedidos actualizados.')
+        elif accion == 'actualizar':
+            entrega.direccion = request.POST.get('direccion', '')
+            entrega.costo_mensajeria = Decimal(request.POST.get('costo_mensajeria', 0) or 0)
+            entrega.fecha_entrega = request.POST.get('fecha_entrega') or None
+            entrega.notas = request.POST.get('notas', '')
+            entrega.save()
+            messages.success(request, 'Entrega actualizada.')
+        return redirect('pedidos:detalle_entrega', pk=entrega.id)
+
+    return render(request, 'pedidos/detalle_entrega.html', {
+        'entrega': entrega,
+        'pedidos': pedidos,
+    })
+
+
+def imprimir_entrega(request, pk):
+    """Genera el comprobante de la entrega."""
+    entrega = get_object_or_404(Entrega, pk=pk)
+    pedidos = entrega.pedidos.select_related('libro', 'cliente').all()
+
+    return render(request, 'pedidos/imprimir_entrega.html', {
+        'entrega': entrega,
+        'pedidos': pedidos,
+    })

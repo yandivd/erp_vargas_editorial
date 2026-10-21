@@ -35,4 +35,8 @@ urlpatterns = [
     path('imprimir-comprobantes-carta/', views.imprimir_comprobantes_lote_carta, name='imprimir_comprobantes_carta'),
     path('validar-descuento/', views.validar_codigo_descuento, name='validar_descuento'),
     path('codigos-vigentes/', views.codigos_vigentes, name='codigos_vigentes'),
+    path('entregas/', views.lista_entregas, name='lista_entregas'),
+    path('entregas/crear/', views.crear_entrega, name='crear_entrega'),
+    path('entregas/<int:pk>/', views.detalle_entrega, name='detalle_entrega'),
+    path('entregas/<int:pk>/imprimir/', views.imprimir_entrega, name='imprimir_entrega'),
 ]
