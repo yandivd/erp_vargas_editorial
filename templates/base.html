@@ -5,12 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Vargas Editorial - ERP{% endblock %}</title>
     
-    <!-- Fuentes de Google (Inter para un look moderno) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Bootstrap y Iconos -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     
@@ -33,13 +31,15 @@
         }
 
         /* --- SIDEBAR --- */
-
-        .sidebar .brand {
-            padding: 1rem 1.5rem;
-            margin-bottom: 1rem;
+        .sidebar {
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            height: 100vh;
+            position: sticky;
+            top: 0;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            flex-direction: column;
+            overflow: hidden;
         }
 
         .sidebar .brand {
@@ -48,15 +48,22 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
         }
 
         .sidebar .brand .logo-brand {
             width: 100%;
             height: auto;
             max-width: 100%;
-            max-height: none;   /* quita el límite de 60px */
+            max-height: 60px;
             object-fit: contain;
             display: block;
+        }
+
+        .sidebar .menu {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-bottom: 1rem;
         }
 
         .sidebar a {
@@ -88,7 +95,6 @@
             color: var(--primary-blue);
         }
 
-        /* ESTILO PARA LA SECCIÓN ACTIVA */
         .sidebar a.active {
             background-color: #eff6ff;
             color: var(--primary-blue);
@@ -162,18 +168,6 @@
             border-color: var(--primary-dark); 
         }
 
-        .brand {
-            padding: 10px;
-            text-align: center;
-        }
-
-        .brand .logo-brand {
-            width: 100%;
-            height: auto;
-            max-width: 100%;
-            object-fit: contain;
-        }
-        
         /* Separador de secciones en el menú */
         .menu-label {
             font-size: 0.7rem;
@@ -183,6 +177,13 @@
             color: #94a3b8;
             padding: 1rem 1.5rem 0.5rem;
             margin-top: 0.5rem;
+        }
+
+        /* Perfil de usuario */
+        .user-profile {
+            flex-shrink: 0;
+            border-top: 1px solid var(--border-color);
+            padding: 1rem;
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -197,7 +198,7 @@
                 <img src="/static/img/logo1.jpg" alt="Vargas Editorial" class="logo-brand">
             </div>
             
-            <div class="flex-grow-1 overflow-auto">
+            <div class="menu">
                 <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                     <i class="bi bi-grid-1x2"></i> Dashboard
                 </a>
@@ -207,10 +208,10 @@
                 <a href="{% url 'pedidos:lista_entregas' %}" class="{% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'lista_entregas' %}active{% endif %}">
                     <i class="bi bi-truck"></i> Entregas
                 </a>
-                <a href="{% url 'pedidos:lista_entregados' %}" class="{% if request.resolver_match.url_name == 'lista_entregados' %}active{% endif %}">
+                <a href="{% url 'pedidos:lista_entregados' %}" class="{% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'lista_entregados' %}active{% endif %}">
                     <i class="bi bi-archive"></i> Historial Entregados
                 </a>
-                <a href="{% url 'pedidos:lista_libros' %}" class="{% if request.resolver_match.url_name == 'lista_libros' or request.resolver_match.url_name == 'editar_libro' %}active{% endif %}">
+                <a href="{% url 'pedidos:lista_libros' %}" class="{% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'lista_libros' %}active{% endif %}">
                     <i class="bi bi-book"></i> Catálogo
                 </a>
                 
@@ -233,16 +234,16 @@
                 </a>
                 
                 <div class="menu-label">Finanzas</div>
-                <a href="{% url 'finanzas:caja' %}" class="{% if request.resolver_match.url_name == 'caja' %}active{% endif %}">
+                <a href="{% url 'finanzas:caja' %}" class="{% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'caja' %}active{% endif %}">
                     <i class="bi bi-cash-stack"></i> Caja
                 </a>
-                <a href="{% url 'finanzas:gestionar_divisas' %}" class="{% if request.resolver_match.url_name == 'gestionar_divisas' %}active{% endif %}">
+                <a href="{% url 'finanzas:gestionar_divisas' %}" class="{% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'gestionar_divisas' %}active{% endif %}">
                     <i class="bi bi-currency-exchange"></i> Divisas (USD)
                 </a>
-                <a href="{% url 'finanzas:reportes' %}" class="{% if request.resolver_match.url_name == 'reportes' %}active{% endif %}">
+                <a href="{% url 'finanzas:reportes' %}" class="{% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'reportes' %}active{% endif %}">
                     <i class="bi bi-graph-up-arrow"></i> Reportes
                 </a>
-                <a href="{% url 'finanzas:activos' %}" class="{% if request.resolver_match.url_name == 'activos' %}active{% endif %}">
+                <a href="{% url 'finanzas:activos' %}" class="{% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'activos' %}active{% endif %}">
                     <i class="bi bi-hdd-stack"></i> Activos fijos
                 </a>
                 
@@ -253,7 +254,7 @@
             </div>
 
             <!-- Perfil de Usuario abajo -->
-            <div class="mt-auto p-3 border-top">
+            <div class="user-profile">
                 <div class="d-flex align-items-center mb-3">
                     <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 35px; height: 35px;">
                         {{ request.user.username|first|upper }}
