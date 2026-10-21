@@ -1,3 +1,9 @@
+import os
+import django
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+django.setup()
+
 from pedidos.models import Pedido
 import re
 
@@ -11,6 +17,7 @@ errores = []
 for p in pedidos:
     ref = p.referencia_externa
 
+    # Si ya es entero, saltar
     if isinstance(ref, int):
         continue
 
@@ -18,13 +25,16 @@ for p in pedidos:
         ref_limpia = ref.strip()
         numero = None
 
+        # Caso 'EXCEL-471' o 'excel-471'
         match = re.match(r'^EXCEL-(\d+)$', ref_limpia, re.IGNORECASE)
         if match:
             numero = int(match.group(1))
+        # Caso string puramente numérico: '471'
         elif ref_limpia.isdigit():
             numero = int(ref_limpia)
 
         if numero is not None:
+            # Verificar duplicados
             if Pedido.objects.filter(referencia_externa=numero).exclude(id=p.id).exists():
                 duplicados.append((p.id, ref, numero))
                 p.referencia_externa = None
