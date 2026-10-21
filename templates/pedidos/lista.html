@@ -242,7 +242,6 @@
                                         <i class="bi bi-tag"></i> Aplicar
                                     </button>
                                 </div>
-                                {{ form.codigo_descuento }}  <!-- campo oculto que se llena desde el select -->
                             </div>
                         </div>
                         <input type="hidden" name="descuento_aplicado" id="id_descuento_aplicado" value="0">
@@ -283,6 +282,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let usandoClienteNuevo = false;
     let usandoLibroNuevo = false;
+    let anticipoEditado = false;
 
     // Referencias a elementos de la barra masiva
     const barraMasiva = document.getElementById('barraAccionesMasivas');
@@ -334,7 +334,10 @@ document.addEventListener('DOMContentLoaded', function () {
             const anticipoBase = opcionSeleccionada.getAttribute('data-anticipo');
             
             if (precioInput) precioInput.value = precioBase;
-            if (anticipoInput) anticipoInput.value = anticipoBase;
+            // Solo sobrescribir el anticipo si el usuario no lo ha editado
+            if (anticipoInput && !anticipoEditado) {
+                anticipoInput.value = anticipoBase;
+            }
             
         } else if (esLibroNuevo && paginasInput && paginasInput.value) {
             p = paginasInput.value;
@@ -354,7 +357,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (d.ok) {
                     if (esLibroNuevo) {
                         precioInput.value = d.costo.precio_sugerido;
-                        anticipoInput.value = d.costo.anticipo_sugerido;
+                        if (anticipoInput && !anticipoEditado) {
+                            anticipoInput.value = d.costo.anticipo_sugerido;
+                        }
                     }
                     const gan = (parseFloat(precioInput.value) || 0) - d.costo.costo_total;
                     costoPanel.innerHTML = `Costo de producción: <strong>$${d.costo.costo_total}</strong> — Ganancia estimada: <strong class="${gan >= 0 ? 'text-success' : 'text-danger'}">$${gan.toFixed(2)}</strong>`;
@@ -363,11 +368,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ==========================================
-    // CÓDIGO DE DESCUENTO (SELECT + BOTÓN)
+    // CÓDIGO DE DESCUENTO
     // ==========================================
     const selectCodigo = document.getElementById('selectCodigoDescuento');
     const btnAplicarDescuento = document.getElementById('btnAplicarDescuento');
-    const inputCodigo = document.getElementById('id_codigo_descuento'); // hidden
+    const inputCodigo = document.getElementById('id_codigo_descuento');
     const descuentoInfo = document.getElementById('descuento-info');
     const inputDescuento = document.getElementById('id_descuento_aplicado');
 
@@ -375,7 +380,6 @@ document.addEventListener('DOMContentLoaded', function () {
     let anticipoOriginal = null;
     let descuentoActivo = false;
 
-    // Cargar códigos vigentes al abrir el modal
     function cargarCodigos() {
         if (!selectCodigo) return;
         fetch('{% url "pedidos:codigos_vigentes" %}')
@@ -396,7 +400,6 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(err => console.error('Error cargando códigos:', err));
     }
 
-    // Cargar cuando se abre el modal
     const modalNuevoPedido = document.getElementById('modalNuevoPedido');
     if (modalNuevoPedido) {
         modalNuevoPedido.addEventListener('shown.bs.modal', cargarCodigos);
@@ -424,7 +427,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (btnAplicarDescuento && selectCodigo) {
         btnAplicarDescuento.addEventListener('click', function () {
-            // Si ya hay descuento activo, este botón actúa como "Quitar"
             if (descuentoActivo) {
                 resetearDescuento();
                 return;
@@ -484,7 +486,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         });
 
-        // Si el usuario cambia el select manualmente, resetear el descuento activo
         selectCodigo.addEventListener('change', function () {
             if (descuentoActivo) {
                 resetearDescuento();
@@ -512,7 +513,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (libroSelect) libroSelect.addEventListener('change', actualizarCosto);
         if (paginasInput) paginasInput.addEventListener('input', actualizarCosto);
         if (precioInput) precioInput.addEventListener('input', actualizarCosto);
-        if (anticipoInput) anticipoInput.addEventListener('input', actualizarCosto);
+        
+        // El anticipo solo marca el flag, no dispara actualizarCosto
+        if (anticipoInput) {
+            anticipoInput.addEventListener('input', () => {
+                anticipoEditado = true;
+            });
+        }
         
         const scotchCheck = document.querySelector('#id_lleva_scotch');
         if (scotchCheck) scotchCheck.addEventListener('change', actualizarCosto);
@@ -730,12 +737,21 @@ document.addEventListener('DOMContentLoaded', function () {
         matcher: matchCustom
     });
 
-    $('#id_libro').on('select2:select select2:clear', function (e) {
+    $('#id_libro').on('select2:select', function (e) {
+        anticipoEditado = false;
         if (descuentoActivo) {
             resetearDescuento();
             btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i> Aplicar';
             btnAplicarDescuento.classList.remove('btn-outline-danger');
             btnAplicarDescuento.classList.add('btn-outline-success');
+        }
+        actualizarCosto();
+    });
+
+    $('#id_libro').on('select2:clear', function (e) {
+        anticipoEditado = false;
+        if (descuentoActivo) {
+            resetearDescuento();
         }
         actualizarCosto();
     });

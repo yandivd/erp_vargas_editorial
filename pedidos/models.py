@@ -349,3 +349,50 @@ class LoteServicio(models.Model):
     def pedidos_ids(self):
         return list(self.servicios.values_list('pedido_id', flat=True))
     
+
+class Entrega(models.Model):
+    cliente = models.ForeignKey(
+        Cliente, on_delete=models.PROTECT, related_name='entregas',
+        verbose_name='Cliente'
+    )
+    pedidos = models.ManyToManyField(
+        Pedido, related_name='entregas', verbose_name='Pedidos'
+    )
+    direccion = models.TextField(blank=True, verbose_name='Dirección de entrega')
+    costo_mensajeria = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Costo de mensajería'
+    )
+    fecha_entrega = models.DateField(null=True, blank=True, verbose_name='Fecha de entrega')
+    notas = models.TextField(blank=True, verbose_name='Notas')
+    entregado = models.BooleanField(default=False, verbose_name='¿Ya se entregó?')
+    fecha_entrega_real = models.DateTimeField(null=True, blank=True, verbose_name='Fecha de entrega real')
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de creación')
+
+    class Meta:
+        verbose_name = 'Entrega'
+        verbose_name_plural = 'Entregas'
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return f"Entrega {self.id} - {self.cliente.nombre} ({self.pedidos.count()} pedidos)"
+
+    @property
+    def total_pedidos(self):
+        return sum(p.precio_venta for p in self.pedidos.all())
+
+    @property
+    def total_anticipos(self):
+        return sum(p.anticipo_recibido for p in self.pedidos.all())
+
+    @property
+    def saldo_pedidos(self):
+        return sum(p.saldo_pendiente for p in self.pedidos.all())
+
+    @property
+    def total_a_cobrar(self):
+        return self.saldo_pedidos + self.costo_mensajeria
+
+    @property
+    def cantidad_pedidos(self):
+        return self.pedidos.count()
