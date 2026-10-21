@@ -50,7 +50,7 @@
         <tbody>
             {% for s in servicios %}
             <tr>
-                <td><a href="{% url 'pedidos:detalle' s.pedido.id %}">#{{ s.pedido.id }}</a></td>
+                <td><a href="{% url 'pedidos:detalle' s.pedido.id %}">#{{ s.pedido.referencia_externa }}</a></td>
                 <td>{{ s.pedido.libro.titulo }}</td>
                 <td>{{ s.pedido.cliente.nombre|default:"[ Stock ]" }}</td>
                 <td>${{ s.monto|floatformat:2 }}</td>
