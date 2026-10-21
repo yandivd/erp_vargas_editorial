@@ -25,6 +25,20 @@
                     <p><strong>Saldo:</strong> ${{ pedido.saldo_pendiente|floatformat:2 }}</p>
                     <p><strong>Estado:</strong> <span class="badge" style="background-color: {{ pedido.estado.color }}">{{ pedido.estado.nombre }}</span></p>
                 </div>
+                <div class="mt-2">
+                    {% if not pedido.lleva_esquineros %}
+                        <form method="post" action="{% url 'pedidos:agregar_esquineros' pedido.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-warning">
+                                <i class="bi bi-plus-circle"></i> Agregar esquineros
+                            </button>
+                        </form>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-check-lg"></i> Lleva esquineros
+                        </span>
+                    {% endif %}
+                </div>
             </div>
         </div>
 

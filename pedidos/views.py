@@ -14,7 +14,7 @@ import json
 from django.db import models
 
 from config import settings
-from .models import CodigoDescuento, Pedido, ServicioExterno, Book, Estado, LoteServicio
+from .models import CodigoDescuento, HistorialEstado, Pedido, ServicioExterno, Book, Estado, LoteServicio
 from .services import ServicioPedido, CosteadorPedido
 from clientes.models import Cliente
 from finanzas.services import ServicioFinanzas
@@ -973,3 +973,28 @@ def imprimir_entrega(request, pk):
         'entrega': entrega,
         'pedidos': pedidos,
     })
+
+def agregar_esquineros(request, pk):
+    """Marca el pedido como que lleva esquineros y los consume del inventario."""
+    pedido = get_object_or_404(Pedido, pk=pk)
+    
+    if request.method == 'POST' and not pedido.lleva_esquineros:
+        with transaction.atomic():
+            pedido.lleva_esquineros = True
+            pedido.save(update_fields=['lleva_esquineros'])
+            
+            # Consumir esquineros del inventario
+            ServicioPedido.consumir_materiales(pedido, momento='ENTREGA')
+            
+            # Registrar en historial
+            HistorialEstado.objects.create(
+                pedido=pedido,
+                estado_anterior=pedido.estado,
+                estado_nuevo=pedido.estado,
+                usuario=request.user.username,
+                notas='Se agregaron esquineros al pedido'
+            )
+        
+        messages.success(request, f'Esquineros agregados al pedido #{pedido.referencia_externa or pedido.id}.')
+    
+    return redirect('pedidos:detalle', pk=pedido.id)

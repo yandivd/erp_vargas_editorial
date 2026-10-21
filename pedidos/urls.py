@@ -21,6 +21,7 @@ urlpatterns = [
     path('lotes/<int:pk>/cerrar/', views.cerrar_lote, name='cerrar_lote'),
     path('lotes/<int:pk>/pagar/', views.pagar_lote, name='pagar_lote'),
     path('imprimir-comprobantes/', views.imprimir_comprobantes_masivo, name='imprimir_comprobantes_masivo'),
+    path('<int:pk>/agregar-esquineros/', views.agregar_esquineros, name='agregar_esquineros'),
     path('<int:pk>/', views.detalle, name='detalle'),
     path('<int:pk>/cambiar-estado/', views.cambiar_estado, name='cambiar_estado'),
     path('<int:pk>/confirmar/', views.confirmar_pedido, name='confirmar'),
