@@ -1,3 +1,4 @@
+import os
 from django.db import transaction
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
@@ -10,8 +11,10 @@ from django.utils import timezone
 from django import forms
 from decimal import Decimal
 import json
+from django.db import models
 
-from .models import Pedido, ServicioExterno, Book, Estado, LoteServicio
+from config import settings
+from .models import CodigoDescuento, Pedido, ServicioExterno, Book, Estado, LoteServicio
 from .services import ServicioPedido, CosteadorPedido
 from clientes.models import Cliente
 from finanzas.services import ServicioFinanzas
@@ -60,7 +63,10 @@ class NuevoPedidoForm(forms.Form):
     nuevo_cliente_nombre = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre nuevo'}))
     nuevo_cliente_telefono = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono'}))
     nuevo_cliente_direccion = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Dirección (opcional)'}))
-
+    codigo_descuento = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput()
+    )
     libro = forms.ModelChoiceField(
         queryset=Book.objects.all(),
         required=False,
@@ -337,13 +343,38 @@ def nuevo_pedido_modal(request):
                     precio=form.cleaned_data.get('precio_venta', 0)
                 )
 
-            # 3. Siguiente referencia
+            # 3. Procesar código de descuento
+            codigo_str = form.cleaned_data.get('codigo_descuento', '').strip().upper()
+            cod_obj = None
+            descuento = Decimal('0')
+
+            if codigo_str:
+                try:
+                    cod_obj = CodigoDescuento.objects.get(codigo__iexact=codigo_str)
+                    if not cod_obj.vigente:
+                        return JsonResponse({
+                            'ok': False,
+                            'errors': {'codigo_descuento': ['El código está expirado o inactivo.']}
+                        })
+                    if not cod_obj.aplica_a_libro(libro):
+                        return JsonResponse({
+                            'ok': False,
+                            'errors': {'codigo_descuento': ['El código no aplica a este libro.']}
+                        })
+                    descuento = form.cleaned_data['precio_venta'] * (cod_obj.porcentaje / Decimal('100'))
+                except CodigoDescuento.DoesNotExist:
+                    return JsonResponse({
+                        'ok': False,
+                        'errors': {'codigo_descuento': ['Código de descuento no válido.']}
+                    })
+
+            # 4. Siguiente referencia
             siguiente_ref = _siguiente_referencia()
 
-            # 4. Estado inicial: Pendiente a impresión
+            # 5. Estado inicial: Pendiente a impresión
             estado_inicial = Estado.objects.get(nombre='Pendiente a impresión')
 
-            # 5. Crear el pedido ya en producción
+            # 6. Crear el pedido ya en producción, con descuento
             pedido = Pedido.objects.create(
                 cliente=cliente,
                 libro=libro,
@@ -351,6 +382,8 @@ def nuevo_pedido_modal(request):
                 lleva_scotch=form.cleaned_data.get('lleva_scotch', False),
                 lleva_esquineros=form.cleaned_data.get('lleva_esquineros', False),
                 precio_venta=form.cleaned_data['precio_venta'],
+                descuento_aplicado=descuento,
+                codigo_descuento=cod_obj,
                 anticipo_requerido=form.cleaned_data.get('anticipo_requerido') or 0,
                 estado=estado_inicial,
                 fecha_entrega_prometida=form.cleaned_data.get('fecha_entrega_prometida'),
@@ -360,16 +393,21 @@ def nuevo_pedido_modal(request):
                 referencia_externa=siguiente_ref,
             )
 
-            # 6. Registrar el anticipo en caja (si es mayor a 0)
+            # 7. Incrementar uso del código
+            if cod_obj:
+                cod_obj.usos_actuales += 1
+                cod_obj.save(update_fields=['usos_actuales'])
+
+            # 8. Registrar el anticipo en caja (si es mayor a 0)
             anticipo = form.cleaned_data.get('anticipo_requerido') or 0
             if anticipo > 0:
                 ServicioFinanzas.registrar_anticipo(
                     pedido,
                     monto=anticipo,
-                    metodo='EFECTIVO'  # o el que uses por defecto
+                    metodo='EFECTIVO'
                 )
 
-            # 7. Registrar el cambio de estado en el historial
+            # 9. Registrar el cambio de estado en el historial
             ServicioPedido.cambiar_estado(
                 pedido,
                 'Pendiente a impresión',
@@ -659,6 +697,9 @@ def pagar_lote(request, pk):
 
 
 def orden_lote_pdf(request, pk):
+
+    # Ruta absoluta del logo para WeasyPrint
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
     lote = get_object_or_404(LoteServicio, pk=pk)
     servicios = lote.servicios.select_related(
         'pedido__libro', 'pedido__cliente'
@@ -667,6 +708,7 @@ def orden_lote_pdf(request, pk):
     html_string = render_to_string('pedidos/orden_lote_pdf.html', {
         'lote': lote,
         'servicios': servicios,
+        'logo_path': f'file:///{logo_path.replace(os.sep, "/")}',
     }, request=request)
 
     pdf = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
@@ -676,10 +718,15 @@ def orden_lote_pdf(request, pk):
     return response
 
 def imprimir_comprobante_termico(request, pk):
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
     pedido = get_object_or_404(Pedido, pk=pk)
-    return render(request, 'pedidos/imprimir_comprobante_termico.html', {'pedido': pedido})
+    return render(request, 'pedidos/imprimir_comprobante_termico.html', {
+        'pedido': pedido,
+        'logo_path': f'file:///{logo_path.replace(os.sep, "/")}',
+        })
 
 def imprimir_comprobantes_termico(request):
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
     """Genera un ticket térmico consolidado con varios pedidos seleccionados."""
     ids = request.GET.getlist('ids')
     if not ids:
@@ -708,6 +755,7 @@ def imprimir_comprobantes_termico(request):
         'total_anticipo': total_anticipo,
         'total_saldo': total_saldo,
         'un_solo_cliente': un_solo_cliente,
+        'logo_path': f'file:///{logo_path.replace(os.sep, "/")}',
     })
 
 def imprimir_pedido_carta(request, pk):
@@ -739,4 +787,189 @@ def imprimir_comprobantes_lote_carta(request):
         'total_venta': total_venta,
         'total_anticipo': total_anticipo,
         'total_saldo': total_saldo,
+    })
+
+def validar_codigo_descuento(request):
+    """Valida un código de descuento y devuelve el porcentaje y el nuevo precio."""
+    codigo = request.GET.get('codigo', '').strip().upper()
+    precio = Decimal(request.GET.get('precio', 0))
+    libro_id = request.GET.get('libro_id')
+
+    if not codigo:
+        return JsonResponse({'ok': False, 'error': 'Ingresa un código'})
+
+    try:
+        cod = CodigoDescuento.objects.get(codigo__iexact=codigo)
+    except CodigoDescuento.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'Código no válido'})
+
+    if not cod.vigente:
+        return JsonResponse({'ok': False, 'error': 'Código expirado o inactivo'})
+
+    # Verificar condición por libro
+    if libro_id:
+        try:
+            libro = Book.objects.get(id=libro_id)
+            if not cod.aplica_a_libro(libro):
+                return JsonResponse({'ok': False, 'error': 'El código no aplica a este libro'})
+        except Book.DoesNotExist:
+            pass
+
+    # Calcular descuento
+    descuento = precio * (cod.porcentaje / Decimal('100'))
+    precio_final = precio - descuento
+
+    return JsonResponse({
+        'ok': True,
+        'porcentaje': float(cod.porcentaje),
+        'descuento': float(descuento),
+        'precio_final': float(precio_final),
+        'descripcion': cod.descripcion,
+    })
+
+def codigos_vigentes(request):
+    """Devuelve los códigos de descuento activos y vigentes."""
+    from django.utils import timezone
+    hoy = timezone.now().date()
+
+    codigos = CodigoDescuento.objects.filter(activo=True).filter(
+        Q(fecha_inicio__isnull=True) | Q(fecha_inicio__lte=hoy)
+    ).filter(
+        Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=hoy)
+    ).filter(
+        Q(usos_maximos__isnull=True) | Q(usos_actuales__lt=models.F('usos_maximos'))
+    ).order_by('codigo')
+
+    data = [{
+        'id': c.id,
+        'codigo': c.codigo,
+        'descripcion': c.descripcion,
+        'porcentaje': float(c.porcentaje),
+        'categoria': c.categoria,
+    } for c in codigos]
+
+    return JsonResponse({'ok': True, 'codigos': data})
+
+from .models import Entrega
+
+def lista_entregas(request):
+    """Lista todas las entregas."""
+    entregas = Entrega.objects.select_related('cliente').prefetch_related('pedidos').order_by('-fecha_creacion')
+    return render(request, 'pedidos/lista_entregas.html', {'entregas': entregas})
+
+
+def crear_entrega(request):
+    """Crea una entrega a partir de pedidos seleccionados."""
+    if request.method == 'POST':
+        pedido_ids = request.POST.getlist('pedido_ids')
+        direccion = request.POST.get('direccion', '')
+        costo_mensajeria = Decimal(request.POST.get('costo_mensajeria', 0) or 0)
+        fecha_entrega = request.POST.get('fecha_entrega') or None
+        notas = request.POST.get('notas', '')
+
+        if not pedido_ids:
+            messages.error(request, 'Debes seleccionar al menos un pedido.')
+            return redirect('pedidos:crear_entrega')
+
+        pedidos = Pedido.objects.filter(id__in=pedido_ids).select_related('cliente')
+
+        if not pedidos.exists():
+            messages.error(request, 'No se encontraron pedidos.')
+            return redirect('pedidos:crear_entrega')
+
+        # Verificar que todos sean del mismo cliente
+        clientes = set(p.cliente_id for p in pedidos if p.cliente_id)
+        if len(clientes) > 1:
+            messages.error(request, 'Todos los pedidos deben ser del mismo cliente.')
+            return redirect('pedidos:crear_entrega')
+
+        if not clientes:
+            messages.error(request, 'Los pedidos deben tener un cliente asignado.')
+            return redirect('pedidos:crear_entrega')
+
+        cliente = pedidos.first().cliente
+
+        with transaction.atomic():
+            entrega = Entrega.objects.create(
+                cliente=cliente,
+                direccion=direccion,
+                costo_mensajeria=costo_mensajeria,
+                fecha_entrega=fecha_entrega,
+                notas=notas,
+            )
+            entrega.pedidos.set(pedidos)
+
+        messages.success(request, f'Entrega #{entrega.id} creada con {pedidos.count()} pedidos de {cliente.nombre}.')
+        return redirect('pedidos:detalle_entrega', pk=entrega.id)
+
+    # GET: pedidos disponibles
+    pedidos_disponibles = Pedido.objects.filter(
+        estado__nombre='Listo para Entregar',
+        cliente__isnull=False,           # <-- solo con cliente
+    ).exclude(
+        entregas__isnull=False           # <-- que no estén ya en una entrega
+    ).select_related('cliente', 'libro', 'estado').order_by('referencia_externa')
+
+    return render(request, 'pedidos/crear_entrega.html', {
+        'pedidos_disponibles': pedidos_disponibles,
+    })
+
+
+def detalle_entrega(request, pk):
+    entrega = get_object_or_404(Entrega, pk=pk)
+    pedidos = entrega.pedidos.select_related('libro', 'cliente', 'estado').all()
+
+    if request.method == 'POST':
+        accion = request.POST.get('accion')
+        if accion == 'entregar':
+            with transaction.atomic():
+                entrega.entregado = True
+                entrega.fecha_entrega_real = timezone.now()
+                entrega.save()
+
+                # Cambiar estado de cada pedido a "Entregado"
+                for pedido in pedidos:
+                    if pedido.estado.nombre != 'Entregado':
+                        ServicioPedido.cambiar_estado(
+                            pedido,
+                            'Entregado',
+                            usuario=request.user.username,
+                            notas=f'Entrega #{entrega.id} marcada como entregada'
+                        )
+
+                # Cobrar la mensajería en caja (si tiene costo)
+                if entrega.costo_mensajeria > 0:
+                    from finanzas.models import MovimientoCaja
+                    MovimientoCaja.objects.create(
+                        tipo='INGRESO',
+                        categoria='MENSAJERIA',
+                        monto=entrega.costo_mensajeria,
+                        concepto=f'Mensajería entrega #{entrega.id} - {entrega.cliente.nombre}',
+                        cliente=entrega.cliente
+                    )
+
+            messages.success(request, f'Entrega #{entrega.id} marcada como entregada. {pedidos.count()} pedidos actualizados.')
+        elif accion == 'actualizar':
+            entrega.direccion = request.POST.get('direccion', '')
+            entrega.costo_mensajeria = Decimal(request.POST.get('costo_mensajeria', 0) or 0)
+            entrega.fecha_entrega = request.POST.get('fecha_entrega') or None
+            entrega.notas = request.POST.get('notas', '')
+            entrega.save()
+            messages.success(request, 'Entrega actualizada.')
+        return redirect('pedidos:detalle_entrega', pk=entrega.id)
+
+    return render(request, 'pedidos/detalle_entrega.html', {
+        'entrega': entrega,
+        'pedidos': pedidos,
+    })
+
+
+def imprimir_entrega(request, pk):
+    """Genera el comprobante de la entrega."""
+    entrega = get_object_or_404(Entrega, pk=pk)
+    pedidos = entrega.pedidos.select_related('libro', 'cliente').all()
+
+    return render(request, 'pedidos/imprimir_entrega.html', {
+        'entrega': entrega,
+        'pedidos': pedidos,
     })

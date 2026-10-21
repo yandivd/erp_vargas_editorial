@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils import timezone
 from .models import (
-    Pedido, HistorialEstado, ServicioExterno, Book, Estado, LoteServicio
+    CodigoDescuento, Entrega, Pedido, HistorialEstado, ServicioExterno, Book, Estado, LoteServicio
 )
 from .services import ServicioPedido
 
@@ -193,3 +193,24 @@ class ServicioExternoAdmin(admin.ModelAdmin):
             'fields': ('notas',)
         }),
     )
+
+@admin.register(CodigoDescuento)
+class CodigoDescuentoAdmin(admin.ModelAdmin):
+    list_display = ('codigo', 'porcentaje', 'categoria', 'fecha_inicio', 'fecha_fin', 'activo', 'usos_actuales', 'usos_maximos')
+    list_filter = ('activo', 'categoria')
+    search_fields = ('codigo', 'descripcion')
+
+@admin.register(Entrega)
+class EntregaAdmin(admin.ModelAdmin):
+    list_display = ('id', 'cliente', 'cantidad_pedidos_display', 'costo_mensajeria', 'total_a_cobrar_display', 'entregado', 'fecha_entrega')
+    list_filter = ('entregado', )
+    search_fields = ('cliente__nombre',)
+    filter_horizontal = ('pedidos',)
+
+    @admin.display(description='Pedidos')
+    def cantidad_pedidos_display(self, obj):
+        return obj.cantidad_pedidos
+
+    @admin.display(description='Total a cobrar')
+    def total_a_cobrar_display(self, obj):
+        return f"${obj.total_a_cobrar:.2f}"
