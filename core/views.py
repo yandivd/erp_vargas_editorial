@@ -1,6 +1,8 @@
 from django.shortcuts import render
-from django.db.models import Sum, Count, Avg, Q, F
-from django.db.models.functions import TruncMonth, TruncWeek, ExtractMonth, ExtractYear
+from django.db.models import Sum, Count, Avg, Q, F, Max
+from django.db.models.functions import (
+    TruncMonth, TruncWeek, ExtractMonth, ExtractYear, ExtractWeekDay, ExtractHour
+)
 from django.utils import timezone
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -42,11 +44,21 @@ def dashboard(request):
     saldo_neto = ingresos - gastos
     margen = (saldo_neto / ingresos * 100) if ingresos > 0 else 0
 
-    pedidos_qs = Pedido.objects.filter(fecha_pedido__date__gte=desde, fecha_pedido__date__lte=hasta)
+    # Pedidos con cliente (demanda real, sin stock)
+    pedidos_qs = Pedido.objects.filter(
+        fecha_pedido__date__gte=desde,
+        fecha_pedido__date__lte=hasta,
+        cliente__isnull=False,
+    )
     total_pedidos = pedidos_qs.count()
     clientes_unicos = pedidos_qs.values('cliente').distinct().count()
 
-    ventas = pedidos_qs.aggregate(t=Sum('precio_venta'))['t'] or 0
+    # Ventas (incluye stock, porque el dinero entra igual)
+    pedidos_todos = Pedido.objects.filter(
+        fecha_pedido__date__gte=desde,
+        fecha_pedido__date__lte=hasta,
+    )
+    ventas = pedidos_todos.aggregate(t=Sum('precio_venta'))['t'] or 0
     ganancia_promedio = (saldo_neto / total_pedidos) if total_pedidos > 0 else 0
 
     # ==========================================
@@ -85,7 +97,7 @@ def dashboard(request):
     ]
 
     # ==========================================
-    # 4. TENDENCIA MENSUAL Y PROYECCIÓN (6 meses)
+    # 4. TENDENCIA MENSUAL Y PROYECCIÓN
     # ==========================================
     tendencia = movimientos.annotate(
         mes=TruncMonth('fecha')
@@ -103,7 +115,6 @@ def dashboard(request):
                 'gastos': float(t['gastos'] or 0),
             })
 
-    # Proyección simple: promedio de los últimos 3 meses
     ultimos = tendencia_data[-3:] if len(tendencia_data) >= 3 else tendencia_data
     promedio_ingresos = sum(m['ingresos'] for m in ultimos) / len(ultimos) if ultimos else 0
     promedio_gastos = sum(m['gastos'] for m in ultimos) / len(ultimos) if ultimos else 0
@@ -137,15 +148,13 @@ def dashboard(request):
     ]
 
     # ==========================================
-    # 6. CATEGORÍAS DE INGRESO (pastel)
+    # 6. CATEGORÍAS DE INGRESO
     # ==========================================
-    categorias_ingreso = desglose_ingresos_data  # reutilizamos
-    
-    # ==========================================
-    # 7. MAPA DE CALOR POR ACTIVIDAD (día de la semana × hora)
-    # ==========================================
-    from django.db.models.functions import ExtractWeekDay, ExtractHour
+    categorias_ingreso = desglose_ingresos_data
 
+    # ==========================================
+    # 7. MAPA DE CALOR
+    # ==========================================
     calor = movimientos.annotate(
         dia=ExtractWeekDay('fecha'),
         hora=ExtractHour('fecha'),
@@ -173,12 +182,12 @@ def dashboard(request):
     }
 
     # ==========================================
-    # 8. LISTADO DE TRANSACCIONES (últimas 20)
+    # 8. TRANSACCIONES
     # ==========================================
     transacciones = movimientos.select_related('pedido', 'proveedor', 'cliente').order_by('-fecha')[:20]
 
     # ==========================================
-    # 9. ANÁLISIS EXHAUSTIVO POR CATEGORÍA
+    # 9. ANÁLISIS POR CATEGORÍA
     # ==========================================
     analisis_categorias = movimientos.values('categoria', 'tipo').annotate(
         total=Sum('monto'),
@@ -196,11 +205,10 @@ def dashboard(request):
     ]
 
     # ==========================================
-    # 10. CONSEJOS PERSONALIZADOS
+    # 10. CONSEJOS
     # ==========================================
     consejos = []
 
-    # Consejo 1: margen bajo
     if margen < 20:
         consejos.append({
             'tipo': 'danger',
@@ -214,7 +222,6 @@ def dashboard(request):
             'texto': f'Tu margen neto es {margen:.1f}%. Vas por buen camino.',
         })
 
-    # Consejo 2: gastos altos
     if ingresos > 0 and (gastos / ingresos) > 0.7:
         consejos.append({
             'tipo': 'warning',
@@ -222,10 +229,10 @@ def dashboard(request):
             'texto': f'Tus gastos representan el {(gastos/ingresos*100):.1f}% de los ingresos. Revisa gastos operativos.',
         })
 
-    # Consejo 3: pedidos atrasados
     atrasados = Pedido.objects.filter(
         fecha_entrega_prometida__lt=hoy,
-        estado__es_final=False
+        estado__es_final=False,
+        cliente__isnull=False,
     ).exclude(estado__nombre__in=['Entregado', 'Cancelado']).count()
 
     if atrasados > 0:
@@ -235,7 +242,6 @@ def dashboard(request):
             'texto': 'Tienes pedidos con fecha de entrega vencida. Prioriza su producción.',
         })
 
-    # Consejo 4: stock bajo
     materiales_bajos = Material.objects.filter(
         activo=True, stock_actual__lte=F('stock_minimo')
     ).count()
@@ -247,13 +253,193 @@ def dashboard(request):
             'texto': 'Revisa el inventario y repón los materiales antes de quedarte sin stock.',
         })
 
-    # Consejo 5: clientes únicos
     if clientes_unicos > 0 and total_pedidos / clientes_unicos < 1.5:
         consejos.append({
             'tipo': 'info',
             'titulo': 'Clientes recurrentes bajos',
             'texto': 'La mayoría de tus clientes compran una sola vez. Considera estrategias de fidelización.',
         })
+
+    # ==========================================
+    # DATOS PARA LA PESTAÑA PRODUCCIÓN
+    # ==========================================
+    pedidos_prod = Pedido.objects.filter(
+        fecha_pedido__date__gte=desde,
+        fecha_pedido__date__lte=hasta,
+        cliente__isnull=False,
+    )
+
+    pedidos_totales = pedidos_prod.count()
+    libros_unicos = pedidos_prod.values('libro').distinct().count()
+
+    libros_con_pedidos = pedidos_prod.values('libro').annotate(total=Count('id'))
+    libros_con_un_pedido = libros_con_pedidos.filter(total=1).count()
+    libros_repetidos = libros_con_pedidos.filter(total__gt=1).count()
+
+    top10_libros = pedidos_prod.values(
+        'libro__titulo', 'libro__autor'
+    ).annotate(
+        total_pedidos=Count('id')
+    ).order_by('-total_pedidos')[:10]
+
+    top10_data = [
+        {
+            'titulo': l['libro__titulo'],
+            'autor': l['libro__autor'] or '',
+            'total': l['total_pedidos'],
+        }
+        for l in top10_libros
+    ]
+
+    ranking_libros = pedidos_prod.values(
+        'libro__titulo', 'libro__autor', 'libro__paginas'
+    ).annotate(
+        total_pedidos=Count('id'),
+        total_clientes=Count('cliente', distinct=True),
+        total_ventas=Sum('precio_venta'),
+    ).order_by('-total_pedidos')[:30]
+
+    ranking_data = [
+        {
+            'titulo': l['libro__titulo'],
+            'autor': l['libro__autor'] or '',
+            'paginas': l['libro__paginas'],
+            'pedidos': l['total_pedidos'],
+            'clientes': l['total_clientes'],
+            'ventas': float(l['total_ventas'] or 0),
+        }
+        for l in ranking_libros
+    ]
+
+    libros_recientes = pedidos_prod.values(
+        'libro', 'libro__titulo', 'libro__autor'
+    ).annotate(
+        fecha_reciente=Max('fecha_pedido'),
+        total_pedidos=Count('id'),
+        total_clientes=Count('cliente', distinct=True),
+    ).order_by('-fecha_reciente')[:10]
+
+    recientes_data = [
+        {
+            'id': l['libro'],
+            'titulo': l['libro__titulo'],
+            'autor': l['libro__autor'] or '',
+            'fecha': l['fecha_reciente'].strftime('%d/%m/%Y') if l['fecha_reciente'] else '—',
+            'pedidos': l['total_pedidos'],
+            'clientes': l['total_clientes'],
+        }
+        for l in libros_recientes
+    ]
+
+    top10_ids = [
+        l['libro'] for l in pedidos_prod.values('libro').annotate(
+            total=Count('id')
+        ).order_by('-total')[:10]
+    ]
+
+    pedidos_por_mes_top10 = pedidos_prod.filter(
+        libro__id__in=top10_ids
+    ).annotate(
+        mes=TruncMonth('fecha_pedido')
+    ).values('mes', 'libro__titulo').annotate(
+        total=Count('id')
+    ).order_by('mes', '-total')
+
+    meses = sorted(set(p['mes'] for p in pedidos_por_mes_top10 if p['mes']))
+    meses_labels = [m.strftime('%b %Y') for m in meses]
+
+    series_libros = {}
+    for p in pedidos_por_mes_top10:
+        if not p['mes']:
+            continue
+        titulo = p['libro__titulo']
+        if titulo not in series_libros:
+            series_libros[titulo] = {m: 0 for m in meses}
+        series_libros[titulo][p['mes']] = p['total']
+
+    pedidos_mes_data = {
+        'labels': meses_labels,
+        'series': [
+            {
+                'label': titulo,
+                'data': [series_libros[titulo].get(m, 0) for m in meses],
+            }
+            for titulo in series_libros
+        ]
+    }
+
+    # ==========================================
+    # DATOS PARA LA PESTAÑA CLIENTES
+    # ==========================================
+    clientes_qs = Cliente.objects.all()
+
+    clientes_data = []
+    for c in clientes_qs:
+        pedidos_cliente = Pedido.objects.filter(cliente=c).exclude(
+            estado__nombre__in=['Cancelado']
+        )
+        total_pedidos_c = pedidos_cliente.count()
+        total_gastado = pedidos_cliente.aggregate(t=Sum('precio_venta'))['t'] or 0
+        ultimo_pedido = pedidos_cliente.order_by('-fecha_pedido').first()
+        fecha_ultimo = ultimo_pedido.fecha_pedido.date() if ultimo_pedido else None
+        dias_sin_comprar = (hoy - fecha_ultimo).days if fecha_ultimo else 9999
+
+        if total_pedidos_c == 0:
+            tipo = 'sin_pedidos'
+        elif total_pedidos_c == 1:
+            tipo = 'nuevo'
+        elif dias_sin_comprar > 90:
+            tipo = 'en_riesgo'
+        elif total_pedidos_c >= 5 or total_gastado >= 20000:
+            tipo = 'vip'
+        else:
+            tipo = 'recurrente'
+
+        clientes_data.append({
+            'id': c.id,
+            'nombre': c.nombre,
+            'telefono': c.telefono or '',
+            'pedidos': total_pedidos_c,
+            'total_gastado': float(total_gastado),
+            'ultimo_pedido': fecha_ultimo.strftime('%d/%m/%Y') if fecha_ultimo else '—',
+            'dias_sin_comprar': dias_sin_comprar if fecha_ultimo else None,
+            'tipo': tipo,
+        })
+
+    clientes_unicos_total = len(clientes_data)
+    clientes_nuevos = sum(1 for c in clientes_data if c['tipo'] == 'nuevo')
+    clientes_recurrentes = sum(1 for c in clientes_data if c['tipo'] == 'recurrente')
+    clientes_vip = sum(1 for c in clientes_data if c['tipo'] == 'vip')
+    clientes_en_riesgo = sum(1 for c in clientes_data if c['tipo'] == 'en_riesgo')
+    promedio_pedidos = (
+        sum(c['pedidos'] for c in clientes_data) / clientes_unicos_total
+        if clientes_unicos_total > 0 else 0
+    )
+
+    clientes_vip_lista = sorted(
+        [c for c in clientes_data if c['tipo'] == 'vip'],
+        key=lambda x: x['total_gastado'], reverse=True
+    )
+    clientes_riesgo_lista = sorted(
+        [c for c in clientes_data if c['tipo'] == 'en_riesgo'],
+        key=lambda x: x['dias_sin_comprar'], reverse=True
+    )
+
+    tipo_cliente_data = [
+        {'tipo': 'Nuevos', 'total': clientes_nuevos},
+        {'tipo': 'Recurrentes', 'total': clientes_recurrentes},
+        {'tipo': 'VIP', 'total': clientes_vip},
+    ]
+
+    frecuencia = {}
+    for c in clientes_data:
+        if c['pedidos'] > 0:
+            frecuencia[c['pedidos']] = frecuencia.get(c['pedidos'], 0) + 1
+
+    frecuencia_data = {
+        'labels': [str(k) for k in sorted(frecuencia.keys())],
+        'data': [frecuencia[k] for k in sorted(frecuencia.keys())],
+    }
 
     # ==========================================
     # CONTEXTO
@@ -291,6 +477,28 @@ def dashboard(request):
 
         # Consejos
         'consejos': consejos,
+
+        # Producción
+        'pedidos_totales': pedidos_totales,
+        'libros_unicos': libros_unicos,
+        'libros_con_un_pedido': libros_con_un_pedido,
+        'libros_repetidos': libros_repetidos,
+        'top10_data': top10_data,
+        'ranking_data': ranking_data,
+        'recientes_data': recientes_data,
+        'pedidos_mes_data': pedidos_mes_data,
+
+        # Clientes
+        'clientes_unicos_total': clientes_unicos_total,
+        'clientes_nuevos': clientes_nuevos,
+        'clientes_recurrentes': clientes_recurrentes,
+        'clientes_vip': clientes_vip,
+        'clientes_en_riesgo': clientes_en_riesgo,
+        'promedio_pedidos': promedio_pedidos,
+        'clientes_vip_lista': clientes_vip_lista,
+        'clientes_riesgo_lista': clientes_riesgo_lista,
+        'tipo_cliente_data': tipo_cliente_data,
+        'frecuencia_data': frecuencia_data,
     }
 
     return render(request, 'dashboard.html', context)
