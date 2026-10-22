@@ -1,0 +1,78 @@
+{% extends 'impresion_carta_pequena.html' %}
+{% load static %}
+
+{% block title %}Entrega #{{ entrega.id }}{% endblock %}
+
+{% block etiquetas %}
+<div class="etiqueta" style="padding: 2mm; justify-content: flex-start;">
+
+    <!-- CABECERA -->
+    <div class="etq-header" style="align-items: flex-start; margin-bottom: 1mm;">
+        <img src="{% static 'img/logo.png' %}" alt="Logo" class="etq-logo" style="max-height: 8mm; margin-top: 1mm;">
+        <div style="text-align: right; width: 100%;">
+            <p class="etq-empresa" style="font-size: 6pt;">Vargas Editorial</p>
+            <p class="etq-sub" style="font-size: 4.5pt;">Tel: +53 54545068</p>
+            <p style="font-size: 5pt; font-weight: bold; margin: 0.5mm 0 0 0; color: #c0392b;">COMPROBANTE DE ENTREGA</p>
+            <p style="font-size: 4.5pt; margin: 0;">No. {{ entrega.id|stringformat:"05d" }} | Fecha: {% now "d/m/Y" %}</p>
+        </div>
+    </div>
+
+    <!-- DATOS DEL CLIENTE Y ENTREGA -->
+    <div style="display: flex; justify-content: space-between; font-size: 5pt; line-height: 1.1; margin-bottom: 1mm; border-bottom: 0.2mm solid #ccc; padding-bottom: 1mm;">
+        <div style="width: 60%;">
+            <strong>CLIENTE</strong><br>
+            {{ entrega.cliente.nombre|truncatechars:20 }}<br>
+            Tel: {{ entrega.cliente.telefono|default:"—" }}<br>
+            Dir: {{ entrega.direccion|default:entrega.cliente.direccion|default:"—"|truncatechars:25 }}
+        </div>
+        <div style="width: 35%; text-align: right;">
+            <strong>ENTREGA</strong><br>
+            Fecha: {{ entrega.fecha_entrega|date:"d/m/Y"|default:"—" }}<br>
+            Pedidos: {{ entrega.cantidad_pedidos }}
+        </div>
+    </div>
+
+    <!-- TABLA DE PEDIDOS (Mini) -->
+    <table class="etq-tabla" style="font-size: 4.5pt; margin-bottom: 1mm;">
+        <thead>
+            <tr>
+                <th style="width: 15%;">Ref</th>
+                <th style="width: 45%;">Libro</th>
+                <th class="center" style="width: 10%;">C</th>
+                <th class="right" style="width: 30%;">Saldo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in pedidos %}
+            <tr>
+                <td>#{{ p.referencia_externa|default:p.id }}</td>
+                <td>{{ p.libro.titulo|truncatechars:15 }}</td>
+                <td class="center">{{ p.cantidad }}</td>
+                <td class="right">${{ p.saldo_pendiente|floatformat:0 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- TOTALES -->
+    <div class="etq-totales" style="font-size: 4.5pt; margin-top: auto;">
+        <div class="fila">
+            <span>Total pedidos:</span>
+            <span>${{ entrega.total_pedidos|floatformat:0 }}</span>
+        </div>
+        <div class="fila">
+            <span>Anticipos:</span>
+            <span>-${{ entrega.total_anticipos|floatformat:0 }}</span>
+        </div>
+        <div class="fila">
+            <span>Mensajería:</span>
+            <span>${{ entrega.costo_mensajeria|floatformat:0 }}</span>
+        </div>
+        <div class="fila total-final" style="color: #c0392b; font-size: 6pt;">
+            <span>TOTAL A COBRAR:</span>
+            <span>${{ entrega.total_a_cobrar|floatformat:2 }}</span>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
