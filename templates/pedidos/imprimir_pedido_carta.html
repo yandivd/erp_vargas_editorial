@@ -1,75 +1,29 @@
 {% extends 'impresion_carta_pequena.html' %}
 {% load static %}
 
-{% block title %}Comprobante #{{ pedido.id }}{% endblock %}
+{% block title %}Etiqueta #{{ pedido.referencia_externa|default:pedido.id }}{% endblock %}
 
 {% block etiquetas %}
-<div class="etiqueta" style="padding: 2mm; justify-content: flex-start;">
+<div class="etiqueta" style="padding: 3mm; justify-content: space-between; align-items: center; text-align: center; border: 1px solid #ccc;">
 
-    <!-- CABECERA -->
-    <div class="etq-header" style="align-items: flex-start; margin-bottom: 1mm;">
-        <img src="{% static 'img/logo.png' %}" alt="Logo" class="etq-logo" style="max-height: 8mm; margin-top: 1mm;">
-        <div style="text-align: right; width: 100%;">
-            <p class="etq-empresa" style="font-size: 6pt;">Vargas Editorial</p>
-            <p class="etq-sub" style="font-size: 4.5pt;">Tel: +53 54545068</p>
-            <p style="font-size: 5pt; font-weight: bold; margin: 0.5mm 0 0 0; color: #c0392b;">COMPROBANTE DE PEDIDO</p>
-            <p style="font-size: 4.5pt; margin: 0;">No. {{ pedido.referencia_externa|default:pedido.id }} | Fecha: {% now "d/m/Y" %}</p>
-        </div>
+    <!-- LOGO CENTRADO -->
+    <div style="margin-top: 2mm;">
+        <img src="{% static 'img/logo.png' %}" alt="Logo" style="max-height: 15mm; max-width: 80%; object-fit: contain;">
     </div>
 
-    <!-- DATOS DEL CLIENTE Y PEDIDO -->
-    <div style="display: flex; justify-content: space-between; font-size: 5pt; line-height: 1.1; margin-bottom: 1mm; border-bottom: 0.2mm solid #ccc; padding-bottom: 1mm;">
-        <div style="width: 60%;">
-            <strong>CLIENTE</strong><br>
-            {% if pedido.cliente %}
-                {{ pedido.cliente.nombre|truncatechars:20 }}<br>
-                Tel: {{ pedido.cliente.telefono|default:"—" }}<br>
-                Dir: {{ pedido.direccion_entrega|default:pedido.cliente.direccion|default:"—"|truncatechars:25 }}
-            {% else %}
-                <strong>Venta de Stock</strong><br>
-                Tel: {{ pedido.telefono_entrega|default:"—" }}<br>
-                Dir: {{ pedido.direccion_entrega|default:"En el taller"|truncatechars:25 }}
-            {% endif %}
-        </div>
-        <div style="width: 35%; text-align: right;">
-            <strong>PEDIDO</strong><br>
-            Fecha: {{ pedido.fecha_pedido|date:"d/m/Y" }}<br>
-            Entrega: {{ pedido.fecha_entrega_prometida|date:"d/m/Y"|default:"—" }}
-        </div>
+    <!-- TÍTULO DEL LIBRO (Lo más grande y visual) -->
+    <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 2mm 0;">
+        <h2 style="font-size: 14pt; font-weight: bold; line-height: 1.1; margin: 0; color: #000; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;">
+            {{ pedido.libro.titulo }}
+        </h2>
     </div>
 
-    <!-- TABLA DEL LIBRO (Mini) -->
-    <table class="etq-tabla" style="font-size: 4.5pt; margin-bottom: 1mm;">
-        <thead>
-            <tr>
-                <th style="width: 60%;">Libro</th>
-                <th class="center" style="width: 10%;">C</th>
-                <th class="right" style="width: 30%;">Precio</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>{{ pedido.libro.titulo|truncatechars:20 }}</td>
-                <td class="center">{{ pedido.cantidad }}</td>
-                <td class="right">${{ pedido.precio_venta|floatformat:0 }}</td>
-            </tr>
-        </tbody>
-    </table>
-
-    <!-- TOTALES -->
-    <div class="etq-totales" style="font-size: 4.5pt; margin-top: auto;">
-        <div class="fila">
-            <span>Total pedido:</span>
-            <span>${{ pedido.precio_venta|floatformat:0 }}</span>
-        </div>
-        <div class="fila">
-            <span>Anticipo:</span>
-            <span>-${{ pedido.anticipo_recibido|floatformat:0 }}</span>
-        </div>
-        <div class="fila total-final" style="color: #c0392b; font-size: 6pt;">
-            <span>SALDO A PAGAR:</span>
-            <span>${{ pedido.saldo_pendiente|floatformat:2 }}</span>
-        </div>
+    <!-- REFERENCIA DEL PEDIDO (Destacada abajo) -->
+    <div style="width: 100%; border-top: 2px dashed #000; padding-top: 2mm; margin-bottom: 1mm;">
+        <p style="font-size: 6pt; text-transform: uppercase; color: #555; margin: 0 0 1mm 0;">Pedido</p>
+        <p style="font-size: 18pt; font-weight: bold; margin: 0; color: #c0392b; line-height: 1;">
+            #{{ pedido.referencia_externa|default:pedido.id }}
+        </p>
     </div>
 
 </div>
