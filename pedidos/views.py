@@ -14,6 +14,7 @@ import json
 from django.db import models
 
 from config import settings
+from proveedores.models import Proveedor
 from .models import CodigoDescuento, HistorialEstado, Pedido, ServicioExterno, Book, Estado, LoteServicio
 from .services import ServicioPedido, CosteadorPedido
 from clientes.models import Cliente
@@ -646,8 +647,68 @@ def imprimir_comprobantes_masivo(request):
 # LOTES DE SERVICIO
 # ============================================================
 def lista_lotes(request):
-    lotes = LoteServicio.objects.select_related('proveedor').all()
-    return render(request, 'pedidos/lista_lotes.html', {'lotes': lotes})
+    """Lista de lotes con dos pestañas: abiertos e historial, con filtros."""
+    from django.db.models import Q, Sum, Count
+
+    # Pestaña activa
+    tab = request.GET.get('tab', 'abiertos')
+
+    # Filtros comunes
+    q = request.GET.get('q', '').strip()
+    proveedor_id = request.GET.get('proveedor', '')
+    tipo = request.GET.get('tipo', '')
+    estado = request.GET.get('estado', '')
+    desde = request.GET.get('desde', '')
+    hasta = request.GET.get('hasta', '')
+
+    # Base queryset
+    lotes = LoteServicio.objects.select_related('proveedor').annotate(
+        num_servicios=Count('servicios'),
+        total=Sum('servicios__monto'),
+    ).order_by('-fecha_apertura')
+
+    # Filtrar por pestaña
+    if tab == 'abiertos':
+        lotes = lotes.filter(estado='ABIERTO')
+    else:
+        # Historial: todos los que no están abiertos
+        lotes = lotes.exclude(estado='ABIERTO')
+
+    # Filtros
+    if q:
+        lotes = lotes.filter(
+            Q(numero__icontains=q) |
+            Q(proveedor__nombre__icontains=q)
+        )
+    if proveedor_id:
+        lotes = lotes.filter(proveedor_id=proveedor_id)
+    if tipo:
+        lotes = lotes.filter(tipo=tipo)
+    if estado:
+        lotes = lotes.filter(estado=estado)
+    if desde:
+        lotes = lotes.filter(fecha_apertura__date__gte=desde)
+    if hasta:
+        lotes = lotes.filter(fecha_apertura__date__lte=hasta)
+
+    # Datos para los selects
+    proveedores = Proveedor.objects.filter(activo=True).order_by('nombre')
+    tipos = LoteServicio._meta.get_field('tipo').choices
+    estados = LoteServicio._meta.get_field('estado').choices
+
+    return render(request, 'pedidos/lista_lotes.html', {
+        'lotes': lotes,
+        'tab': tab,
+        'proveedores': proveedores,
+        'tipos': tipos,
+        'estados': estados,
+        'q': q,
+        'proveedor_id': proveedor_id,
+        'tipo_actual': tipo,
+        'estado_actual': estado,
+        'desde': desde,
+        'hasta': hasta,
+    })
 
 
 def detalle_lote(request, pk):
@@ -697,18 +758,20 @@ def pagar_lote(request, pk):
 
 
 def orden_lote_pdf(request, pk):
-
-    # Ruta absoluta del logo para WeasyPrint
-    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
     lote = get_object_or_404(LoteServicio, pk=pk)
     servicios = lote.servicios.select_related(
         'pedido__libro', 'pedido__cliente'
     ).order_by('pedido_id')
 
+    # Rutas absolutas para WeasyPrint
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
+    sello_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'sello_pagado.png')
+
     html_string = render_to_string('pedidos/orden_lote_pdf.html', {
         'lote': lote,
         'servicios': servicios,
         'logo_path': f'file:///{logo_path.replace(os.sep, "/")}',
+        'sello_path': f'file:///{sello_path.replace(os.sep, "/")}',
     }, request=request)
 
     pdf = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
