@@ -106,6 +106,18 @@
         border-radius: 4px;
         display: inline-block;
     }
+
+    .nav-tabs .nav-link {
+        color: var(--text-muted);
+        border: none;
+        border-bottom: 2px solid transparent;
+        font-weight: 600;
+    }
+    .nav-tabs .nav-link.active {
+        color: var(--brand-blue);
+        border-bottom-color: var(--brand-blue);
+        background: transparent;
+    }
 </style>
 {% endblock %}
 
@@ -129,291 +141,558 @@
     </form>
 </div>
 
-<!-- ========================================== -->
-<!-- 1. KPIs PRINCIPALES -->
-<!-- ========================================== -->
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="kpi-card ingresos">
-            <div class="kpi-label">Ingresos</div>
-            <div class="kpi-value text-success">${{ ingresos|floatformat:2 }}</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="kpi-card gastos">
-            <div class="kpi-label">Gastos</div>
-            <div class="kpi-value text-danger">${{ gastos|floatformat:2 }}</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="kpi-card saldo">
-            <div class="kpi-label">Saldo Neto</div>
-            <div class="kpi-value {% if saldo_neto >= 0 %}text-primary{% else %}text-danger{% endif %}">${{ saldo_neto|floatformat:2 }}</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="kpi-card margen">
-            <div class="kpi-label">Margen de Ganancia</div>
-            <div class="kpi-value {% if margen >= 30 %}text-success{% elif margen >= 10 %}text-warning{% else %}text-danger{% endif %}">{{ margen|floatformat:1 }}%</div>
-        </div>
-    </div>
-</div>
+<!-- PESTAÑAS -->
+<ul class="nav nav-tabs mb-4" id="dashboardTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-resumen" data-bs-toggle="tab" data-bs-target="#pane-resumen" type="button" role="tab">
+            <i class="bi bi-graph-up"></i> Resumen
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-produccion" data-bs-toggle="tab" data-bs-target="#pane-produccion" type="button" role="tab">
+            <i class="bi bi-book"></i> Producción
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-clientes" data-bs-toggle="tab" data-bs-target="#pane-clientes" type="button" role="tab">
+            <i class="bi bi-people"></i> Clientes
+        </button>
+    </li>
+</ul>
 
-<div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="kpi-card pedidos">
-            <div class="kpi-label">Pedidos Totales</div>
-            <div class="kpi-value">{{ total_pedidos }}</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="kpi-card clientes">
-            <div class="kpi-label">Clientes Únicos</div>
-            <div class="kpi-value">{{ clientes_unicos }}</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="kpi-card ventas">
-            <div class="kpi-label">Ventas</div>
-            <div class="kpi-value">${{ ventas|floatformat:2 }}</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="kpi-card promedio">
-            <div class="kpi-label">Ganancia Promedio</div>
-            <div class="kpi-value">${{ ganancia_promedio|floatformat:2 }}</div>
-        </div>
-    </div>
-</div>
+<div class="tab-content" id="dashboardTabsContent">
 
-<!-- ========================================== -->
-<!-- 2. DESGLOSE POR TIPO DE INGRESO + CATEGORÍAS -->
-<!-- ========================================== -->
-<div class="row g-3 mb-4">
-    <div class="col-md-6">
-        <div class="section-card">
-            <h4><i class="bi bi-pie-chart text-success"></i> Desglose por Tipo de Ingreso</h4>
-            <div class="chart-container-sm">
-                <canvas id="chartDesgloseIngresos"></canvas>
+    <!-- ========================================== -->
+    <!-- PESTAÑA RESUMEN -->
+    <!-- ========================================== -->
+    <div class="tab-pane fade show active" id="pane-resumen" role="tabpanel">
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="kpi-card ingresos">
+                    <div class="kpi-label">Ingresos</div>
+                    <div class="kpi-value text-success">${{ ingresos|floatformat:2 }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card gastos">
+                    <div class="kpi-label">Gastos</div>
+                    <div class="kpi-value text-danger">${{ gastos|floatformat:2 }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card saldo">
+                    <div class="kpi-label">Saldo Neto</div>
+                    <div class="kpi-value {% if saldo_neto >= 0 %}text-primary{% else %}text-danger{% endif %}">${{ saldo_neto|floatformat:2 }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card margen">
+                    <div class="kpi-label">Margen de Ganancia</div>
+                    <div class="kpi-value {% if margen >= 30 %}text-success{% elif margen >= 10 %}text-warning{% else %}text-danger{% endif %}">{{ margen|floatformat:1 }}%</div>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="col-md-6">
-        <div class="section-card">
-            <h4><i class="bi bi-bar-chart text-primary"></i> Categorías de Ingreso</h4>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="kpi-card pedidos">
+                    <div class="kpi-label">Pedidos Totales</div>
+                    <div class="kpi-value">{{ total_pedidos }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card clientes">
+                    <div class="kpi-label">Clientes Únicos</div>
+                    <div class="kpi-value">{{ clientes_unicos }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card ventas">
+                    <div class="kpi-label">Ventas</div>
+                    <div class="kpi-value">${{ ventas|floatformat:2 }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card promedio">
+                    <div class="kpi-label">Ganancia Promedio</div>
+                    <div class="kpi-value">${{ ganancia_promedio|floatformat:2 }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="section-card">
+                    <h4><i class="bi bi-pie-chart text-success"></i> Desglose por Tipo de Ingreso</h4>
+                    <div class="chart-container-sm">
+                        <canvas id="chartDesgloseIngresos"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="section-card">
+                    <h4><i class="bi bi-bar-chart text-primary"></i> Categorías de Ingreso</h4>
+                    <table class="table-clean">
+                        <thead>
+                            <tr><th>Categoría</th><th class="text-end">Total</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for c in categorias_ingreso %}
+                            <tr>
+                                <td>{{ c.categoria }}</td>
+                                <td class="text-end fw-bold">${{ c.total|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="2" class="text-center text-muted">Sin ingresos.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-card mb-4">
+            <h4><i class="bi bi-box-seam text-warning"></i> Costo Unitario por Consumo de Materiales</h4>
             <table class="table-clean">
                 <thead>
-                    <tr><th>Categoría</th><th class="text-end">Total</th></tr>
+                    <tr>
+                        <th>Material</th>
+                        <th class="text-end">Cantidad</th>
+                        <th class="text-end">Costo Total</th>
+                        <th class="text-end">Costo Unitario</th>
+                    </tr>
                 </thead>
                 <tbody>
-                    {% for c in categorias_ingreso %}
+                    {% for c in costo_unitario %}
                     <tr>
-                        <td>{{ c.categoria }}</td>
-                        <td class="text-end fw-bold">${{ c.total|floatformat:2 }}</td>
+                        <td>{{ c.material }}</td>
+                        <td class="text-end">{{ c.cantidad|floatformat:2 }} {{ c.unidad }}</td>
+                        <td class="text-end">${{ c.costo_total|floatformat:2 }}</td>
+                        <td class="text-end fw-bold">${{ c.costo_unitario|floatformat:2 }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="2" class="text-center text-muted">Sin ingresos.</td></tr>
+                    <tr><td colspan="4" class="text-center text-muted">Sin consumos registrados.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-    </div>
-</div>
 
-<!-- ========================================== -->
-<!-- 3. COSTO UNITARIO POR CONSUMO -->
-<!-- ========================================== -->
-<div class="section-card mb-4">
-    <h4><i class="bi bi-box-seam text-warning"></i> Costo Unitario por Consumo de Materiales</h4>
-    <table class="table-clean">
-        <thead>
-            <tr>
-                <th>Material</th>
-                <th class="text-end">Cantidad</th>
-                <th class="text-end">Costo Total</th>
-                <th class="text-end">Costo Unitario</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for c in costo_unitario %}
-            <tr>
-                <td>{{ c.material }}</td>
-                <td class="text-end">{{ c.cantidad|floatformat:2 }} {{ c.unidad }}</td>
-                <td class="text-end">${{ c.costo_total|floatformat:2 }}</td>
-                <td class="text-end fw-bold">${{ c.costo_unitario|floatformat:2 }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="4" class="text-center text-muted">Sin consumos registrados.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
-<!-- ========================================== -->
-<!-- 4. TENDENCIA MENSUAL Y PROYECCIÓN -->
-<!-- ========================================== -->
-<div class="row g-3 mb-4">
-    <div class="col-md-7">
-        <div class="section-card">
-            <h4><i class="bi bi-graph-up-arrow text-primary"></i> Tendencia Mensual</h4>
-            <div class="chart-container">
-                <canvas id="chartTendencia"></canvas>
+        <div class="row g-3 mb-4">
+            <div class="col-md-7">
+                <div class="section-card">
+                    <h4><i class="bi bi-graph-up-arrow text-primary"></i> Tendencia Mensual</h4>
+                    <div class="chart-container">
+                        <canvas id="chartTendencia"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-5">
+                <div class="section-card">
+                    <h4><i class="bi bi-graph-up text-info"></i> Proyección (6 meses)</h4>
+                    <div class="chart-container">
+                        <canvas id="chartProyeccion"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="col-md-5">
-        <div class="section-card">
-            <h4><i class="bi bi-graph-up text-info"></i> Proyección (6 meses)</h4>
+
+        <div class="section-card mb-4">
+            <h4><i class="bi bi-bar-chart-line text-success"></i> Ingresos vs Gastos por Semana</h4>
             <div class="chart-container">
-                <canvas id="chartProyeccion"></canvas>
+                <canvas id="chartSemanal"></canvas>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- ========================================== -->
-<!-- 5. INGRESOS VS GASTOS POR SEMANA -->
-<!-- ========================================== -->
-<div class="section-card mb-4">
-    <h4><i class="bi bi-bar-chart-line text-success"></i> Ingresos vs Gastos por Semana</h4>
-    <div class="chart-container">
-        <canvas id="chartSemanal"></canvas>
-    </div>
-</div>
+        <div class="section-card mb-4">
+            <h4><i class="bi bi-grid-3x3 text-danger"></i> Mapa de Calor por Actividad (día × hora)</h4>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            {% for h in calor.horas %}
+                            <th class="text-center small">{{ h }}</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for fila in calor.filas %}
+                        <tr>
+                            <td class="fw-bold">{{ fila.dia }}</td>
+                            {% for celda in fila.valores %}
+                            <td class="text-center" style="padding: 2px;">
+                                {% if celda > 0 %}
+                                    {% widthratio celda calor.max 1 as alpha %}
+                                    <div class="heatmap-cell"
+                                         style="background-color: rgba(59, 130, 246, {{ alpha }});"
+                                         title="{{ celda }} movimientos"></div>
+                                {% else %}
+                                    <div class="heatmap-cell" style="background-color: #f1f5f9;"></div>
+                                {% endif %}
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-<!-- ========================================== -->
-<!-- 6. MAPA DE CALOR POR ACTIVIDAD -->
-<!-- ========================================== -->
-<div class="section-card mb-4">
-    <h4><i class="bi bi-grid-3x3 text-danger"></i> Mapa de Calor por Actividad (día × hora)</h4>
-    <div class="table-responsive">
-        <table class="table table-sm table-bordered mb-0">
-            <thead>
-                <tr>
-                    <th></th>
-                    {% for h in calor.horas %}
-                    <th class="text-center small">{{ h }}</th>
+        <div class="section-card mb-4">
+            <h4><i class="bi bi-list-ul text-secondary"></i> Últimas Transacciones</h4>
+            <table class="table-clean">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Concepto</th>
+                        <th>Categoría</th>
+                        <th class="text-end">Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in transacciones %}
+                    <tr>
+                        <td>{{ t.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            {% if t.tipo == 'INGRESO' %}
+                            <span class="badge bg-success">Ingreso</span>
+                            {% else %}
+                            <span class="badge bg-danger">Egreso</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ t.concepto }}</td>
+                        <td><small>{{ t.get_categoria_display }}</small></td>
+                        <td class="text-end fw-bold {% if t.tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">
+                            {% if t.tipo == 'INGRESO' %}+{% else %}-{% endif %}${{ t.monto|floatformat:2 }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted">Sin transacciones.</td></tr>
                     {% endfor %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for fila in calor.filas %}
-                <tr>
-                    <td class="fw-bold">{{ fila.dia }}</td>
-                    {% for celda in fila.valores %}
-                    <td class="text-center" style="padding: 2px;">
-                        {% if celda > 0 %}
-                            {% widthratio celda calor.max 1 as alpha %}
-                            <div class="heatmap-cell"
-                                 style="background-color: rgba(59, 130, 246, {{ alpha }});"
-                                 title="{{ celda }} movimientos"></div>
-                        {% else %}
-                            <div class="heatmap-cell" style="background-color: #f1f5f9;"></div>
-                        {% endif %}
-                    </td>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section-card mb-4">
+            <h4><i class="bi bi-table text-dark"></i> Análisis por Categoría</h4>
+            <table class="table-clean">
+                <thead>
+                    <tr>
+                        <th>Categoría</th>
+                        <th>Tipo</th>
+                        <th class="text-end">Cantidad</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in analisis_categorias %}
+                    <tr>
+                        <td>{{ a.categoria }}</td>
+                        <td>
+                            {% if a.tipo == 'INGRESO' %}
+                            <span class="badge bg-success">Ingreso</span>
+                            {% else %}
+                            <span class="badge bg-danger">Egreso</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">{{ a.cantidad }}</td>
+                        <td class="text-end fw-bold">${{ a.total|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted">Sin datos.</td></tr>
                     {% endfor %}
-                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section-card mb-4">
+            <h4><i class="bi bi-lightbulb text-warning"></i> Consejos Personalizados</h4>
+            <div class="row g-3">
+                {% for c in consejos %}
+                <div class="col-md-6">
+                    <div class="alert alert-{{ c.tipo }} mb-0">
+                        <strong>{{ c.titulo }}</strong><br>
+                        {{ c.texto }}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-success mb-0">
+                        <strong>¡Todo en orden!</strong><br>
+                        No hay alertas por ahora.
+                    </div>
+                </div>
                 {% endfor %}
-            </tbody>
-        </table>
+            </div>
+        </div>
     </div>
-</div>
 
-<!-- ========================================== -->
-<!-- 7. LISTADO DE TRANSACCIONES -->
-<!-- ========================================== -->
-<div class="section-card mb-4">
-    <h4><i class="bi bi-list-ul text-secondary"></i> Últimas Transacciones</h4>
-    <table class="table-clean">
-        <thead>
-            <tr>
-                <th>Fecha</th>
-                <th>Tipo</th>
-                <th>Concepto</th>
-                <th>Categoría</th>
-                <th class="text-end">Monto</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for t in transacciones %}
-            <tr>
-                <td>{{ t.fecha|date:"d/m/Y H:i" }}</td>
-                <td>
-                    {% if t.tipo == 'INGRESO' %}
-                    <span class="badge bg-success">Ingreso</span>
-                    {% else %}
-                    <span class="badge bg-danger">Egreso</span>
-                    {% endif %}
-                </td>
-                <td>{{ t.concepto }}</td>
-                <td><small>{{ t.get_categoria_display }}</small></td>
-                <td class="text-end fw-bold {% if t.tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">
-                    {% if t.tipo == 'INGRESO' %}+{% else %}-{% endif %}${{ t.monto|floatformat:2 }}
-                </td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="5" class="text-center text-muted">Sin transacciones.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+    <!-- ========================================== -->
+    <!-- PESTAÑA PRODUCCIÓN -->
+    <!-- ========================================== -->
+    <div class="tab-pane fade" id="pane-produccion" role="tabpanel">
 
-<!-- ========================================== -->
-<!-- 8. ANÁLISIS EXHAUSTIVO POR CATEGORÍA -->
-<!-- ========================================== -->
-<div class="section-card mb-4">
-    <h4><i class="bi bi-table text-dark"></i> Análisis por Categoría</h4>
-    <table class="table-clean">
-        <thead>
-            <tr>
-                <th>Categoría</th>
-                <th>Tipo</th>
-                <th class="text-end">Cantidad</th>
-                <th class="text-end">Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for a in analisis_categorias %}
-            <tr>
-                <td>{{ a.categoria }}</td>
-                <td>
-                    {% if a.tipo == 'INGRESO' %}
-                    <span class="badge bg-success">Ingreso</span>
-                    {% else %}
-                    <span class="badge bg-danger">Egreso</span>
-                    {% endif %}
-                </td>
-                <td class="text-end">{{ a.cantidad }}</td>
-                <td class="text-end fw-bold">${{ a.total|floatformat:2 }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="4" class="text-center text-muted">Sin datos.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
-
-<!-- ========================================== -->
-<!-- 9. CONSEJOS PERSONALIZADOS -->
-<!-- ========================================== -->
-<div class="section-card mb-4">
-    <h4><i class="bi bi-lightbulb text-warning"></i> Consejos Personalizados</h4>
-    <div class="row g-3">
-        {% for c in consejos %}
-        <div class="col-md-6">
-            <div class="alert alert-{{ c.tipo }} mb-0">
-                <strong>{{ c.titulo }}</strong><br>
-                {{ c.texto }}
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="kpi-card pedidos">
+                    <div class="kpi-label">Pedidos Totales</div>
+                    <div class="kpi-value">{{ pedidos_totales }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card clientes">
+                    <div class="kpi-label">Libros Únicos</div>
+                    <div class="kpi-value">{{ libros_unicos }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card">
+                    <div class="kpi-label">Libros con 1 Pedido</div>
+                    <div class="kpi-value">{{ libros_con_un_pedido }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="kpi-card">
+                    <div class="kpi-label">Libros Repetidos</div>
+                    <div class="kpi-value">{{ libros_repetidos }}</div>
+                </div>
             </div>
         </div>
-        {% empty %}
-        <div class="col-12">
-            <div class="alert alert-success mb-0">
-                <strong>¡Todo en orden!</strong><br>
-                No hay alertas por ahora.
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-6">
+                <div class="section-card">
+                    <h4><i class="bi bi-bar-chart text-primary"></i> Top 10 Libros por Pedidos</h4>
+                    <div class="chart-container-sm">
+                        <canvas id="chartTop10"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="section-card">
+                    <h4><i class="bi bi-graph-up text-info"></i> Pedidos por Mes (Top 10)</h4>
+                    <div class="chart-container-sm">
+                        <canvas id="chartPedidosMes"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
-        {% endfor %}
+
+        <div class="section-card mb-4">
+            <h4><i class="bi bi-trophy text-warning"></i> Ranking de los 30 Libros Más Vendidos</h4>
+            <div class="table-responsive">
+                <table class="table-clean">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Libro</th>
+                            <th>Autor</th>
+                            <th class="text-center">Páginas</th>
+                            <th class="text-end">Pedidos</th>
+                            <th class="text-end">Clientes</th>
+                            <th class="text-end">Ventas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for l in ranking_data %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><strong>{{ l.titulo }}</strong></td>
+                            <td>{{ l.autor|default:"—" }}</td>
+                            <td class="text-center">{{ l.paginas }}</td>
+                            <td class="text-end"><span class="badge bg-primary">{{ l.pedidos }}</span></td>
+                            <td class="text-end">{{ l.clientes }}</td>
+                            <td class="text-end fw-bold">${{ l.ventas|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="7" class="text-center text-muted">Sin datos.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section-card mb-4">
+            <h4><i class="bi bi-clock-history text-success"></i> 10 Libros Más Recientes</h4>
+            <div class="row g-3">
+                {% for l in recientes_data %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card card-kpi p-3 h-100">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <small class="text-muted">{{ l.fecha }}</small>
+                            <span class="badge bg-primary">{{ l.pedidos }} pedidos</span>
+                        </div>
+                        <h6 class="fw-bold mb-1">{{ l.titulo }}</h6>
+                        <small class="text-muted mb-2">{{ l.autor|default:"Sin autor" }}</small>
+                        <div class="d-flex justify-content-between mt-auto pt-2 border-top">
+                            <small class="text-muted"><i class="bi bi-people"></i> {{ l.clientes }} clientes</small>
+                            <a href="{% url 'pedidos:lista_libros' %}?q={{ l.titulo|urlencode }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12 text-center text-muted py-4">Sin libros recientes.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PESTAÑA CLIENTES -->
+    <!-- ========================================== -->
+    <div class="tab-pane fade" id="pane-clientes" role="tabpanel">
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-4 col-lg-2">
+                <div class="kpi-card clientes">
+                    <div class="kpi-label">Clientes Únicos</div>
+                    <div class="kpi-value">{{ clientes_unicos_total }}</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2">
+                <div class="kpi-card">
+                    <div class="kpi-label">Nuevos</div>
+                    <div class="kpi-value text-info">{{ clientes_nuevos }}</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2">
+                <div class="kpi-card">
+                    <div class="kpi-label">Recurrentes</div>
+                    <div class="kpi-value text-primary">{{ clientes_recurrentes }}</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2">
+                <div class="kpi-card">
+                    <div class="kpi-label">VIP</div>
+                    <div class="kpi-value text-warning">{{ clientes_vip }}</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2">
+                <div class="kpi-card">
+                    <div class="kpi-label">En Riesgo</div>
+                    <div class="kpi-value text-danger">{{ clientes_en_riesgo }}</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2">
+                <div class="kpi-card">
+                    <div class="kpi-label">Prom. Pedidos</div>
+                    <div class="kpi-value">{{ promedio_pedidos|floatformat:1 }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-5">
+                <div class="section-card">
+                    <h4><i class="bi bi-pie-chart text-primary"></i> Tipo de Cliente</h4>
+                    <div class="chart-container-sm">
+                        <canvas id="chartTipoCliente"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-7">
+                <div class="section-card">
+                    <h4><i class="bi bi-bar-chart text-success"></i> Frecuencia de Pedidos</h4>
+                    <div class="chart-container-sm">
+                        <canvas id="chartFrecuencia"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-card mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0"><i class="bi bi-star text-warning"></i> Clientes VIP</h4>
+                {% if clientes_vip_lista %}
+                <button type="button" id="btnWhatsappVip" class="btn btn-success btn-sm">
+                    <i class="bi bi-whatsapp"></i> Enviar WhatsApp masivo
+                </button>
+                {% endif %}
+            </div>
+            <div class="table-responsive">
+                <table class="table-clean">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Teléfono</th>
+                            <th class="text-end">Pedidos</th>
+                            <th class="text-end">Total gastado</th>
+                            <th>Último pedido</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in clientes_vip_lista %}
+                        <tr>
+                            <td><strong>{{ c.nombre }}</strong></td>
+                            <td>{{ c.telefono|default:"—" }}</td>
+                            <td class="text-end"><span class="badge bg-warning text-dark">{{ c.pedidos }}</span></td>
+                            <td class="text-end fw-bold">${{ c.total_gastado|floatformat:2 }}</td>
+                            <td>{{ c.ultimo_pedido }}</td>
+                            <td class="text-end">
+                                {% if c.telefono %}
+                                <a href="https://wa.me/{{ c.telefono|cut:' '|cut:'+' }}?text=Hola%20{{ c.nombre|urlencode }}%2C%20gracias%20por%20tu%20preferencia" target="_blank" class="btn btn-sm btn-outline-success" title="WhatsApp">
+                                    <i class="bi bi-whatsapp"></i>
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center text-muted">No hay clientes VIP.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section-card mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0"><i class="bi bi-exclamation-triangle text-danger"></i> Clientes en Riesgo (+90 días sin comprar)</h4>
+                {% if clientes_riesgo_lista %}
+                <button type="button" id="btnWhatsappRiesgo" class="btn btn-success btn-sm">
+                    <i class="bi bi-whatsapp"></i> Enviar WhatsApp masivo
+                </button>
+                {% endif %}
+            </div>
+            <div class="table-responsive">
+                <table class="table-clean">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Teléfono</th>
+                            <th class="text-end">Pedidos</th>
+                            <th class="text-end">Días sin comprar</th>
+                            <th>Último pedido</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in clientes_riesgo_lista %}
+                        <tr>
+                            <td><strong>{{ c.nombre }}</strong></td>
+                            <td>{{ c.telefono|default:"—" }}</td>
+                            <td class="text-end">{{ c.pedidos }}</td>
+                            <td class="text-end"><span class="badge bg-danger">{{ c.dias_sin_comprar }} días</span></td>
+                            <td>{{ c.ultimo_pedido }}</td>
+                            <td class="text-end">
+                                {% if c.telefono %}
+                                <a href="https://wa.me/{{ c.telefono|cut:' '|cut:'+' }}?text=Hola%20{{ c.nombre|urlencode }}%2C%20hace%20tiempo%20no%20sabemos%20de%20ti" target="_blank" class="btn btn-sm btn-outline-success" title="WhatsApp">
+                                    <i class="bi bi-whatsapp"></i>
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center text-muted">No hay clientes en riesgo.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -422,109 +701,277 @@
 {{ tendencia|json_script:"data-tendencia" }}
 {{ proyeccion|json_script:"data-proyeccion" }}
 {{ semanal|json_script:"data-semanal" }}
+{{ top10_data|json_script:"data-top10" }}
+{{ pedidos_mes_data|json_script:"data-pedidos-mes" }}
+{{ tipo_cliente_data|json_script:"data-tipo-cliente" }}
+{{ frecuencia_data|json_script:"data-frecuencia" }}
+{{ clientes_vip_lista|json_script:"data-vip" }}
+{{ clientes_riesgo_lista|json_script:"data-riesgo" }}
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 1. Desglose de ingresos (doughnut)
-    const desglose = JSON.parse(document.getElementById('data-desglose').textContent);
-    if (desglose.length > 0) {
-        new Chart(document.getElementById('chartDesgloseIngresos'), {
-            type: 'doughnut',
-            data: {
-                labels: desglose.map(d => d.categoria),
-                datasets: [{
-                    data: desglose.map(d => d.total),
-                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
-                    borderWidth: 2,
-                    borderColor: '#fff'
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } } },
-                cutout: '65%'
-            }
-        });
-    }
+    // ==========================================
+    // GRÁFICOS DE RESUMEN
+    // ==========================================
 
-    // 2. Tendencia mensual
-    const tendencia = JSON.parse(document.getElementById('data-tendencia').textContent);
-    if (tendencia.length > 0) {
-        new Chart(document.getElementById('chartTendencia'), {
-            type: 'line',
-            data: {
-                labels: tendencia.map(t => t.mes),
-                datasets: [
-                    {
-                        label: 'Ingresos',
-                        data: tendencia.map(t => t.ingresos),
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 3,
-                    },
-                    {
-                        label: 'Gastos',
-                        data: tendencia.map(t => t.gastos),
-                        borderColor: '#ef4444',
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 3,
-                    }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } },
-                scales: {
-                    y: { beginAtZero: true, ticks: { callback: v => '$' + v } }
+    const desgloseEl = document.getElementById('data-desglose');
+    if (desgloseEl) {
+        const desglose = JSON.parse(desgloseEl.textContent);
+        if (desglose.length > 0) {
+            new Chart(document.getElementById('chartDesgloseIngresos'), {
+                type: 'doughnut',
+                data: {
+                    labels: desglose.map(d => d.categoria),
+                    datasets: [{
+                        data: desglose.map(d => d.total),
+                        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } } },
+                    cutout: '65%'
                 }
-            }
+            });
+        }
+    }
+
+    const tendenciaEl = document.getElementById('data-tendencia');
+    if (tendenciaEl) {
+        const tendencia = JSON.parse(tendenciaEl.textContent);
+        if (tendencia.length > 0) {
+            new Chart(document.getElementById('chartTendencia'), {
+                type: 'line',
+                data: {
+                    labels: tendencia.map(t => t.mes),
+                    datasets: [
+                        {
+                            label: 'Ingresos',
+                            data: tendencia.map(t => t.ingresos),
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 3,
+                        },
+                        {
+                            label: 'Gastos',
+                            data: tendencia.map(t => t.gastos),
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 3,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
+                }
+            });
+        }
+    }
+
+    const proyeccionEl = document.getElementById('data-proyeccion');
+    if (proyeccionEl) {
+        const proyeccion = JSON.parse(proyeccionEl.textContent);
+        if (proyeccion.length > 0) {
+            new Chart(document.getElementById('chartProyeccion'), {
+                type: 'bar',
+                data: {
+                    labels: proyeccion.map(p => p.mes),
+                    datasets: [
+                        { label: 'Ingresos proy.', data: proyeccion.map(p => p.ingresos), backgroundColor: '#3b82f6' },
+                        { label: 'Gastos proy.', data: proyeccion.map(p => p.gastos), backgroundColor: '#f59e0b' }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
+                }
+            });
+        }
+    }
+
+    const semanalEl = document.getElementById('data-semanal');
+    if (semanalEl) {
+        const semanal = JSON.parse(semanalEl.textContent);
+        if (semanal.length > 0) {
+            new Chart(document.getElementById('chartSemanal'), {
+                type: 'bar',
+                data: {
+                    labels: semanal.map(s => s.semana),
+                    datasets: [
+                        { label: 'Ingresos', data: semanal.map(s => s.ingresos), backgroundColor: '#10b981' },
+                        { label: 'Gastos', data: semanal.map(s => s.gastos), backgroundColor: '#ef4444' }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
+                }
+            });
+        }
+    }
+
+    // ==========================================
+    // GRÁFICOS DE PRODUCCIÓN
+    // ==========================================
+
+    const top10El = document.getElementById('data-top10');
+    if (top10El) {
+        const top10 = JSON.parse(top10El.textContent);
+        if (top10.length > 0) {
+            new Chart(document.getElementById('chartTop10'), {
+                type: 'bar',
+                data: {
+                    labels: top10.map(l => l.titulo),
+                    datasets: [{
+                        label: 'Pedidos',
+                        data: top10.map(l => l.total),
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6,
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, ticks: { stepSize: 1 } },
+                        y: { ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+        }
+    }
+
+    const pedidosMesEl = document.getElementById('data-pedidos-mes');
+    if (pedidosMesEl) {
+        const pedidosMes = JSON.parse(pedidosMesEl.textContent);
+        if (pedidosMes.series.length > 0) {
+            const colores = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f97316', '#14b8a6', '#a855f7'];
+            new Chart(document.getElementById('chartPedidosMes'), {
+                type: 'line',
+                data: {
+                    labels: pedidosMes.labels,
+                    datasets: pedidosMes.series.map((s, i) => ({
+                        label: s.label,
+                        data: s.data,
+                        borderColor: colores[i % colores.length],
+                        backgroundColor: colores[i % colores.length] + '20',
+                        tension: 0.3,
+                        borderWidth: 2,
+                        pointRadius: 4,
+                        pointBackgroundColor: colores[i % colores.length],
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } }
+                    },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        }
+    }
+
+    // ==========================================
+    // GRÁFICOS DE CLIENTES
+    // ==========================================
+
+    const tipoClienteEl = document.getElementById('data-tipo-cliente');
+    if (tipoClienteEl) {
+        const tipoCliente = JSON.parse(tipoClienteEl.textContent);
+        if (tipoCliente.length > 0) {
+            new Chart(document.getElementById('chartTipoCliente'), {
+                type: 'doughnut',
+                data: {
+                    labels: tipoCliente.map(t => t.tipo),
+                    datasets: [{
+                        data: tipoCliente.map(t => t.total),
+                        backgroundColor: ['#06b6d4', '#3b82f6', '#f59e0b'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    cutout: '65%'
+                }
+            });
+        }
+    }
+
+    const frecuenciaEl = document.getElementById('data-frecuencia');
+    if (frecuenciaEl) {
+        const frecuencia = JSON.parse(frecuenciaEl.textContent);
+        if (frecuencia.labels.length > 0) {
+            new Chart(document.getElementById('chartFrecuencia'), {
+                type: 'bar',
+                data: {
+                    labels: frecuencia.labels,
+                    datasets: [{
+                        label: 'Cantidad de clientes',
+                        data: frecuencia.data,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { title: { display: true, text: 'Pedidos por cliente' } },
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+        }
+    }
+
+    // ==========================================
+    // WHATSAPP MASIVO
+    // ==========================================
+    function abrirWhatsAppMasivo(clientes, mensaje) {
+        clientes.forEach((c, i) => {
+            if (!c.telefono) return;
+            const tel = c.telefono.replace(/[^0-9]/g, '');
+            const url = `https://wa.me/${tel}?text=${encodeURIComponent(mensaje.replace('{nombre}', c.nombre))}`;
+            setTimeout(() => window.open(url, '_blank'), i * 800);
         });
     }
 
-    // 3. Proyección
-    const proyeccion = JSON.parse(document.getElementById('data-proyeccion').textContent);
-    if (proyeccion.length > 0) {
-        new Chart(document.getElementById('chartProyeccion'), {
-            type: 'bar',
-            data: {
-                labels: proyeccion.map(p => p.mes),
-                datasets: [
-                    { label: 'Ingresos proy.', data: proyeccion.map(p => p.ingresos), backgroundColor: '#3b82f6' },
-                    { label: 'Gastos proy.', data: proyeccion.map(p => p.gastos), backgroundColor: '#f59e0b' }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } },
-                scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
-            }
+    const btnVip = document.getElementById('btnWhatsappVip');
+    if (btnVip) {
+        btnVip.addEventListener('click', function() {
+            const el = document.getElementById('data-vip');
+            if (!el) return;
+            const clientes = JSON.parse(el.textContent);
+            abrirWhatsAppMasivo(clientes, 'Hola {nombre}, gracias por tu preferencia. Tenemos novedades para ti.');
         });
     }
 
-    // 4. Semanal
-    const semanal = JSON.parse(document.getElementById('data-semanal').textContent);
-    if (semanal.length > 0) {
-        new Chart(document.getElementById('chartSemanal'), {
-            type: 'bar',
-            data: {
-                labels: semanal.map(s => s.semana),
-                datasets: [
-                    { label: 'Ingresos', data: semanal.map(s => s.ingresos), backgroundColor: '#10b981' },
-                    { label: 'Gastos', data: semanal.map(s => s.gastos), backgroundColor: '#ef4444' }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } },
-                scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
-            }
+    const btnRiesgo = document.getElementById('btnWhatsappRiesgo');
+    if (btnRiesgo) {
+        btnRiesgo.addEventListener('click', function() {
+            const el = document.getElementById('data-riesgo');
+            if (!el) return;
+            const clientes = JSON.parse(el.textContent);
+            abrirWhatsAppMasivo(clientes, 'Hola {nombre}, hace tiempo no sabemos de ti. ¿Te ayudamos con algo?');
         });
     }
 });
