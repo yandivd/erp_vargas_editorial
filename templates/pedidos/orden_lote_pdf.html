@@ -24,6 +24,27 @@
             font-size: 11pt;
             color: #222;
             margin: 0;
+            position: relative; /* Para contener el sello */
+        }
+
+        /* ESTILOS DEL SELLO */
+        .sello-pagado {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-35deg);
+            width: 450px; /* Ajusta el tamaño según tu documento */
+            opacity: 0.5; /* Transparencia para que se lea el texto debajo */
+            z-index: 9999; /* Por encima de todo */
+            pointer-events: none; /* No interfiere con nada */
+            mix-blend-mode: multiply; /* Hace que el fondo blanco desaparezca */
+        }
+
+        @media print {
+            .sello-pagado {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
 
         /* CABECERA */
@@ -246,6 +267,11 @@
     </style>
 </head>
 <body>
+
+    <!-- SELLO DE PAGADO (Solo si el estado es PAGADO) -->
+    {% if lote.estado == 'PAGADO' %}
+        <img src="{{ sello_path }}" alt="PAGADO" class="sello-pagado">
+    {% endif %}
 
     <!-- CABECERA -->
     <div class="header">
