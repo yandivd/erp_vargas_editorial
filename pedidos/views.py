@@ -1061,3 +1061,13 @@ def agregar_esquineros(request, pk):
         messages.success(request, f'Esquineros agregados al pedido #{pedido.referencia_externa or pedido.id}.')
     
     return redirect('pedidos:detalle', pk=pedido.id)
+
+def imprimir_entrega_carta(request, pk):
+    """Genera el comprobante de entrega en formato pequeño (5x8cm)."""
+    entrega = get_object_or_404(Entrega, pk=pk)
+    pedidos = entrega.pedidos.select_related('libro', 'cliente').all()
+
+    return render(request, 'pedidos/imprimir_entrega_carta.html', {
+        'entrega': entrega,
+        'pedidos': pedidos,
+    })
