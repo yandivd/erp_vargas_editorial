@@ -850,6 +850,7 @@ def imprimir_comprobantes_lote_carta(request):
     total_venta = sum(p.precio_venta for p in pedidos)
     total_anticipo = sum(p.anticipo_recibido for p in pedidos)
     total_saldo = sum(p.saldo_pendiente for p in pedidos)
+    total_descuento = sum(p.descuento_aplicado for p in pedidos)
 
     return render(request, 'pedidos/imprimir_comprobantes_lote_carta.html', {
         'pedidos': pedidos,
@@ -857,6 +858,7 @@ def imprimir_comprobantes_lote_carta(request):
         'total_venta': total_venta,
         'total_anticipo': total_anticipo,
         'total_saldo': total_saldo,
+        'total_descuento': total_descuento,
     })
 
 def validar_codigo_descuento(request):

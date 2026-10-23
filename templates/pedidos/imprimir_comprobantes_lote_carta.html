@@ -80,14 +80,14 @@
                         {{ p.libro.titulo }}
                         {% if p.lleva_scotch %}<br><small style="font-size: 4pt; color: #666;">+ Scotch</small>{% endif %}
                         {% if p.lleva_esquineros %}<br><small style="font-size: 4pt; color: #666;">+ Esquineros</small>{% endif %}
-                        
-                        {# AQUI SE MUESTRA EL DESCUENTO SI EXISTE #}
-                        {% if p.descuento_aplicado > 0 %}
-                        <br><small style="font-size: 4pt; color: #27ae60;">- Desc: ${{ p.descuento_aplicado|floatformat:0 }}</small>
-                        {% endif %}
                     </td>
                     <td class="center">{{ p.cantidad }}</td>
-                    <td class="right">${{ p.precio_venta|floatformat:0 }}</td>
+                    <td class="right">
+                        ${{ p.precio_venta|floatformat:0 }}
+                        {% if p.descuento_aplicado > 0 %}
+                        <br><small style="font-size: 3.5pt; color: #27ae60;">(-${{ p.descuento_aplicado|floatformat:0 }})</small>
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -96,13 +96,11 @@
         <!-- TOTALES -->
         <div class="etq-totales" style="font-size: 4.5pt; margin-top: auto; border-top: 0.2mm solid #ccc; padding-top: 1mm;">
             
-            {# Calculamos el precio original sumando el precio final + el descuento total #}
-            {% widthratio total_venta|add:total_descuento 1 1 as precio_original %}
-            
             {% if total_descuento > 0 %}
             <div class="fila" style="color: #666;">
                 <span>Precio Original:</span>
-                <span>${{ precio_original|floatformat:0 }}</span>
+                <!-- Aquí usamos el filtro add para sumar -->
+                <span>${{ total_venta|add:total_descuento|floatformat:0 }}</span>
             </div>
             <div class="fila" style="color: #27ae60;">
                 <span>Descuento:</span>
