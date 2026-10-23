@@ -19,6 +19,12 @@
         box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
         margin-bottom: 1rem;
     }
+    
+    /* Ajuste de padding en móvil */
+    @media (max-width: 767.98px) {
+        .section-card { padding: 16px; }
+    }
+
     .section-card h4 {
         font-size: 1.1rem;
         font-weight: 700;
@@ -37,6 +43,7 @@
         position: relative;
         overflow: hidden;
         transition: all 0.3s ease;
+        height: 100%;
     }
     .kpi-card:hover {
         transform: translateY(-3px);
@@ -67,6 +74,12 @@
         line-height: 1;
     }
 
+    /* Ajuste de KPI en móvil */
+    @media (max-width: 575.98px) {
+        .kpi-value { font-size: 1.3rem; }
+        .kpi-label { font-size: 0.6rem; }
+    }
+
     .chart-container {
         position: relative;
         height: 280px;
@@ -76,6 +89,11 @@
         position: relative;
         height: 220px;
         width: 100%;
+    }
+
+    @media (max-width: 767.98px) {
+        .chart-container { height: 220px; }
+        .chart-container-sm { height: 180px; }
     }
 
     .table-clean {
@@ -90,6 +108,7 @@
         color: var(--text-muted);
         border-bottom: 2px solid var(--border-color);
         font-weight: 700;
+        white-space: nowrap;
     }
     .table-clean td {
         padding: 10px 8px;
@@ -105,6 +124,7 @@
         height: 28px;
         border-radius: 4px;
         display: inline-block;
+        min-width: 28px; /* Para que no se aplasten en móvil */
     }
 
     .nav-tabs .nav-link {
@@ -112,49 +132,61 @@
         border: none;
         border-bottom: 2px solid transparent;
         font-weight: 600;
+        padding: 0.75rem 1rem;
     }
     .nav-tabs .nav-link.active {
         color: var(--brand-blue);
         border-bottom-color: var(--brand-blue);
         background: transparent;
     }
+    
+    /* Ajuste para tabs en móvil */
+    @media (max-width: 575.98px) {
+        .nav-tabs .nav-link { padding: 0.5rem; font-size: 0.85rem; }
+        .nav-tabs .nav-link i { display: none; } /* Ocultar iconos en móvil para ahorrar espacio */
+    }
+
+    /* Ocultar columnas secundarias en móvil */
+    @media (max-width: 767.98px) {
+        .hide-mobile { display: none !important; }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <!-- CABECERA CON FILTROS -->
-<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
     <div>
         <h2 class="mb-0 fw-bold"><i class="bi bi-grid-1x2 text-primary"></i> Dashboard</h2>
         <p class="text-muted mb-0">Análisis completo del negocio</p>
     </div>
-    <form method="get" class="d-flex gap-2 align-items-end">
-        <div>
+    <form method="get" class="d-flex flex-wrap gap-2 align-items-end">
+        <div class="flex-grow-1 flex-md-grow-0">
             <label class="form-label small text-muted mb-0">Desde</label>
             <input type="date" name="desde" class="form-control form-control-sm" value="{{ desde }}">
         </div>
-        <div>
+        <div class="flex-grow-1 flex-md-grow-0">
             <label class="form-label small text-muted mb-0">Hasta</label>
             <input type="date" name="hasta" class="form-control form-control-sm" value="{{ hasta }}">
         </div>
-        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-filter"></i> Filtrar</button>
+        <button type="submit" class="btn btn-primary btn-sm w-100 w-md-auto"><i class="bi bi-filter"></i> Filtrar</button>
     </form>
 </div>
 
 <!-- PESTAÑAS -->
-<ul class="nav nav-tabs mb-4" id="dashboardTabs" role="tablist">
+<ul class="nav nav-tabs mb-4 flex-nowrap overflow-auto" id="dashboardTabs" role="tablist">
     <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="tab-resumen" data-bs-toggle="tab" data-bs-target="#pane-resumen" type="button" role="tab">
+        <button class="nav-link active text-nowrap" id="tab-resumen" data-bs-toggle="tab" data-bs-target="#pane-resumen" type="button" role="tab">
             <i class="bi bi-graph-up"></i> Resumen
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="tab-produccion" data-bs-toggle="tab" data-bs-target="#pane-produccion" type="button" role="tab">
+        <button class="nav-link text-nowrap" id="tab-produccion" data-bs-toggle="tab" data-bs-target="#pane-produccion" type="button" role="tab">
             <i class="bi bi-book"></i> Producción
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="tab-clientes" data-bs-toggle="tab" data-bs-target="#pane-clientes" type="button" role="tab">
+        <button class="nav-link text-nowrap" id="tab-clientes" data-bs-toggle="tab" data-bs-target="#pane-clientes" type="button" role="tab">
             <i class="bi bi-people"></i> Clientes
         </button>
     </li>
@@ -167,62 +199,63 @@
     <!-- ========================================== -->
     <div class="tab-pane fade show active" id="pane-resumen" role="tabpanel">
 
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
+        <!-- KPIs: 2 columnas en móvil, 4 en PC -->
+        <div class="row g-2 g-md-3 mb-4">
+            <div class="col-6 col-md-3">
                 <div class="kpi-card ingresos">
                     <div class="kpi-label">Ingresos</div>
                     <div class="kpi-value text-success">${{ ingresos|floatformat:2 }}</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="kpi-card gastos">
                     <div class="kpi-label">Gastos</div>
                     <div class="kpi-value text-danger">${{ gastos|floatformat:2 }}</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="kpi-card saldo">
                     <div class="kpi-label">Saldo Neto</div>
                     <div class="kpi-value {% if saldo_neto >= 0 %}text-primary{% else %}text-danger{% endif %}">${{ saldo_neto|floatformat:2 }}</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="kpi-card margen">
-                    <div class="kpi-label">Margen de Ganancia</div>
+                    <div class="kpi-label">Margen</div>
                     <div class="kpi-value {% if margen >= 30 %}text-success{% elif margen >= 10 %}text-warning{% else %}text-danger{% endif %}">{{ margen|floatformat:1 }}%</div>
                 </div>
             </div>
         </div>
 
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
+        <div class="row g-2 g-md-3 mb-4">
+            <div class="col-6 col-md-3">
                 <div class="kpi-card pedidos">
-                    <div class="kpi-label">Pedidos Totales</div>
+                    <div class="kpi-label">Pedidos</div>
                     <div class="kpi-value">{{ total_pedidos }}</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="kpi-card clientes">
-                    <div class="kpi-label">Clientes Únicos</div>
+                    <div class="kpi-label">Clientes</div>
                     <div class="kpi-value">{{ clientes_unicos }}</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="kpi-card ventas">
                     <div class="kpi-label">Ventas</div>
                     <div class="kpi-value">${{ ventas|floatformat:2 }}</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="kpi-card promedio">
-                    <div class="kpi-label">Ganancia Promedio</div>
+                    <div class="kpi-label">Gan. Promedio</div>
                     <div class="kpi-value">${{ ganancia_promedio|floatformat:2 }}</div>
                 </div>
             </div>
         </div>
 
         <div class="row g-3 mb-4">
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
                 <div class="section-card">
                     <h4><i class="bi bi-pie-chart text-success"></i> Desglose por Tipo de Ingreso</h4>
                     <div class="chart-container-sm">
@@ -230,56 +263,60 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
                 <div class="section-card">
                     <h4><i class="bi bi-bar-chart text-primary"></i> Categorías de Ingreso</h4>
-                    <table class="table-clean">
-                        <thead>
-                            <tr><th>Categoría</th><th class="text-end">Total</th></tr>
-                        </thead>
-                        <tbody>
-                            {% for c in categorias_ingreso %}
-                            <tr>
-                                <td>{{ c.categoria }}</td>
-                                <td class="text-end fw-bold">${{ c.total|floatformat:2 }}</td>
-                            </tr>
-                            {% empty %}
-                            <tr><td colspan="2" class="text-center text-muted">Sin ingresos.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    <div class="table-responsive">
+                        <table class="table-clean">
+                            <thead>
+                                <tr><th>Categoría</th><th class="text-end">Total</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for c in categorias_ingreso %}
+                                <tr>
+                                    <td>{{ c.categoria }}</td>
+                                    <td class="text-end fw-bold">${{ c.total|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="2" class="text-center text-muted">Sin ingresos.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="section-card mb-4">
-            <h4><i class="bi bi-box-seam text-warning"></i> Costo Unitario por Consumo de Materiales</h4>
-            <table class="table-clean">
-                <thead>
-                    <tr>
-                        <th>Material</th>
-                        <th class="text-end">Cantidad</th>
-                        <th class="text-end">Costo Total</th>
-                        <th class="text-end">Costo Unitario</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for c in costo_unitario %}
-                    <tr>
-                        <td>{{ c.material }}</td>
-                        <td class="text-end">{{ c.cantidad|floatformat:2 }} {{ c.unidad }}</td>
-                        <td class="text-end">${{ c.costo_total|floatformat:2 }}</td>
-                        <td class="text-end fw-bold">${{ c.costo_unitario|floatformat:2 }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4" class="text-center text-muted">Sin consumos registrados.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <h4><i class="bi bi-box-seam text-warning"></i> Costo Unitario por Material</h4>
+            <div class="table-responsive">
+                <table class="table-clean">
+                    <thead>
+                        <tr>
+                            <th>Material</th>
+                            <th class="text-end hide-mobile">Cantidad</th>
+                            <th class="text-end">Costo Total</th>
+                            <th class="text-end hide-mobile">Costo Unit.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in costo_unitario %}
+                        <tr>
+                            <td>{{ c.material }}</td>
+                            <td class="text-end hide-mobile">{{ c.cantidad|floatformat:2 }} {{ c.unidad }}</td>
+                            <td class="text-end">${{ c.costo_total|floatformat:2 }}</td>
+                            <td class="text-end fw-bold hide-mobile">${{ c.costo_unitario|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted">Sin consumos registrados.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <div class="row g-3 mb-4">
-            <div class="col-md-7">
+            <div class="col-12 col-md-7">
                 <div class="section-card">
                     <h4><i class="bi bi-graph-up-arrow text-primary"></i> Tendencia Mensual</h4>
                     <div class="chart-container">
@@ -287,9 +324,9 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-5">
+            <div class="col-12 col-md-5">
                 <div class="section-card">
-                    <h4><i class="bi bi-graph-up text-info"></i> Proyección (6 meses)</h4>
+                    <h4><i class="bi bi-graph-up text-info"></i> Proyección</h4>
                     <div class="chart-container">
                         <canvas id="chartProyeccion"></canvas>
                     </div>
@@ -305,9 +342,9 @@
         </div>
 
         <div class="section-card mb-4">
-            <h4><i class="bi bi-grid-3x3 text-danger"></i> Mapa de Calor por Actividad (día × hora)</h4>
+            <h4><i class="bi bi-grid-3x3 text-danger"></i> Mapa de Calor (día × hora)</h4>
             <div class="table-responsive">
-                <table class="table table-sm table-bordered mb-0">
+                <table class="table table-sm table-bordered mb-0 text-nowrap">
                     <thead>
                         <tr>
                             <th></th>
@@ -341,77 +378,79 @@
 
         <div class="section-card mb-4">
             <h4><i class="bi bi-list-ul text-secondary"></i> Últimas Transacciones</h4>
-            <table class="table-clean">
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Tipo</th>
-                        <th>Concepto</th>
-                        <th>Categoría</th>
-                        <th class="text-end">Monto</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for t in transacciones %}
-                    <tr>
-                        <td>{{ t.fecha|date:"d/m/Y H:i" }}</td>
-                        <td>
-                            {% if t.tipo == 'INGRESO' %}
-                            <span class="badge bg-success">Ingreso</span>
-                            {% else %}
-                            <span class="badge bg-danger">Egreso</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ t.concepto }}</td>
-                        <td><small>{{ t.get_categoria_display }}</small></td>
-                        <td class="text-end fw-bold {% if t.tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">
-                            {% if t.tipo == 'INGRESO' %}+{% else %}-{% endif %}${{ t.monto|floatformat:2 }}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="5" class="text-center text-muted">Sin transacciones.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="table-clean">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th class="hide-mobile">Concepto</th>
+                            <th class="text-end">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for t in transacciones %}
+                        <tr>
+                            <td>{{ t.fecha|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if t.tipo == 'INGRESO' %}
+                                <span class="badge bg-success">Ing.</span>
+                                {% else %}
+                                <span class="badge bg-danger">Egr.</span>
+                                {% endif %}
+                            </td>
+                            <td class="hide-mobile">{{ t.concepto }} <br><small class="text-muted">{{ t.get_categoria_display }}</small></td>
+                            <td class="text-end fw-bold {% if t.tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">
+                                {% if t.tipo == 'INGRESO' %}+{% else %}-{% endif %}${{ t.monto|floatformat:2 }}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted">Sin transacciones.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <div class="section-card mb-4">
             <h4><i class="bi bi-table text-dark"></i> Análisis por Categoría</h4>
-            <table class="table-clean">
-                <thead>
-                    <tr>
-                        <th>Categoría</th>
-                        <th>Tipo</th>
-                        <th class="text-end">Cantidad</th>
-                        <th class="text-end">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for a in analisis_categorias %}
-                    <tr>
-                        <td>{{ a.categoria }}</td>
-                        <td>
-                            {% if a.tipo == 'INGRESO' %}
-                            <span class="badge bg-success">Ingreso</span>
-                            {% else %}
-                            <span class="badge bg-danger">Egreso</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-end">{{ a.cantidad }}</td>
-                        <td class="text-end fw-bold">${{ a.total|floatformat:2 }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4" class="text-center text-muted">Sin datos.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="table-clean">
+                    <thead>
+                        <tr>
+                            <th>Categoría</th>
+                            <th class="hide-mobile">Tipo</th>
+                            <th class="text-end hide-mobile">Cant.</th>
+                            <th class="text-end">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in analisis_categorias %}
+                        <tr>
+                            <td>{{ a.categoria }}</td>
+                            <td class="hide-mobile">
+                                {% if a.tipo == 'INGRESO' %}
+                                <span class="badge bg-success">Ingreso</span>
+                                {% else %}
+                                <span class="badge bg-danger">Egreso</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end hide-mobile">{{ a.cantidad }}</td>
+                            <td class="text-end fw-bold">${{ a.total|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted">Sin datos.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <div class="section-card mb-4">
             <h4><i class="bi bi-lightbulb text-warning"></i> Consejos Personalizados</h4>
             <div class="row g-3">
                 {% for c in consejos %}
-                <div class="col-md-6">
+                <div class="col-12 col-md-6">
                     <div class="alert alert-{{ c.tipo }} mb-0">
                         <strong>{{ c.titulo }}</strong><br>
                         {{ c.texto }}
@@ -434,26 +473,26 @@
     <!-- ========================================== -->
     <div class="tab-pane fade" id="pane-produccion" role="tabpanel">
 
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
+        <div class="row g-2 g-md-3 mb-4">
+            <div class="col-6 col-md-3">
                 <div class="kpi-card pedidos">
-                    <div class="kpi-label">Pedidos Totales</div>
+                    <div class="kpi-label">Pedidos</div>
                     <div class="kpi-value">{{ pedidos_totales }}</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="kpi-card clientes">
                     <div class="kpi-label">Libros Únicos</div>
                     <div class="kpi-value">{{ libros_unicos }}</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="kpi-card">
-                    <div class="kpi-label">Libros con 1 Pedido</div>
+                    <div class="kpi-label">Libros 1 Pedido</div>
                     <div class="kpi-value">{{ libros_con_un_pedido }}</div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="kpi-card">
                     <div class="kpi-label">Libros Repetidos</div>
                     <div class="kpi-value">{{ libros_repetidos }}</div>
@@ -462,17 +501,17 @@
         </div>
 
         <div class="row g-3 mb-4">
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
                 <div class="section-card">
-                    <h4><i class="bi bi-bar-chart text-primary"></i> Top 10 Libros por Pedidos</h4>
+                    <h4><i class="bi bi-bar-chart text-primary"></i> Top 10 Libros</h4>
                     <div class="chart-container-sm">
                         <canvas id="chartTop10"></canvas>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
                 <div class="section-card">
-                    <h4><i class="bi bi-graph-up text-info"></i> Pedidos por Mes (Top 10)</h4>
+                    <h4><i class="bi bi-graph-up text-info"></i> Pedidos por Mes</h4>
                     <div class="chart-container-sm">
                         <canvas id="chartPedidosMes"></canvas>
                     </div>
@@ -481,18 +520,16 @@
         </div>
 
         <div class="section-card mb-4">
-            <h4><i class="bi bi-trophy text-warning"></i> Ranking de los 30 Libros Más Vendidos</h4>
+            <h4><i class="bi bi-trophy text-warning"></i> Ranking de los 30 Más Vendidos</h4>
             <div class="table-responsive">
                 <table class="table-clean">
                     <thead>
                         <tr>
                             <th>#</th>
                             <th>Libro</th>
-                            <th>Autor</th>
-                            <th class="text-center">Páginas</th>
+                            <th class="hide-mobile">Autor</th>
                             <th class="text-end">Pedidos</th>
-                            <th class="text-end">Clientes</th>
-                            <th class="text-end">Ventas</th>
+                            <th class="text-end hide-mobile">Ventas</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -500,14 +537,12 @@
                         <tr>
                             <td>{{ forloop.counter }}</td>
                             <td><strong>{{ l.titulo }}</strong></td>
-                            <td>{{ l.autor|default:"—" }}</td>
-                            <td class="text-center">{{ l.paginas }}</td>
+                            <td class="hide-mobile">{{ l.autor|default:"—" }}</td>
                             <td class="text-end"><span class="badge bg-primary">{{ l.pedidos }}</span></td>
-                            <td class="text-end">{{ l.clientes }}</td>
-                            <td class="text-end fw-bold">${{ l.ventas|floatformat:2 }}</td>
+                            <td class="text-end fw-bold hide-mobile">${{ l.ventas|floatformat:2 }}</td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="7" class="text-center text-muted">Sin datos.</td></tr>
+                        <tr><td colspan="5" class="text-center text-muted">Sin datos.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -518,11 +553,11 @@
             <h4><i class="bi bi-clock-history text-success"></i> 10 Libros Más Recientes</h4>
             <div class="row g-3">
                 {% for l in recientes_data %}
-                <div class="col-md-6 col-lg-4">
+                <div class="col-12 col-sm-6 col-lg-4">
                     <div class="card card-kpi p-3 h-100">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <small class="text-muted">{{ l.fecha }}</small>
-                            <span class="badge bg-primary">{{ l.pedidos }} pedidos</span>
+                            <span class="badge bg-primary">{{ l.pedidos }} ped.</span>
                         </div>
                         <h6 class="fw-bold mb-1">{{ l.titulo }}</h6>
                         <small class="text-muted mb-2">{{ l.autor|default:"Sin autor" }}</small>
@@ -546,47 +581,47 @@
     <!-- ========================================== -->
     <div class="tab-pane fade" id="pane-clientes" role="tabpanel">
 
-        <div class="row g-3 mb-4">
-            <div class="col-md-4 col-lg-2">
+        <div class="row g-2 g-md-3 mb-4">
+            <div class="col-4 col-md-4 col-lg-2">
                 <div class="kpi-card clientes">
-                    <div class="kpi-label">Clientes Únicos</div>
+                    <div class="kpi-label">Únicos</div>
                     <div class="kpi-value">{{ clientes_unicos_total }}</div>
                 </div>
             </div>
-            <div class="col-md-4 col-lg-2">
+            <div class="col-4 col-md-4 col-lg-2">
                 <div class="kpi-card">
                     <div class="kpi-label">Nuevos</div>
                     <div class="kpi-value text-info">{{ clientes_nuevos }}</div>
                 </div>
             </div>
-            <div class="col-md-4 col-lg-2">
+            <div class="col-4 col-md-4 col-lg-2">
                 <div class="kpi-card">
                     <div class="kpi-label">Recurrentes</div>
                     <div class="kpi-value text-primary">{{ clientes_recurrentes }}</div>
                 </div>
             </div>
-            <div class="col-md-4 col-lg-2">
+            <div class="col-4 col-md-4 col-lg-2">
                 <div class="kpi-card">
                     <div class="kpi-label">VIP</div>
                     <div class="kpi-value text-warning">{{ clientes_vip }}</div>
                 </div>
             </div>
-            <div class="col-md-4 col-lg-2">
+            <div class="col-4 col-md-4 col-lg-2">
                 <div class="kpi-card">
                     <div class="kpi-label">En Riesgo</div>
                     <div class="kpi-value text-danger">{{ clientes_en_riesgo }}</div>
                 </div>
             </div>
-            <div class="col-md-4 col-lg-2">
+            <div class="col-4 col-md-4 col-lg-2">
                 <div class="kpi-card">
-                    <div class="kpi-label">Prom. Pedidos</div>
+                    <div class="kpi-label">Prom.</div>
                     <div class="kpi-value">{{ promedio_pedidos|floatformat:1 }}</div>
                 </div>
             </div>
         </div>
 
         <div class="row g-3 mb-4">
-            <div class="col-md-5">
+            <div class="col-12 col-md-5">
                 <div class="section-card">
                     <h4><i class="bi bi-pie-chart text-primary"></i> Tipo de Cliente</h4>
                     <div class="chart-container-sm">
@@ -594,7 +629,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-7">
+            <div class="col-12 col-md-7">
                 <div class="section-card">
                     <h4><i class="bi bi-bar-chart text-success"></i> Frecuencia de Pedidos</h4>
                     <div class="chart-container-sm">
@@ -605,11 +640,11 @@
         </div>
 
         <div class="section-card mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-2">
                 <h4 class="mb-0"><i class="bi bi-star text-warning"></i> Clientes VIP</h4>
                 {% if clientes_vip_lista %}
-                <button type="button" id="btnWhatsappVip" class="btn btn-success btn-sm">
-                    <i class="bi bi-whatsapp"></i> Enviar WhatsApp masivo
+                <button type="button" id="btnWhatsappVip" class="btn btn-success btn-sm w-100 w-md-auto">
+                    <i class="bi bi-whatsapp"></i> WhatsApp masivo
                 </button>
                 {% endif %}
             </div>
@@ -618,21 +653,22 @@
                     <thead>
                         <tr>
                             <th>Cliente</th>
-                            <th>Teléfono</th>
                             <th class="text-end">Pedidos</th>
-                            <th class="text-end">Total gastado</th>
-                            <th>Último pedido</th>
+                            <th class="text-end hide-mobile">Total gastado</th>
+                            <th class="hide-mobile">Último pedido</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for c in clientes_vip_lista %}
                         <tr>
-                            <td><strong>{{ c.nombre }}</strong></td>
-                            <td>{{ c.telefono|default:"—" }}</td>
+                            <td>
+                                <strong>{{ c.nombre }}</strong>
+                                <br><small class="text-muted d-md-none">{{ c.telefono }}</small>
+                            </td>
                             <td class="text-end"><span class="badge bg-warning text-dark">{{ c.pedidos }}</span></td>
-                            <td class="text-end fw-bold">${{ c.total_gastado|floatformat:2 }}</td>
-                            <td>{{ c.ultimo_pedido }}</td>
+                            <td class="text-end fw-bold hide-mobile">${{ c.total_gastado|floatformat:2 }}</td>
+                            <td class="hide-mobile">{{ c.ultimo_pedido }}</td>
                             <td class="text-end">
                                 {% if c.telefono %}
                                 <a href="https://wa.me/{{ c.telefono|cut:' '|cut:'+' }}?text=Hola%20{{ c.nombre|urlencode }}%2C%20gracias%20por%20tu%20preferencia" target="_blank" class="btn btn-sm btn-outline-success" title="WhatsApp">
@@ -642,7 +678,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="6" class="text-center text-muted">No hay clientes VIP.</td></tr>
+                        <tr><td colspan="5" class="text-center text-muted">No hay clientes VIP.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -650,11 +686,11 @@
         </div>
 
         <div class="section-card mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0"><i class="bi bi-exclamation-triangle text-danger"></i> Clientes en Riesgo (+90 días sin comprar)</h4>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 gap-2">
+                <h4 class="mb-0"><i class="bi bi-exclamation-triangle text-danger"></i> Clientes en Riesgo (+90 días)</h4>
                 {% if clientes_riesgo_lista %}
-                <button type="button" id="btnWhatsappRiesgo" class="btn btn-success btn-sm">
-                    <i class="bi bi-whatsapp"></i> Enviar WhatsApp masivo
+                <button type="button" id="btnWhatsappRiesgo" class="btn btn-success btn-sm w-100 w-md-auto">
+                    <i class="bi bi-whatsapp"></i> WhatsApp masivo
                 </button>
                 {% endif %}
             </div>
@@ -663,21 +699,22 @@
                     <thead>
                         <tr>
                             <th>Cliente</th>
-                            <th>Teléfono</th>
-                            <th class="text-end">Pedidos</th>
+                            <th class="text-end hide-mobile">Pedidos</th>
                             <th class="text-end">Días sin comprar</th>
-                            <th>Último pedido</th>
+                            <th class="hide-mobile">Último pedido</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for c in clientes_riesgo_lista %}
                         <tr>
-                            <td><strong>{{ c.nombre }}</strong></td>
-                            <td>{{ c.telefono|default:"—" }}</td>
-                            <td class="text-end">{{ c.pedidos }}</td>
+                            <td>
+                                <strong>{{ c.nombre }}</strong>
+                                <br><small class="text-muted d-md-none">{{ c.telefono }}</small>
+                            </td>
+                            <td class="text-end hide-mobile">{{ c.pedidos }}</td>
                             <td class="text-end"><span class="badge bg-danger">{{ c.dias_sin_comprar }} días</span></td>
-                            <td>{{ c.ultimo_pedido }}</td>
+                            <td class="hide-mobile">{{ c.ultimo_pedido }}</td>
                             <td class="text-end">
                                 {% if c.telefono %}
                                 <a href="https://wa.me/{{ c.telefono|cut:' '|cut:'+' }}?text=Hola%20{{ c.nombre|urlencode }}%2C%20hace%20tiempo%20no%20sabemos%20de%20ti" target="_blank" class="btn btn-sm btn-outline-success" title="WhatsApp">
@@ -687,7 +724,7 @@
                             </td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="6" class="text-center text-muted">No hay clientes en riesgo.</td></tr>
+                        <tr><td colspan="5" class="text-center text-muted">No hay clientes en riesgo.</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -734,7 +771,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } } },
+                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: {size: 10} } } },
                     cutout: '65%'
                 }
             });
@@ -772,8 +809,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } },
-                    scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
+                    plugins: { legend: { position: 'bottom', labels: {font: {size: 10}} } },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v, font: {size: 10} } }, x: { ticks: {font: {size: 10}} } }
                 }
             });
         }
@@ -794,8 +831,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } },
-                    scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
+                    plugins: { legend: { position: 'bottom', labels: {font: {size: 10}} } },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v, font: {size: 10} } }, x: { ticks: {font: {size: 10}} } }
                 }
             });
         }
@@ -816,8 +853,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } },
-                    scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
+                    plugins: { legend: { position: 'bottom', labels: {font: {size: 10}} } },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v, font: {size: 10} } }, x: { ticks: {font: {size: 10}} } }
                 }
             });
         }
@@ -848,8 +885,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { beginAtZero: true, ticks: { stepSize: 1 } },
-                        y: { ticks: { font: { size: 10 } } }
+                        x: { beginAtZero: true, ticks: { stepSize: 1, font: {size: 10} } },
+                        y: { ticks: { font: { size: 9 } } }
                     }
                 }
             });
@@ -872,7 +909,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         backgroundColor: colores[i % colores.length] + '20',
                         tension: 0.3,
                         borderWidth: 2,
-                        pointRadius: 4,
+                        pointRadius: 3,
                         pointBackgroundColor: colores[i % colores.length],
                     }))
                 },
@@ -882,7 +919,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     plugins: {
                         legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } }
                     },
-                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: {size: 10} } }, x: { ticks: {font: {size: 10}} } }
                 }
             });
         }
@@ -909,7 +946,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } },
+                    plugins: { legend: { position: 'bottom', labels: {font: {size: 10}} } },
                     cutout: '65%'
                 }
             });
@@ -935,8 +972,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { title: { display: true, text: 'Pedidos por cliente' } },
-                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                        x: { title: { display: true, text: 'Pedidos por cliente', font: {size: 10} }, ticks: {font: {size: 10}} },
+                        y: { beginAtZero: true, ticks: { stepSize: 1, font: {size: 10} } }
                     }
                 }
             });

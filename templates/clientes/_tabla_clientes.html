@@ -9,9 +9,8 @@
                     {% elif orden_actual == 'nombre_desc' %}<i class="bi bi-sort-alpha-up text-primary"></i>
                     {% else %}<i class="bi bi-arrow-down-up text-muted opacity-50"></i>{% endif %}
                 </th>
-                <th>Teléfono</th>
-                <th>Email</th>
-                <th style="cursor: pointer;" class="sortable" data-orden="pedidos">
+                <th class="d-none d-md-table-cell">Email</th>
+                <th class="d-none d-sm-table-cell" style="cursor: pointer;" class="sortable" data-orden="pedidos">
                     Pedidos
                     {% if orden_actual == 'pedidos_desc' %}<i class="bi bi-sort-numeric-down text-primary"></i>
                     {% elif orden_actual == 'pedidos_asc' %}<i class="bi bi-sort-numeric-up text-primary"></i>
@@ -28,24 +27,20 @@
                     <a href="{% url 'clientes:detalle' c.id %}" class="text-dark fw-bold text-decoration-none">
                         {{ c.nombre }}
                     </a>
-                </td>
-                <td>
-                    {% if c.telefono %}
-                        <div class="d-flex align-items-center gap-2">
-                            <span>{{ c.telefono }}</span>
-                            <a href="https://wa.me/{{ c.telefono|cut:' '|cut:'-' }}?text=Hola%20{{ c.nombre|urlencode }},%20te%20escribo%20de%20Vargas%20Editorial" 
-                               target="_blank" 
-                               class="text-success" 
-                               title="Enviar WhatsApp">
-                                <i class="bi bi-whatsapp fs-5"></i>
+                    <!-- Teléfono apilado debajo del nombre en móvil -->
+                    <div class="d-sm-none small text-muted mt-1">
+                        {% if c.telefono %}
+                            <i class="bi bi-telephone"></i> {{ c.telefono }}
+                            <a href="https://wa.me/{{ c.telefono|cut:' '|cut:'-' }}?text=Hola%20{{ c.nombre|urlencode }},%20te%20escribo%20de%20Vargas%20Editorial" target="_blank" class="text-success ms-1">
+                                <i class="bi bi-whatsapp"></i>
                             </a>
-                        </div>
-                    {% else %}
-                        <span class="text-muted">—</span>
-                    {% endif %}
+                        {% else %}
+                            <i class="bi bi-telephone text-muted"></i> —
+                        {% endif %}
+                    </div>
                 </td>
-                <td>{{ c.email|default:"—" }}</td>
-                <td>
+                <td class="d-none d-md-table-cell">{{ c.email|default:"—" }}</td>
+                <td class="d-none d-sm-table-cell">
                     <span class="badge bg-secondary rounded-pill">{{ c.pedidos.count }}</span>
                 </td>
                 <td>
@@ -64,7 +59,7 @@
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="6" class="text-center text-muted py-5">
+            <tr><td colspan="5" class="text-center text-muted py-5">
                 <i class="bi bi-people fs-1 d-block mb-2"></i>
                 No se encontraron clientes.
             </td></tr>
@@ -75,8 +70,8 @@
 
 <!-- PAGINACIÓN -->
 {% if clientes.has_other_pages %}
-<div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center">
-    <small class="text-muted">
+<div class="card-footer bg-white border-top p-3 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
+    <small class="text-muted text-center text-sm-start">
         Mostrando {{ clientes.start_index }} - {{ clientes.end_index }} de {{ total_clientes }} clientes
     </small>
     <ul class="pagination pagination-sm mb-0" id="paginacion-ajax-clientes">

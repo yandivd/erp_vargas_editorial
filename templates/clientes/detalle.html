@@ -3,39 +3,58 @@
 {% block title %}Perfil: {{ cliente.nombre }} - ERP Libros{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
+<!-- Cabecera responsive -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
     <h2 class="mb-0"><i class="bi bi-person-circle"></i> {{ cliente.nombre }}</h2>
-    <a href="{% url 'clientes:lista' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver al Directorio</a>
+    <a href="{% url 'clientes:lista' %}" class="btn btn-outline-secondary w-100 w-md-auto">
+        <i class="bi bi-arrow-left"></i> Volver al Directorio
+    </a>
 </div>
 
 <div class="row g-3 mb-4">
     <!-- Info de Contacto -->
-    <div class="col-md-4">
+    <div class="col-12 col-md-4">
         <div class="card card-kpi p-3 h-100">
-            <h5 class="mb-3">Datos de Contacto</h5>
-            <p><i class="bi bi-telephone text-muted"></i> <strong>Teléfono:</strong> {{ cliente.telefono|default:"—" }}</p>
-            <p><i class="bi bi-envelope text-muted"></i> <strong>Email:</strong> {{ cliente.email|default:"—" }}</p>
-            <p><i class="bi bi-geo-alt text-muted"></i> <strong>Dirección:</strong> {{ cliente.direccion|default:"—" }}</p>
-            <p class="text-muted small mt-3 mb-0">Cliente desde: {{ cliente.fecha_registro|date:"d/m/Y" }}</p>
+            <h5 class="mb-3 border-bottom pb-2">Datos de Contacto</h5>
+            <div class="d-flex flex-column gap-2">
+                <p class="mb-0">
+                    <i class="bi bi-telephone text-muted me-2"></i> 
+                    <strong>Teléfono:</strong><br class="d-md-none">
+                    {{ cliente.telefono|default:"—" }}
+                </p>
+                <p class="mb-0">
+                    <i class="bi bi-envelope text-muted me-2"></i> 
+                    <strong>Email:</strong><br class="d-md-none">
+                    {{ cliente.email|default:"—" }}
+                </p>
+                <p class="mb-0">
+                    <i class="bi bi-geo-alt text-muted me-2"></i> 
+                    <strong>Dirección:</strong><br class="d-md-none">
+                    {{ cliente.direccion|default:"—" }}
+                </p>
+            </div>
+            <p class="text-muted small mt-3 mb-0 border-top pt-2">
+                Cliente desde: {{ cliente.fecha_registro|date:"d/m/Y" }}
+            </p>
         </div>
     </div>
 
     <!-- Estadísticas Financieras -->
-    <div class="col-md-8">
+    <div class="col-12 col-md-8">
         <div class="row g-3">
-            <div class="col-md-6">
-                <div class="card card-kpi p-3 border-start border-primary border-4">
+            <div class="col-12 col-sm-6">
+                <div class="card card-kpi p-3 border-start border-primary border-4 h-100">
                     <small class="text-muted">Total Facturado ({{ total_pedidos }} pedidos)</small>
                     <h3 class="mb-0">${{ total_facturado|floatformat:2 }}</h3>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="card card-kpi p-3 border-start border-success border-4">
+            <div class="col-12 col-sm-6">
+                <div class="card card-kpi p-3 border-start border-success border-4 h-100">
                     <small class="text-muted">Total Pagado</small>
                     <h3 class="mb-0 text-success">${{ total_pagado|floatformat:2 }}</h3>
                 </div>
             </div>
-            <div class="col-md-12">
+            <div class="col-12">
                 <div class="card card-kpi p-3 border-start border-danger border-4">
                     <small class="text-muted">Deuda Pendiente (Saldo actual)</small>
                     <h3 class="mb-0 {% if total_deuda > 0 %}text-danger{% else %}text-success{% endif %}">
@@ -49,35 +68,35 @@
 
 <!-- Historial de Pedidos -->
 <div class="card card-kpi">
-    <div class="card-header bg-white">
+    <div class="card-header bg-white py-3">
         <h5 class="mb-0"><i class="bi bi-journal-text"></i> Historial de Pedidos</h5>
     </div>
     <div class="table-responsive">
         <table class="table table-hover mb-0 align-middle">
             <thead class="table-light">
                 <tr>
-                    <th>#</th>
+                    <th class="d-none d-sm-table-cell">#</th>
                     <th>Libro</th>
-                    <th>Fecha</th>
-                    <th>Precio</th>
+                    <th class="d-none d-md-table-cell">Fecha</th>
+                    <th class="d-none d-md-table-cell">Precio</th>
                     <th>Saldo</th>
                     <th>Estado</th>
-                    <th></th>
+                    <th class="text-end">Acción</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in pedidos %}
                 <tr>
-                    <td>{{ p.id }}</td>
+                    <td class="d-none d-sm-table-cell">{{ p.id }}</td>
                     <td>
                         <strong>{{ p.libro.titulo }}</strong><br>
                         <small class="text-muted">{{ p.libro.paginas }} pág.</small>
                     </td>
-                    <td>{{ p.fecha_pedido|date:"d/m/Y" }}</td>
-                    <td>${{ p.precio_venta|floatformat:2 }}</td>
+                    <td class="d-none d-md-table-cell">{{ p.fecha_pedido|date:"d/m/Y" }}</td>
+                    <td class="d-none d-md-table-cell">${{ p.precio_venta|floatformat:2 }}</td>
                     <td>
                         {% if p.saldo_pendiente > 0 %}
-                            <span class="text-danger">${{ p.saldo_pendiente|floatformat:2 }}</span>
+                            <span class="text-danger fw-bold">${{ p.saldo_pendiente|floatformat:2 }}</span>
                         {% else %}
                             <span class="text-success">Pagado</span>
                         {% endif %}
@@ -87,9 +106,9 @@
                             {{ p.estado.nombre }}
                         </span>
                     </td>
-                    <td>
+                    <td class="text-end">
                         <a href="{% url 'pedidos:detalle' p.id %}" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-eye"></i> Ver Pedido
+                            <i class="bi bi-eye"></i> <span class="d-none d-sm-inline">Ver Pedido</span>
                         </a>
                     </td>
                 </tr>

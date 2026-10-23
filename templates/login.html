@@ -2,35 +2,66 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ingresar - ERP Libros</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        body { background: #f4f6f9; display: flex; align-items: center; justify-content: center; height: 100vh; }
-        .login-card { width: 100%; max-width: 400px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        body { 
+            background: #f4f6f9; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh; 
+            /* Usamos min-height en lugar de height para que en móvil se pueda scrollear si el teclado lo tapa */
+            margin: 0;
+            padding: 1rem;
+        }
+        .login-card { 
+            width: 100%; 
+            max-width: 400px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+            border: none;
+        }
+        
+        /* Ajuste para móviles: si el teclado abre, el fondo no se corta */
+        @media (max-width: 576px) {
+            .login-card { 
+                max-width: 100%; 
+                padding: 2rem 1.5rem !important;
+            }
+            body {
+                align-items: flex-start;
+                padding-top: 2rem;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="card login-card p-4">
+    <div class="card login-card p-4 p-sm-5">
         <div class="text-center mb-4">
-            <h2><i class="bi bi-book-half"></i> ERP Libros</h2>
+            <h2 class="fw-bold"><i class="bi bi-book-half text-primary"></i> ERP Libros</h2>
             <p class="text-muted">Ingresa tus credenciales</p>
         </div>
         
         {% if form.errors %}
-            <div class="alert alert-danger">Usuario o contraseña incorrectos.</div>
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill"></i> Usuario o contraseña incorrectos.
+            </div>
         {% endif %}
         
         <form method="post">
             {% csrf_token %}
             <div class="mb-3">
-                <label class="form-label">Usuario</label>
-                <input type="text" name="username" class="form-control" required autofocus>
+                <label class="form-label fw-bold small text-muted">Usuario</label>
+                <input type="text" name="username" class="form-control form-control-lg" required autofocus>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Contraseña</label>
-                <input type="password" name="password" class="form-control" required>
+            <div class="mb-4">
+                <label class="form-label fw-bold small text-muted">Contraseña</label>
+                <input type="password" name="password" class="form-control form-control-lg" required>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Ingresar</button>
+            <button type="submit" class="btn btn-primary w-100 btn-lg fw-bold">Ingresar</button>
         </form>
     </div>
 </body>

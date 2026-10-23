@@ -1,20 +1,21 @@
 {% extends 'base.html' %}
 {% block title %}Entrega #{{ entrega.id }}{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<!-- Cabecera responsive -->
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-4 gap-3">
     <div>
         <h2 class="mb-0"><i class="bi bi-truck"></i> Entrega #{{ entrega.id }}</h2>
         <p class="text-muted mb-0">{{ entrega.cliente.nombre }} — {{ entrega.cantidad_pedidos }} pedidos</p>
     </div>
-    <div class="d-flex gap-2">
-        <a href="{% url 'pedidos:imprimir_entrega_carta' entrega.id %}" target="_blank" class="btn btn-outline-dark">
+    <div class="d-flex flex-column flex-sm-row gap-2">
+        <a href="{% url 'pedidos:imprimir_entrega_carta' entrega.id %}" target="_blank" class="btn btn-outline-dark w-100 w-sm-auto">
             <i class="bi bi-receipt"></i> Ticket 5×8
         </a>
-        <a href="{% url 'pedidos:imprimir_entrega' entrega.id %}" target="_blank" class="btn btn-outline-primary">
+        <a href="{% url 'pedidos:imprimir_entrega' entrega.id %}" target="_blank" class="btn btn-outline-primary w-100 w-sm-auto">
             <i class="bi bi-printer"></i> Imprimir Carta
         </a>
         {% if not entrega.entregado %}
-        <form method="post" class="d-inline">
+        <form method="post" class="d-grid w-100 w-sm-auto">
             {% csrf_token %}
             <button name="accion" value="entregar" class="btn btn-success">
                 <i class="bi bi-check-lg"></i> Marcar entregada
@@ -24,83 +25,98 @@
     </div>
 </div>
 
+<!-- KPIs: 2 columnas en móvil, 4 en PC -->
 <div class="row g-3 mb-4">
-    <div class="col-md-3">
-        <div class="card card-kpi p-3">
+    <div class="col-6 col-md-3">
+        <div class="card card-kpi p-3 h-100">
             <small class="text-muted">Total pedidos</small>
             <h4 class="mb-0">${{ entrega.total_pedidos|floatformat:2 }}</h4>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card card-kpi p-3">
+    <div class="col-6 col-md-3">
+        <div class="card card-kpi p-3 h-100">
             <small class="text-muted">Anticipos</small>
             <h4 class="mb-0">${{ entrega.total_anticipos|floatformat:2 }}</h4>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card card-kpi p-3">
+    <div class="col-6 col-md-3">
+        <div class="card card-kpi p-3 h-100">
             <small class="text-muted">Saldo pedidos</small>
             <h4 class="mb-0 text-danger">${{ entrega.saldo_pedidos|floatformat:2 }}</h4>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card card-kpi p-3">
+    <div class="col-6 col-md-3">
+        <div class="card card-kpi p-3 h-100">
             <small class="text-muted">Total a cobrar</small>
             <h4 class="mb-0 text-danger">${{ entrega.total_a_cobrar|floatformat:2 }}</h4>
         </div>
     </div>
 </div>
 
+<!-- Formulario de datos -->
 <div class="card card-kpi p-4 mb-4">
-    <h5>Datos de la entrega</h5>
+    <h5 class="border-bottom pb-2 mb-3">Datos de la entrega</h5>
     <form method="post">
         {% csrf_token %}
         <div class="row g-3">
-            <div class="col-md-6">
-                <label class="form-label">Dirección</label>
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-bold small text-muted">Dirección</label>
                 <textarea name="direccion" class="form-control" rows="2">{{ entrega.direccion }}</textarea>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Fecha de entrega</label>
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-bold small text-muted">Fecha de entrega</label>
                 <input type="date" name="fecha_entrega" class="form-control" value="{{ entrega.fecha_entrega|date:'Y-m-d' }}">
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Costo de mensajería</label>
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-bold small text-muted">Costo de mensajería</label>
                 <div class="input-group">
                     <span class="input-group-text">$</span>
                     <input type="number" name="costo_mensajeria" class="form-control" step="0.01" value="{{ entrega.costo_mensajeria }}">
                 </div>
                 <small class="text-muted">Pon 0 si no cobras mensajería.</small>
             </div>
-            <div class="col-md-12">
-                <label class="form-label">Notas</label>
+            <div class="col-12">
+                <label class="form-label fw-bold small text-muted">Notas</label>
                 <textarea name="notas" class="form-control" rows="2">{{ entrega.notas }}</textarea>
             </div>
         </div>
-        <button type="submit" name="accion" value="actualizar" class="btn btn-primary mt-3">
+        <button type="submit" name="accion" value="actualizar" class="btn btn-primary mt-3 w-100 w-sm-auto">
             <i class="bi bi-save"></i> Guardar cambios
         </button>
     </form>
 </div>
 
+<!-- Tabla de pedidos -->
 <div class="card card-kpi p-3">
-    <h5>Pedidos en esta entrega</h5>
-    <table class="table table-sm">
-        <thead>
-            <tr><th>Ref</th><th>Libro</th><th>Cliente</th><th>Precio</th><th>Anticipo</th><th>Saldo</th></tr>
-        </thead>
-        <tbody>
-            {% for p in pedidos %}
-            <tr>
-                <td><a href="{% url 'pedidos:detalle' p.id %}">#{{ p.referencia_externa|default:p.id }}</a></td>
-                <td>{{ p.libro.titulo }}</td>
-                <td>{{ p.cliente.nombre|default:"Stock" }}</td>
-                <td>${{ p.precio_venta|floatformat:2 }}</td>
-                <td>${{ p.anticipo_recibido|floatformat:2 }}</td>
-                <td>${{ p.saldo_pendiente|floatformat:2 }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <h5 class="border-bottom pb-2 mb-3">Pedidos en esta entrega</h5>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Ref</th>
+                    <th>Libro</th>
+                    <th class="d-none d-sm-table-cell">Cliente</th>
+                    <th class="d-none d-md-table-cell">Precio</th>
+                    <th class="d-none d-md-table-cell">Anticipo</th>
+                    <th class="text-end">Saldo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in pedidos %}
+                <tr>
+                    <td><a href="{% url 'pedidos:detalle' p.id %}" class="fw-bold text-decoration-none">#{{ p.referencia_externa|default:p.id }}</a></td>
+                    <td>
+                        {{ p.libro.titulo }}
+                        <br><small class="text-muted d-sm-none">{{ p.cliente.nombre|default:"Stock" }}</small>
+                    </td>
+                    <td class="d-none d-sm-table-cell">{{ p.cliente.nombre|default:"Stock" }}</td>
+                    <td class="d-none d-md-table-cell">${{ p.precio_venta|floatformat:2 }}</td>
+                    <td class="d-none d-md-table-cell">${{ p.anticipo_recibido|floatformat:2 }}</td>
+                    <td class="text-end fw-bold text-danger">${{ p.saldo_pendiente|floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}

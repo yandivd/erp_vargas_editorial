@@ -3,46 +3,53 @@
 {% block title %}Caja - ERP Libros{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div class="d-flex gap-2">
-        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalIngreso">
+<!-- Cabecera responsive -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <h2 class="mb-0 fw-bold"><i class="bi bi-cash-stack text-primary"></i> Flujo de Caja</h2>
+    <div class="d-flex flex-column flex-sm-row gap-2">
+        <button type="button" class="btn btn-success w-100 w-sm-auto" data-bs-toggle="modal" data-bs-target="#modalIngreso">
             <i class="bi bi-plus-circle"></i> Registrar Ingreso
         </button>
-        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalGasto">
+        <button type="button" class="btn btn-danger w-100 w-sm-auto" data-bs-toggle="modal" data-bs-target="#modalGasto">
             <i class="bi bi-dash-circle"></i> Registrar Gasto
         </button>
-        <a href="{% url 'finanzas:arqueo_caja' %}" class="btn btn-dark">
-            <i class="bi bi-safe"></i> Hacer Arqueo de Caja
+        <a href="{% url 'finanzas:arqueo_caja' %}" class="btn btn-dark w-100 w-sm-auto">
+            <i class="bi bi-safe"></i> Hacer Arqueo
         </a>
     </div>
 </div>
 
 <!-- Resumen -->
 <div class="row g-3 mb-4">
-    <div class="alert alert-info d-flex justify-content-between align-items-center shadow-sm">
-        <div>
-            <h5 class="mb-0"><i class="bi bi-wallet2"></i> Capital Total del Negocio</h5>
-            <small>Efectivo en Caja + Valor del Inventario</small>
-        </div>
-        <div class="text-end">
-            <h3 class="mb-0 fw-bold">${{ saldo_actual|add:valor_inventario|floatformat:2 }}</h3>
-            <small>Efectivo: ${{ saldo_actual|floatformat:2 }} | Inventario: ${{ valor_inventario|floatformat:2 }}</small>
+    <!-- Capital Total -->
+    <div class="col-12">
+        <div class="alert alert-info d-flex flex-column flex-md-row justify-content-between align-items-md-center shadow-sm mb-0">
+            <div class="mb-2 mb-md-0">
+                <h5 class="mb-0"><i class="bi bi-wallet2"></i> Capital Total del Negocio</h5>
+                <small class="text-muted">Efectivo en Caja + Valor del Inventario</small>
+            </div>
+            <div class="text-md-end">
+                <h3 class="mb-0 fw-bold">${{ saldo_actual|add:valor_inventario|floatformat:2 }}</h3>
+                <small>Efectivo: ${{ saldo_actual|floatformat:2 }} | Inventario: ${{ valor_inventario|floatformat:2 }}</small>
+            </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card card-kpi p-3 border-start border-success border-4">
+    
+    <!-- 3 KPIs -->
+    <div class="col-12 col-md-4">
+        <div class="card card-kpi p-3 border-start border-success border-4 h-100">
             <small class="text-muted">Ingresos Totales</small>
             <h3 class="mb-0 text-success">${{ total_ingresos|floatformat:2 }}</h3>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card card-kpi p-3 border-start border-danger border-4">
+    <div class="col-12 col-md-4">
+        <div class="card card-kpi p-3 border-start border-danger border-4 h-100">
             <small class="text-muted">Egresos Totales</small>
             <h3 class="mb-0 text-danger">${{ total_egresos|floatformat:2 }}</h3>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card card-kpi p-3 border-start border-primary border-4">
+    <div class="col-12 col-md-4">
+        <div class="card card-kpi p-3 border-start border-primary border-4 h-100">
             <small class="text-muted">Saldo en Caja</small>
             <h3 class="mb-0 text-primary">${{ saldo_actual|floatformat:2 }} CUP</h3>
             {% if saldo_usd > 0 %}
@@ -55,16 +62,16 @@
 <!-- Filtros -->
 <div class="card card-kpi p-3 mb-3">
     <form method="get" class="row g-2 align-items-end" id="formFiltrosCaja">
-        <div class="col-md-3">
-            <label class="form-label small">Desde</label>
+        <div class="col-6 col-md-3">
+            <label class="form-label small text-muted fw-bold">Desde</label>
             <input type="date" name="desde" class="form-control" value="{{ desde }}">
         </div>
-        <div class="col-md-3">
-            <label class="form-label small">Hasta</label>
+        <div class="col-6 col-md-3">
+            <label class="form-label small text-muted fw-bold">Hasta</label>
             <input type="date" name="hasta" class="form-control" value="{{ hasta }}">
         </div>
-        <div class="col-md-4">
-            <label class="form-label small">Categoría</label>
+        <div class="col-12 col-md-4">
+            <label class="form-label small text-muted fw-bold">Categoría</label>
             <select name="categoria" class="form-select">
                 <option value="">Todas</option>
                 {% for value, label in categorias %}
@@ -72,8 +79,8 @@
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-2">
-            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Filtrar</button>
+        <div class="col-12 col-md-2">
+            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel"></i> Filtrar</button>
         </div>
     </form>
 </div>
@@ -85,28 +92,28 @@
 
 <!-- Modal Gasto -->
 <div class="modal fade" id="modalGasto" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <form method="post" action="{% url 'finanzas:registrar_gasto' %}">
             {% csrf_token %}
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-dash-circle"></i> Registrar Gasto Operativo</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-dash-circle"></i> Registrar Gasto</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <p class="text-muted small">Registra gastos como electricidad, internet, alquiler, etc.</p>
                     <div class="mb-3">
-                        <label class="form-label">Concepto *</label>
-                        <input type="text" name="concepto" class="form-control" placeholder="Ej: Pago de Luz" required>
+                        <label class="form-label fw-bold small">Concepto *</label>
+                        <input type="text" name="concepto" class="form-control form-control-lg" placeholder="Ej: Pago de Luz" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Monto ($) *</label>
-                        <input type="number" name="monto" class="form-control" step="0.01" min="0.01" required>
+                        <label class="form-label fw-bold small">Monto ($) *</label>
+                        <input type="number" name="monto" class="form-control form-control-lg" step="0.01" min="0.01" required>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-danger">Guardar Gasto</button>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary w-100 w-sm-auto" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger w-100 w-sm-auto">Guardar Gasto</button>
                 </div>
             </div>
         </form>
@@ -115,29 +122,29 @@
 
 <!-- Modal Ingreso -->
 <div class="modal fade" id="modalIngreso" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <form method="post" action="{% url 'finanzas:registrar_ingreso' %}">
             {% csrf_token %}
-            <div class="modal-content">
+            <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-success text-white">
                     <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Registrar Ingreso</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <p class="text-muted small">
                         Registra ingresos que no vienen de un pedido: propinas, mensajería, venta directa, etc.
                     </p>
                     <div class="mb-3">
-                        <label class="form-label">Concepto *</label>
-                        <input type="text" name="concepto" class="form-control" placeholder="Ej: Propina de cliente" required>
+                        <label class="form-label fw-bold small">Concepto *</label>
+                        <input type="text" name="concepto" class="form-control form-control-lg" placeholder="Ej: Propina de cliente" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Monto ($) *</label>
-                        <input type="number" name="monto" class="form-control" step="0.01" min="0.01" required>
+                        <label class="form-label fw-bold small">Monto ($) *</label>
+                        <input type="number" name="monto" class="form-control form-control-lg" step="0.01" min="0.01" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Categoría</label>
-                        <select name="categoria" class="form-select">
+                        <label class="form-label fw-bold small">Categoría</label>
+                        <select name="categoria" class="form-select form-select-lg">
                             <option value="INGRESO_MANUAL">Ingreso manual</option>
                             <option value="PROPINA">Propina</option>
                             <option value="MENSAJERIA">Mensajería / Envío</option>
@@ -146,9 +153,9 @@
                         </select>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success">Guardar Ingreso</button>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary w-100 w-sm-auto" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success w-100 w-sm-auto">Guardar Ingreso</button>
                 </div>
             </div>
         </form>
@@ -167,7 +174,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const paginacion = document.getElementById('paginacion-caja');
         if (!paginacion) return;
 
-        // Clonar para eliminar listeners viejos
         paginacion.querySelectorAll('a.page-link').forEach(link => {
             link.replaceWith(link.cloneNode(true));
         });
@@ -208,7 +214,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    // Interceptar el submit del filtro para que recargue por AJAX
     if (formFiltros) {
         formFiltros.addEventListener('submit', function (e) {
             e.preventDefault();
