@@ -95,10 +95,30 @@
 
         <!-- TOTALES -->
         <div class="etq-totales" style="font-size: 4.5pt; margin-top: auto; border-top: 0.2mm solid #ccc; padding-top: 1mm;">
+            
+            {# Calculamos el precio original sumando el precio final + el descuento total #}
+            {% widthratio total_venta|add:total_descuento 1 1 as precio_original %}
+            
+            {% if total_descuento > 0 %}
+            <div class="fila" style="color: #666;">
+                <span>Precio Original:</span>
+                <span>${{ precio_original|floatformat:0 }}</span>
+            </div>
+            <div class="fila" style="color: #27ae60;">
+                <span>Descuento:</span>
+                <span>-${{ total_descuento|floatformat:0 }}</span>
+            </div>
+            <div class="fila" style="border-top: 0.1mm dashed #ccc; padding-top: 0.2mm; margin-top: 0.2mm;">
+                <span>Subtotal:</span>
+                <span>${{ total_venta|floatformat:0 }}</span>
+            </div>
+            {% else %}
             <div class="fila">
                 <span>Total:</span>
                 <span>${{ total_venta|floatformat:0 }}</span>
             </div>
+            {% endif %}
+
             <div class="fila">
                 <span>Anticipo:</span>
                 <span>-${{ total_anticipo|floatformat:0 }}</span>
