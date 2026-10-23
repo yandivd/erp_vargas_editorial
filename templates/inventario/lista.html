@@ -125,6 +125,9 @@
                                 {% endif %}
                             </td>
                             <td class="text-end">
+                                <a href="{% url 'inventario:registrar_salida' m.id %}" class="btn btn-sm btn-outline-warning" title="Registrar Salida">
+                                    <i class="bi bi-box-arrow-up"></i>
+                                </a>
                                 <a href="{% url 'inventario:detalle' m.id %}" class="btn btn-sm btn-outline-primary">
                                     <i class="bi bi-clock-history"></i> Historial
                                 </a>
