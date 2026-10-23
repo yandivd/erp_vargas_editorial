@@ -105,9 +105,16 @@ class NuevoPedidoForm(forms.Form):
 # ============================================================
 def _siguiente_referencia():
     """Devuelve el siguiente número de referencia_externa (mayor + 1)."""
+    from django.db.models.functions import Cast
+    from django.db.models import IntegerField
+
+    # Filtramos solo los que sean números puros, ignorando textos viejos
     ultima = Pedido.objects.filter(
-        referencia_externa__isnull=False
-    ).order_by('-referencia_externa').values_list('referencia_externa', flat=True).first()
+        referencia_externa__regex=r'^\d+$'
+    ).annotate(
+        ref_num=Cast('referencia_externa', output_field=IntegerField())
+    ).order_by('-ref_num').values_list('ref_num', flat=True).first()
+
     return (ultima + 1) if ultima else 1
 
 
