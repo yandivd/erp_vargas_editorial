@@ -162,6 +162,8 @@ class Pedido(models.Model):
         max_digits=10, decimal_places=2, default=0,
         verbose_name='Descuento aplicado'
     )
+    # En pedidos/models.py
+    es_historico = models.BooleanField(default=False, help_text="Pedidos anteriores al uso del ERP")
 
     class Meta:
         verbose_name = 'Pedido'
