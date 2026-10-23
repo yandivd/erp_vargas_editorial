@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}Entregas{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<!-- Cabecera responsive -->
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4 gap-3">
     <h2 class="mb-0"><i class="bi bi-truck"></i> Entregas</h2>
-    <a href="{% url 'pedidos:crear_entrega' %}" class="btn btn-success">
+    <a href="{% url 'pedidos:crear_entrega' %}" class="btn btn-success w-100 w-sm-auto">
         <i class="bi bi-plus-lg"></i> Nueva entrega
     </a>
 </div>
@@ -13,12 +14,11 @@
         <table class="table table-hover mb-0 align-middle">
             <thead class="table-light">
                 <tr>
-                    <th>#</th>
-                    <th>Cliente</th>
-                    <th>Pedidos</th>
-                    <th>Mensajería</th>
-                    <th>Saldo pedidos</th>
-                    <th>Total a cobrar</th>
+                    <th class="d-none d-sm-table-cell">#</th>
+                    <th>Cliente / Pedido</th>
+                    <th class="d-none d-md-table-cell">Mensajería</th>
+                    <th class="d-none d-md-table-cell">Saldo pedidos</th>
+                    <th class="text-end">Total a cobrar</th>
                     <th>Estado</th>
                     <th class="text-end">Acciones</th>
                 </tr>
@@ -26,18 +26,22 @@
             <tbody>
                 {% for e in entregas %}
                 <tr>
-                    <td>#{{ e.id }}</td>
-                    <td>{{ e.cliente.nombre }}</td>
-                    <td>{{ e.cantidad_pedidos }}</td>
+                    <td class="d-none d-sm-table-cell text-muted">#{{ e.id }}</td>
                     <td>
+                        <strong>{{ e.cliente.nombre }}</strong><br>
+                        <small class="text-muted">
+                            #{{ e.id }} · {{ e.cantidad_pedidos }} pedido(s)
+                        </small>
+                    </td>
+                    <td class="d-none d-md-table-cell">
                         {% if e.costo_mensajeria > 0 %}
                             ${{ e.costo_mensajeria|floatformat:2 }}
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}
                     </td>
-                    <td>${{ e.saldo_pedidos|floatformat:2 }}</td>
-                    <td class="fw-bold text-danger">${{ e.total_a_cobrar|floatformat:2 }}</td>
+                    <td class="d-none d-md-table-cell">${{ e.saldo_pedidos|floatformat:2 }}</td>
+                    <td class="fw-bold text-danger text-end">${{ e.total_a_cobrar|floatformat:2 }}</td>
                     <td>
                         {% if e.entregado %}
                             <span class="badge bg-success">Entregada</span>
@@ -45,11 +49,11 @@
                             <span class="badge bg-warning text-dark">Pendiente</span>
                         {% endif %}
                     </td>
-                    <td class="text-end">
+                    <td class="text-end text-nowrap">
                         <a href="{% url 'pedidos:detalle_entrega' e.id %}" class="btn btn-sm btn-outline-primary" title="Ver detalle">
                             <i class="bi bi-eye"></i>
                         </a>
-                        <a href="{% url 'pedidos:imprimir_entrega' e.id %}" target="_blank" class="btn btn-sm btn-outline-dark" title="Imprimir Carta">
+                        <a href="{% url 'pedidos:imprimir_entrega' e.id %}" target="_blank" class="btn btn-sm btn-outline-dark d-none d-sm-inline-block" title="Imprimir Carta">
                             <i class="bi bi-printer"></i>
                         </a>
                         <a href="{% url 'pedidos:imprimir_entrega_carta' e.id %}" target="_blank" class="btn btn-sm btn-outline-dark" title="Ticket 5×8">
@@ -58,7 +62,7 @@
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="8" class="text-center text-muted py-4">No hay entregas registradas.</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">No hay entregas registradas.</td></tr>
                 {% endfor %}
             </tbody>
         </table>

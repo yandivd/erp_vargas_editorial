@@ -1,52 +1,60 @@
 {% extends 'base.html' %}
 {% block title %}Nueva Entrega{% endblock %}
 {% block content %}
-<h2 class="mb-4"><i class="bi bi-truck"></i> Nueva Entrega</h2>
+<!-- Cabecera responsive -->
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4 gap-2">
+    <h2 class="mb-0"><i class="bi bi-truck"></i> Nueva Entrega</h2>
+    <a href="{% url 'pedidos:lista_entregas' %}" class="btn btn-outline-secondary w-100 w-sm-auto">
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
+</div>
 
 <form method="post" id="formEntrega">
     {% csrf_token %}
+    
+    <!-- Formulario de datos -->
     <div class="card card-kpi p-4 mb-4">
+        <h5 class="border-bottom pb-2 mb-3">Datos de la entrega</h5>
         <div class="row g-3">
-            <div class="col-md-6">
-                <label class="form-label">Cliente</label>
-                <input type="text" id="clienteNombre" class="form-control" readonly placeholder="Selecciona pedidos...">
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-bold small text-muted">Cliente</label>
+                <input type="text" id="clienteNombre" class="form-control form-control-lg" readonly placeholder="Selecciona pedidos abajo...">
                 <small class="text-muted">Se deduce de los pedidos seleccionados. Todos deben ser del mismo cliente.</small>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Fecha de entrega</label>
-                <input type="date" name="fecha_entrega" class="form-control">
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-bold small text-muted">Fecha de entrega</label>
+                <input type="date" name="fecha_entrega" class="form-control form-control-lg">
             </div>
-            <div class="col-md-12">
-                <label class="form-label">Dirección de entrega</label>
-                <textarea name="direccion" class="form-control" rows="2"></textarea>
+            <div class="col-12">
+                <label class="form-label fw-bold small text-muted">Dirección de entrega</label>
+                <textarea name="direccion" class="form-control" rows="2" placeholder="Dirección a donde se llevará el pedido..."></textarea>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Costo de mensajería</label>
-                <div class="input-group">
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-bold small text-muted">Costo de mensajería</label>
+                <div class="input-group input-group-lg">
                     <span class="input-group-text">$</span>
                     <input type="number" name="costo_mensajeria" id="costoMensajeria" class="form-control" step="0.01" value="0">
                 </div>
                 <small class="text-muted">Pon 0 si no cobras mensajería.</small>
             </div>
-            <div class="col-md-12">
-                <label class="form-label">Notas</label>
-                <textarea name="notas" class="form-control" rows="2"></textarea>
+            <div class="col-12">
+                <label class="form-label fw-bold small text-muted">Notas</label>
+                <textarea name="notas" class="form-control" rows="2" placeholder="Notas adicionales..."></textarea>
             </div>
         </div>
     </div>
 
+    <!-- Tabla de pedidos disponibles -->
     <div class="card card-kpi p-3 mb-3">
-        <h5>Pedidos disponibles <span class="text-muted small">(Listos para entregar)</span></h5>
+        <h5 class="border-bottom pb-2 mb-3">Pedidos disponibles <span class="text-muted small fw-normal">(Listos para entregar)</span></h5>
         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-            <table class="table table-sm table-hover">
-                <thead>
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
                     <tr>
-                        <th><input type="checkbox" id="checkTodos" class="form-check-input"></th>
-                        <th>Ref</th>
-                        <th>Libro</th>
-                        <th>Cliente</th>
-                        <th>Estado</th>
-                        <th>Saldo</th>
+                        <th style="width: 40px;"><input type="checkbox" id="checkTodos" class="form-check-input"></th>
+                        <th>Pedido</th>
+                        <th class="d-none d-md-table-cell">Estado</th>
+                        <th class="text-end d-none d-sm-table-cell">Saldo</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -58,22 +66,32 @@
                                    data-cliente-id="{{ p.cliente_id }}"
                                    data-cliente-nombre="{{ p.cliente.nombre|default:'Stock' }}">
                         </td>
-                        <td>#{{ p.referencia_externa|default:p.id }}</td>
-                        <td>{{ p.libro.titulo }}</td>
-                        <td>{{ p.cliente.nombre|default:"Stock" }}</td>
-                        <td>{{ p.estado.nombre }}</td>
-                        <td>${{ p.saldo_pendiente|floatformat:2 }}</td>
+                        <td>
+                            <strong>{{ p.libro.titulo }}</strong><br>
+                            <small class="text-muted">#{{ p.referencia_externa|default:p.id }} · {{ p.cliente.nombre|default:"Stock" }}</small>
+                        </td>
+                        <td class="d-none d-md-table-cell">
+                            <span class="badge bg-light text-dark border">{{ p.estado.nombre }}</span>
+                        </td>
+                        <td class="text-end fw-bold d-none d-sm-table-cell">${{ p.saldo_pendiente|floatformat:2 }}</td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="6" class="text-center text-muted py-4">No hay pedidos listos para entregar.</td></tr>
+                    <tr><td colspan="4" class="text-center text-muted py-4">No hay pedidos listos para entregar.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 
-    <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Crear entrega</button>
-    <a href="{% url 'pedidos:lista_entregas' %}" class="btn btn-outline-secondary">Cancelar</a>
+    <!-- Botones de acción -->
+    <div class="d-flex flex-column flex-sm-row gap-2">
+        <button type="submit" class="btn btn-success btn-lg w-100 w-sm-auto">
+            <i class="bi bi-save"></i> Crear entrega
+        </button>
+        <a href="{% url 'pedidos:lista_entregas' %}" class="btn btn-outline-secondary btn-lg w-100 w-sm-auto">
+            Cancelar
+        </a>
+    </div>
 </form>
 
 <script>

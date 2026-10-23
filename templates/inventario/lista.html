@@ -3,23 +3,24 @@
 {% block title %}Inventario - Vargas Editorial{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<!-- Cabecera responsive -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
     <div>
         <h2 class="mb-0 fw-bold"><i class="bi bi-box-seam text-primary"></i> Almacén e Inventario</h2>
         <p class="text-muted mb-0">Control de materiales y lotes de producción</p>
     </div>
-    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCompra">
+    <button type="button" class="btn btn-success w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#modalCompra">
         <i class="bi bi-cart-plus"></i> Registrar Compra
     </button>
 </div>
 
 <!-- TARJETAS DE RESUMEN (KPIs) -->
 <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-12 col-sm-4">
         <div class="card card-kpi p-3 border-start border-primary border-4 h-100">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Materiales Registrados</small>
+                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Materiales</small>
                     <h3 class="mb-0 text-primary fw-bold">{{ materiales|length }}</h3>
                 </div>
                 <div class="bg-primary bg-opacity-10 p-3 rounded-circle text-primary">
@@ -28,11 +29,11 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-12 col-sm-4">
         <div class="card card-kpi p-3 border-start border-success border-4 h-100">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Lotes Listos para Usar</small>
+                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Lotes Listos</small>
                     <h3 class="mb-0 text-success fw-bold">{{ lotes|length }}</h3>
                 </div>
                 <div class="bg-success bg-opacity-10 p-3 rounded-circle text-success">
@@ -41,11 +42,11 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-12 col-sm-4">
         <div class="card card-kpi p-3 border-start border-danger border-4 h-100">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Alertas de Stock Bajo</small>
+                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Stock Bajo</small>
                     <h3 class="mb-0 text-danger fw-bold">
                         {% for m in materiales %}{% if m.stock_bajo %}1{% endif %}{% endfor %}
                     </h3>
@@ -59,15 +60,15 @@
 </div>
 
 <!-- PESTAÑAS DE CONTENIDO -->
-<ul class="nav nav-pills mb-3 bg-white p-2 rounded shadow-sm" id="tabsInventario" role="tablist">
+<ul class="nav nav-pills mb-3 bg-white p-2 rounded shadow-sm flex-nowrap overflow-auto" id="tabsInventario" role="tablist">
     <li class="nav-item" role="presentation">
-        <button class="nav-link active fw-bold" id="tab-materiales-btn" data-bs-toggle="pill" data-bs-target="#tab-materiales" type="button" role="tab">
-            <i class="bi bi-stack"></i> Materiales (Granel)
+        <button class="nav-link active fw-bold text-nowrap" id="tab-materiales-btn" data-bs-toggle="pill" data-bs-target="#tab-materiales" type="button" role="tab">
+            <i class="bi bi-stack"></i> Materiales
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link fw-bold" id="tab-lotes-btn" data-bs-toggle="pill" data-bs-target="#tab-lotes" type="button" role="tab">
-            <i class="bi bi-box-open"></i> Almacén de Lotes (Listos)
+        <button class="nav-link fw-bold text-nowrap" id="tab-lotes-btn" data-bs-toggle="pill" data-bs-target="#tab-lotes" type="button" role="tab">
+            <i class="bi bi-box-open"></i> Lotes Listos
         </button>
     </li>
 </ul>
@@ -82,9 +83,9 @@
                     <thead class="table-light">
                         <tr>
                             <th>Material</th>
-                            <th>Stock Actual</th>
-                            <th>Costo Promedio</th>
-                            <th>Valor en Inventario</th>
+                            <th>Stock</th>
+                            <th class="d-none d-md-table-cell">Costo Prom.</th>
+                            <th class="d-none d-lg-table-cell">Valor Inv.</th>
                             <th>Estado</th>
                             <th class="text-end">Acciones</th>
                         </tr>
@@ -94,8 +95,7 @@
                         <tr>
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <!-- Icono genérico según nombre -->
-                                    <div class="bg-light rounded p-2 me-3">
+                                    <div class="bg-light rounded p-2 me-2 d-none d-sm-block">
                                         {% if 'hoja' in m.nombre|lower %}<i class="bi bi-file-earmark-text text-primary fs-5"></i>
                                         {% elif 'esquinero' in m.nombre|lower %}<i class="bi bi-eject text-primary fs-5"></i>
                                         {% elif 'cartulina' in m.nombre|lower %}<i class="bi bi-stack text-primary fs-5"></i>
@@ -110,26 +110,25 @@
                                 </div>
                             </td>
                             <td>
-                                <!-- AQUI AGREGAMOS LA UNIDAD DE MEDIDA -->
                                 <h5 class="mb-0 {% if m.stock_bajo %}text-danger{% else %}text-dark{% endif %}">
-                                    {{ m.stock_actual|floatformat:2 }} <small class="text-muted fs-6">{{ m.unidad_medida }}</small>
+                                    {{ m.stock_actual|floatformat:2 }} <small class="text-muted fs-6 d-none d-sm-inline">{{ m.unidad_medida }}</small>
                                 </h5>
                             </td>
-                            <td>${{ m.costo_promedio|floatformat:2 }}</td>
-                            <td class="fw-bold text-success">${{ m.valor_inventario|floatformat:2 }}</td>
+                            <td class="d-none d-md-table-cell">${{ m.costo_promedio|floatformat:2 }}</td>
+                            <td class="fw-bold text-success d-none d-lg-table-cell">${{ m.valor_inventario|floatformat:2 }}</td>
                             <td>
                                 {% if m.stock_bajo %}
-                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger rounded-pill px-3">Stock Bajo</span>
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger rounded-pill px-2 px-md-3">Bajo</span>
                                 {% else %}
-                                    <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-3">Suficiente</span>
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-2 px-md-3">OK</span>
                                 {% endif %}
                             </td>
-                            <td class="text-end">
+                            <td class="text-end text-nowrap">
                                 <a href="{% url 'inventario:registrar_salida' m.id %}" class="btn btn-sm btn-outline-warning" title="Registrar Salida">
                                     <i class="bi bi-box-arrow-up"></i>
                                 </a>
-                                <a href="{% url 'inventario:detalle' m.id %}" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-clock-history"></i> Historial
+                                <a href="{% url 'inventario:detalle' m.id %}" class="btn btn-sm btn-outline-primary d-none d-sm-inline-block" title="Historial">
+                                    <i class="bi bi-clock-history"></i>
                                 </a>
                             </td>
                         </tr>
@@ -157,7 +156,7 @@
                     <button class="accordion-button collapsed bg-white fw-bold text-dark rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ forloop.counter }}" aria-expanded="false">
                         <i class="bi bi-box-seam text-primary me-2 fs-5"></i> 
                         {{ grupo.grouper.nombre }} 
-                        <span class="badge bg-primary rounded-pill ms-3">{{ grupo.list|length }} lotes disponibles</span>
+                        <span class="badge bg-primary rounded-pill ms-2 ms-md-3">{{ grupo.list|length }}</span>
                     </button>
                 </h2>
                 <div id="collapse-{{ forloop.counter }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ forloop.counter }}" data-bs-parent="#accordionLotes">
@@ -167,8 +166,8 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>Código</th>
-                                        <th>Estado</th>
-                                        <th>Costo del Lote</th>
+                                        <th class="d-none d-sm-table-cell">Estado</th>
+                                        <th>Costo</th>
                                         <th class="text-end">Acción</th>
                                     </tr>
                                 </thead>
@@ -176,13 +175,13 @@
                                     {% for lote in grupo.list %}
                                     <tr>
                                         <td><span class="badge bg-dark rounded-pill">{{ lote.codigo }}</span></td>
-                                        <td><span class="badge bg-secondary">{{ lote.get_estado_display }}</span></td>
+                                        <td class="d-none d-sm-table-cell"><span class="badge bg-secondary">{{ lote.get_estado_display }}</span></td>
                                         <td class="text-primary fw-bold">${{ lote.costo_total|floatformat:2 }}</td>
                                         <td class="text-end">
                                             <form method="post" action="{% url 'inventario:abrir_lote' lote.id %}" style="display:inline;">
                                                 {% csrf_token %}
                                                 <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('¿Abrir este lote y registrar el gasto en caja?')">
-                                                    <i class="bi bi-box-open"></i> Abrir
+                                                    <i class="bi bi-box-open"></i> <span class="d-none d-sm-inline">Abrir</span>
                                                 </button>
                                             </form>
                                         </td>
@@ -208,7 +207,7 @@
 
 <!-- Modal Registrar Compra -->
 <div class="modal fade" id="modalCompra" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="bi bi-cart-plus"></i> Registrar Compra</h5>
@@ -221,7 +220,7 @@
                     
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-muted">Material *</label>
-                        <select name="material_id" class="form-select" required>
+                        <select name="material_id" class="form-select form-select-lg" required>
                             <option value="">Selecciona un material...</option>
                             {% for m in materiales %}
                             <option value="{{ m.id }}">{{ m.nombre }} ({{ m.unidad_medida }})</option>
@@ -230,24 +229,24 @@
                     </div>
                     
                     <div class="row g-2 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold text-muted">Cantidad comprada *</label>
-                            <input type="number" name="cantidad" class="form-control" step="0.01" min="0.01" required>
+                        <div class="col-12 col-sm-6">
+                            <label class="form-label small fw-bold text-muted">Cantidad *</label>
+                            <input type="number" name="cantidad" class="form-control form-control-lg" step="0.01" min="0.01" required>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-sm-6">
                             <label class="form-label small fw-bold text-muted">Costo Total ($) *</label>
-                            <input type="number" name="costo_total" class="form-control" step="0.01" min="0.01" required>
+                            <input type="number" name="costo_total" class="form-control form-control-lg" step="0.01" min="0.01" required>
                         </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-muted">Proveedor / Notas</label>
-                        <input type="text" name="notas" class="form-control" placeholder="Ej: Papelería Central">
+                        <input type="text" name="notas" class="form-control form-control-lg" placeholder="Ej: Papelería Central">
                     </div>
                 </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Guardar Compra</button>
+                <div class="modal-footer bg-light d-flex flex-column flex-sm-row gap-2">
+                    <button type="button" class="btn btn-outline-secondary w-100 w-sm-auto" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success w-100 w-sm-auto"><i class="bi bi-save"></i> Guardar Compra</button>
                 </div>
             </form>
         </div>

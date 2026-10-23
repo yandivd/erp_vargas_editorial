@@ -3,12 +3,13 @@
 {% block title %}Catálogo - Vargas Editorial{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<!-- Cabecera responsive -->
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4 gap-3">
     <div>
         <h2 class="mb-0 fw-bold"><i class="bi bi-book text-primary"></i> Catálogo de Libros</h2>
         <p class="text-muted mb-0">Total de libros registrados: {{ total_libros }}</p>
     </div>
-    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoLibro">
+    <button type="button" class="btn btn-success w-100 w-sm-auto" data-bs-toggle="modal" data-bs-target="#modalNuevoLibro">
         <i class="bi bi-plus-lg"></i> Nuevo Libro
     </button>
 </div>
@@ -16,7 +17,7 @@
 <!-- PANEL DE FILTROS -->
 <div class="card card-kpi p-3 mb-4">
     <form method="get" class="row g-3" id="formFiltrosLibros">
-        <div class="col-md-10">
+        <div class="col-12">
             <label class="form-label small fw-bold text-muted">Buscar Libro</label>
             <div class="input-group">
                 <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
@@ -31,7 +32,6 @@
     {% include 'pedidos/_tabla_libros.html' %}
 </div>
 
-<!-- Modal Nuevo Libro (igual que antes) -->
 <!-- Modal Nuevo Libro -->
 <div class="modal fade" id="modalNuevoLibro" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -42,7 +42,7 @@
             </div>
             <form method="post" action="{% url 'pedidos:crear_libro' %}" id="formNuevoLibro">
                 {% csrf_token %}
-                <div class="modal-body p-4">
+                <div class="modal-body p-3 p-md-4">
                     <div class="mb-3">
                         <label class="form-label small fw-bold">Título *</label>
                         <input type="text" name="titulo" class="form-control" placeholder="Ej: Cien años de soledad" required>
@@ -51,12 +51,12 @@
                         <label class="form-label small fw-bold">Autor</label>
                         <input type="text" name="autor" class="form-control" placeholder="Ej: Gabriel García Márquez">
                     </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-6">
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-sm-6">
                             <label class="form-label small fw-bold">Páginas *</label>
                             <input type="number" name="paginas" id="nuevo_libro_paginas" class="form-control" min="1" required>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-sm-6">
                             <label class="form-label small fw-bold">Precio Base ($) *</label>
                             <input type="number" name="precio" id="nuevo_libro_precio" class="form-control" step="0.01" min="0" required>
                         </div>
@@ -65,9 +65,9 @@
                         <span class="spinner-border spinner-border-sm"></span> Calculando precio sugerido...
                     </div>
                 </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Guardar Libro</button>
+                <div class="modal-footer bg-light d-flex flex-column flex-sm-row gap-2">
+                    <button type="button" class="btn btn-outline-secondary w-100 w-sm-auto" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success w-100 w-sm-auto"><i class="bi bi-save"></i> Guardar Libro</button>
                 </div>
             </form>
         </div>
@@ -106,7 +106,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         function engancharPaginacion() {
-            // BUSCAMOS EL ID CORRECTO: paginacion-ajax-libros
             const paginacion = document.getElementById('paginacion-ajax-libros');
             if (!paginacion) return;
             
@@ -127,13 +126,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         .then(data => {
                             contenedor.innerHTML = data.html;
                             contenedor.style.opacity = '1';
-                            engancharPaginacion(); // Reconecta los botones
+                            engancharPaginacion();
                         });
                 });
             });
         }
 
-        // Escuchar búsqueda
         if (searchInput) {
             let timer;
             searchInput.addEventListener('input', () => {
@@ -149,46 +147,11 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        // Conectar botones al cargar la página
         engancharPaginacion();
     }
 
     // ==========================================
     // 2. CÁLCULO DE PRECIO AUTOMÁTICO (Nuevo Libro)
-    // ==========================================
-    const inputPaginas = document.getElementById('nuevo_libro_paginas');
-    const inputPrecio = document.getElementById('nuevo_libro_precio');
-    const aviso = document.getElementById('precio-aviso');
-
-    if (inputPaginas && inputPrecio) {
-        inputPaginas.addEventListener('input', function() {
-            const paginas = this.value;
-            if (paginas && paginas >= 1) {
-                aviso.style.display = 'block';
-                fetch(`/pedidos/calcular-costo/?paginas=${paginas}&lleva_scotch=false`)
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.ok) {
-                            inputPrecio.value = data.costo.precio_sugerido;
-                        }
-                        aviso.style.display = 'none';
-                    })
-                    .catch(() => {
-                        aviso.style.display = 'none';
-                    });
-            } else {
-                inputPrecio.value = 0;
-                aviso.style.display = 'none';
-            }
-        });
-    }
-});
-</script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    // ==========================================
-    // CÁLCULO DE PRECIO AUTOMÁTICO (Nuevo Libro)
     // ==========================================
     const inputPaginas = document.getElementById('nuevo_libro_paginas');
     const inputPrecio = document.getElementById('nuevo_libro_precio');

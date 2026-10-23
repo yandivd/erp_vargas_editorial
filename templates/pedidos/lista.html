@@ -8,16 +8,17 @@
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div class="d-flex gap-2">
-        <a href="{% url 'pedidos:lista_lotes' %}" class="btn btn-outline-warning">
+<!-- Cabecera responsive -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <div class="d-flex flex-column flex-sm-row gap-2">
+        <a href="{% url 'pedidos:lista_lotes' %}" class="btn btn-outline-warning w-100 w-sm-auto">
             <i class="bi bi-boxes"></i> Lotes de servicio
         </a>
-        <a href="{% url 'pedidos:lista_entregados' %}" class="btn btn-outline-primary">
+        <a href="{% url 'pedidos:lista_entregados' %}" class="btn btn-outline-primary w-100 w-sm-auto">
             <i class="bi bi-archive"></i> Ver Historial
         </a>
     </div>
-    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNuevoPedido">
+    <button type="button" class="btn btn-success w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#modalNuevoPedido">
         <i class="bi bi-plus-lg"></i> Nuevo pedido
     </button>
 </div>
@@ -25,7 +26,7 @@
 <!-- PANEL DE FILTROS -->
 <div class="card card-kpi p-3 mb-4">
     <form method="get" class="row g-3" id="formFiltros">
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
             <label class="form-label small fw-bold text-muted">Buscar</label>
             <div class="input-group">
                 <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
@@ -33,7 +34,7 @@
             </div>
         </div>
         
-        <div class="col-md-2">
+        <div class="col-6 col-md-2">
             <label class="form-label small fw-bold text-muted">Estado</label>
             <select name="estado" class="form-select">
                 <option value="">Todos</option>
@@ -43,7 +44,7 @@
             </select>
         </div>
 
-        <div class="col-md-2">
+        <div class="col-6 col-md-2">
             <label class="form-label small fw-bold text-muted">Pago</label>
             <select name="pago" class="form-select">
                 <option value="">Cualquiera</option>
@@ -53,7 +54,7 @@
             </select>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
             <label class="form-label small fw-bold text-muted">Rango de fechas</label>
             <div class="input-group">
                 <input type="date" name="desde" class="form-control" value="{{ desde }}" title="Desde">
@@ -65,13 +66,13 @@
 
 <!-- BARRA DE ACCIONES MASIVAS -->
 <div id="barraAccionesMasivas" class="card card-kpi p-3 mb-3 d-none border-start border-warning border-4">
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
         <div>
             <i class="bi bi-check2-square text-warning"></i>
             <span class="fw-bold" id="contadorSeleccionados">0</span> pedidos seleccionados
         </div>
-        <div class="d-flex gap-2 align-items-center">
-            <select id="nuevoEstadoMasivo" class="form-select" style="width: auto; min-width: 220px;">
+        <div class="d-flex flex-column flex-sm-row gap-2 align-items-sm-center w-100 w-md-auto">
+            <select id="nuevoEstadoMasivo" class="form-select" style="min-width: 200px;">
                 <option value="">Cambiar estado a...</option>
                 {% for e in estados %}
                 <option value="{{ e.id }}">{{ e.nombre }}</option>
@@ -80,15 +81,16 @@
             <button type="button" id="btnAplicarEstado" class="btn btn-warning">
                 <i class="bi bi-arrow-repeat"></i> Aplicar
             </button>
-            <button type="button" id="btnImprimirSeleccionados" class="btn btn-primary">
-                <i class="bi bi-printer"></i> Imprimir comprobante
-            </button>
-            <button type="button" id="btnImprimirTermico" class="btn btn-dark">
-                <i class="bi bi-receipt"></i> Ticket térmico
-            </button>
-            <button type="button" id="btnImprimirCarta" class="btn btn-outline-dark">
-                <i class="bi bi-file-earmark"></i> Comprobantes 4×8
-            </button>
+            <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle w-100" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-printer"></i> Imprimir...
+                </button>
+                <ul class="dropdown-menu w-100">
+                    <li><button type="button" id="btnImprimirSeleccionados" class="dropdown-item"><i class="bi bi-file-earmark-text"></i> Comprobante normal</button></li>
+                    <li><button type="button" id="btnImprimirTermico" class="dropdown-item"><i class="bi bi-receipt"></i> Ticket térmico</button></li>
+                    <li><button type="button" id="btnImprimirCarta" class="dropdown-item"><i class="bi bi-file-earmark"></i> Comprobantes 4×8</button></li>
+                </ul>
+            </div>
             <button type="button" id="btnCancelarSeleccion" class="btn btn-outline-secondary">
                 Cancelar
             </button>
@@ -103,7 +105,7 @@
 
 <!-- Modal Nuevo Pedido -->
 <div class="modal fade" id="modalNuevoPedido" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="bi bi-cart-plus"></i> Registrar Nuevo Pedido</h5>
@@ -111,7 +113,7 @@
             </div>
             <form id="formNuevoPedido">
                 {% csrf_token %}
-                <div class="modal-body p-4">
+                <div class="modal-body p-3 p-md-4">
                     <div id="modal-errors" class="alert alert-danger d-none"></div>
                     
                     <div class="mb-4">
@@ -137,15 +139,15 @@
                             </div>
                             <div class="tab-pane fade" id="tab-cliente-nuevo" role="tabpanel">
                                 <div class="row g-2">
-                                    <div class="col-md-6">
+                                    <div class="col-12 col-md-6">
                                         <label class="form-label small text-muted">Nombre completo *</label>
                                         {{ form.nuevo_cliente_nombre }}
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-12 col-md-6">
                                         <label class="form-label small text-muted">Teléfono</label>
                                         {{ form.nuevo_cliente_telefono }}
                                     </div>
-                                    <div class="col-md-12 mt-2">
+                                    <div class="col-12 mt-2">
                                         <label class="form-label small text-muted">Dirección</label>
                                         {{ form.nuevo_cliente_direccion }}
                                     </div>
@@ -179,15 +181,15 @@
                             </div>
                             <div class="tab-pane fade" id="tab-libro-nuevo" role="tabpanel">
                                 <div class="row g-2">
-                                    <div class="col-md-6">
+                                    <div class="col-12 col-md-6">
                                         <label class="form-label small text-muted">Título *</label>
                                         {{ form.nuevo_libro_titulo }}
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-12 col-md-6">
                                         <label class="form-label small text-muted">Autor</label>
                                         {{ form.nuevo_libro_autor }}
                                     </div>
-                                    <div class="col-md-12 mt-2">
+                                    <div class="col-12 mt-2">
                                         <label class="form-label small text-muted">Páginas *</label>
                                         {{ form.nuevo_libro_paginas }}
                                     </div>
@@ -199,11 +201,11 @@
                     <hr class="text-muted opacity-25">
 
                     <div class="row g-3 mb-4">
-                        <div class="col-md-4">
+                        <div class="col-12 col-md-4">
                             <label class="form-label small text-muted fw-bold">Cantidad</label>
                             {{ form.cantidad }}
                         </div>
-                        <div class="col-md-8 d-flex align-items-end gap-4">
+                        <div class="col-12 col-md-8 d-flex align-items-end gap-4">
                             <div class="form-check">
                                 {{ form.lleva_scotch }} <label class="form-check-label">Lleva Scotch</label>
                             </div>
@@ -218,31 +220,30 @@
                             <i class="bi bi-cash-coin"></i> Finanzas del Pedido
                         </h6>
                         <div class="row g-3">
-                            <div class="col-md-4">
+                            <div class="col-12 col-md-4">
                                 <label class="form-label small text-muted fw-bold">Precio Venta *</label>
                                 <div class="input-group">
                                     <span class="input-group-text">$</span>
                                     {{ form.precio_venta }}
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-12 col-md-4">
                                 <label class="form-label small text-muted fw-bold">Anticipo (Mitad)</label>
                                 <div class="input-group">
                                     <span class="input-group-text">$</span>
                                     {{ form.anticipo_requerido }}
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-12 col-md-4">
                                 <label class="form-label small text-muted fw-bold">Código de descuento</label>
                                 <div class="input-group">
                                     <select id="selectCodigoDescuento" class="form-select">
                                         <option value="">Sin descuento</option>
                                     </select>
                                     <button type="button" id="btnAplicarDescuento" class="btn btn-outline-success">
-                                        <i class="bi bi-tag"></i> Aplicar
+                                        <i class="bi bi-tag"></i>
                                     </button>
                                 </div>
-                                <!-- ESTE ES EL INPUT OCULTO QUE FALTABA -->
                                 <input type="hidden" name="codigo_descuento" id="id_codigo_descuento" value="">
                             </div>
                         </div>
@@ -422,7 +423,7 @@ document.addEventListener('DOMContentLoaded', function () {
         descuentoActivo = false;
         precioOriginal = null;
         anticipoOriginal = null;
-        btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i> Aplicar';
+        btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i>';
         btnAplicarDescuento.classList.remove('btn-outline-danger');
         btnAplicarDescuento.classList.add('btn-outline-success');
     }
@@ -475,7 +476,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         descuentoActivo = true;
 
-                        btnAplicarDescuento.innerHTML = '<i class="bi bi-x-circle"></i> Quitar';
+                        btnAplicarDescuento.innerHTML = '<i class="bi bi-x-circle"></i>';
                         btnAplicarDescuento.classList.remove('btn-outline-success');
                         btnAplicarDescuento.classList.add('btn-outline-danger');
                     } else {
@@ -533,7 +534,7 @@ document.addEventListener('DOMContentLoaded', function () {
             precioInput.addEventListener('input', function () {
                 if (descuentoActivo) {
                     resetearDescuento();
-                    btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i> Aplicar';
+                    btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i>';
                     btnAplicarDescuento.classList.remove('btn-outline-danger');
                     btnAplicarDescuento.classList.add('btn-outline-success');
                 }
@@ -743,7 +744,7 @@ document.addEventListener('DOMContentLoaded', function () {
         anticipoEditado = false;
         if (descuentoActivo) {
             resetearDescuento();
-            btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i> Aplicar';
+            btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i>';
             btnAplicarDescuento.classList.remove('btn-outline-danger');
             btnAplicarDescuento.classList.add('btn-outline-success');
         }

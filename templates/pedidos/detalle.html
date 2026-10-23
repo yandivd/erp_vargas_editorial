@@ -1,35 +1,44 @@
 {% extends 'base.html' %}
 
-{% block title %}Pedido #{{ pedido.rereferencia_externa }} - ERP Libros{% endblock %}
+{% block title %}Pedido #{{ pedido.referencia_externa }} - ERP Libros{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2 class="mb-0">Pedido #{{ pedido.referencia_externa }} — {{ pedido.libro.titulo }}</h2>
-    <a href="{% url 'pedidos:lista' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+<!-- Cabecera responsive -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
+    <h2 class="mb-0 fs-4">
+        Pedido #{{ pedido.referencia_externa }} 
+        <small class="text-muted fs-6 d-block d-md-inline">— {{ pedido.libro.titulo }}</small>
+    </h2>
+    <a href="{% url 'pedidos:lista' %}" class="btn btn-outline-secondary w-100 w-md-auto">
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
 </div>
 
 <div class="row g-3">
-    <div class="col-md-8">
+    <!-- Columna Izquierda: Datos y Costos -->
+    <div class="col-12 col-md-8 order-2 order-md-1">
+        
+        <!-- Datos del libro -->
         <div class="card card-kpi p-3 mb-3">
-            <h5>Datos del libro</h5>
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>Cliente:</strong> {{ pedido.cliente.nombre }}</p>
-                    <p><strong>Autor:</strong> {{ pedido.libro.autor|default:"—" }}</p>
-                    <p><strong>Páginas:</strong> {{ pedido.libro.paginas }}</p>
-                    <p><strong>Cantidad:</strong> {{ pedido.cantidad }}</p>
+            <h5 class="border-bottom pb-2 mb-3">Datos del libro</h5>
+            <div class="row g-2">
+                <div class="col-12 col-sm-6">
+                    <p class="mb-1"><strong>Cliente:</strong> {{ pedido.cliente.nombre }}</p>
+                    <p class="mb-1"><strong>Autor:</strong> {{ pedido.libro.autor|default:"—" }}</p>
+                    <p class="mb-1"><strong>Páginas:</strong> {{ pedido.libro.paginas }}</p>
+                    <p class="mb-1"><strong>Cantidad:</strong> {{ pedido.cantidad }}</p>
                 </div>
-                <div class="col-md-6">
-                    <p><strong>Precio:</strong> ${{ pedido.precio_venta|floatformat:2 }}</p>
-                    <p><strong>Anticipo:</strong> ${{ pedido.anticipo_recibido|floatformat:2 }}</p>
-                    <p><strong>Saldo:</strong> ${{ pedido.saldo_pendiente|floatformat:2 }}</p>
-                    <p><strong>Estado:</strong> <span class="badge" style="background-color: {{ pedido.estado.color }}">{{ pedido.estado.nombre }}</span></p>
+                <div class="col-12 col-sm-6">
+                    <p class="mb-1"><strong>Precio:</strong> ${{ pedido.precio_venta|floatformat:2 }}</p>
+                    <p class="mb-1"><strong>Anticipo:</strong> ${{ pedido.anticipo_recibido|floatformat:2 }}</p>
+                    <p class="mb-1"><strong>Saldo:</strong> ${{ pedido.saldo_pendiente|floatformat:2 }}</p>
+                    <p class="mb-1"><strong>Estado:</strong> <span class="badge" style="background-color: {{ pedido.estado.color }}">{{ pedido.estado.nombre }}</span></p>
                 </div>
-                <div class="mt-2">
+                <div class="col-12 mt-2">
                     {% if not pedido.lleva_esquineros %}
                         <form method="post" action="{% url 'pedidos:agregar_esquineros' pedido.id %}" class="d-inline">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-warning">
+                            <button type="submit" class="btn btn-sm btn-outline-warning w-100 w-sm-auto">
                                 <i class="bi bi-plus-circle"></i> Agregar esquineros
                             </button>
                         </form>
@@ -42,50 +51,77 @@
             </div>
         </div>
 
+        <!-- Desglose de costos (colapsable en móvil) -->
         <div class="card card-kpi p-3 mb-3">
-            <h5>Desglose de costos estimados</h5>
-            <table class="table table-sm">
-                <tr><td>Papel</td><td class="text-end">${{ costo.costo_papel }}</td></tr>
-                <tr><td>Tinta</td><td class="text-end">${{ costo.costo_tinta }}</td></tr>
-                <tr><td>Pegamento</td><td class="text-end">${{ costo.costo_pegamento }}</td></tr>
-                <tr><td>Scotch</td><td class="text-end">${{ costo.costo_scotch }}</td></tr>
-                <tr><td>Esquineros</td><td class="text-end">${{ costo.costo_esquineros }}</td></tr>
-                <tr><td>Portada</td><td class="text-end">${{ costo.costo_portada }}</td></tr>
-                <tr><td>Encuadernación</td><td class="text-end">${{ costo.costo_encuadernacion }}</td></tr>
-                <tr><td>Electricidad</td><td class="text-end">${{ costo.costo_electricidad }}</td></tr>
-                <tr><td>Diseño</td><td class="text-end">${{ costo.costo_diseno }}</td></tr>
-                <tr class="table-light"><td><strong>Costo total</strong></td><td class="text-end"><strong>${{ costo.costo_total }}</strong></td></tr>
-            </table>
+            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                <h5 class="mb-0">Desglose de costos</h5>
+                <!-- Botón para colapsar en móvil -->
+                <button class="btn btn-sm btn-outline-secondary d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#costosCollapse">
+                    <i class="bi bi-chevron-down"></i> Ver
+                </button>
+            </div>
+            <div class="collapse d-md-block" id="costosCollapse">
+                <table class="table table-sm mb-0">
+                    <tr><td>Papel</td><td class="text-end">${{ costo.costo_papel }}</td></tr>
+                    <tr><td>Tinta</td><td class="text-end">${{ costo.costo_tinta }}</td></tr>
+                    <tr><td>Pegamento</td><td class="text-end">${{ costo.costo_pegamento }}</td></tr>
+                    <tr><td>Scotch</td><td class="text-end">${{ costo.costo_scotch }}</td></tr>
+                    <tr><td>Esquineros</td><td class="text-end">${{ costo.costo_esquineros }}</td></tr>
+                    <tr><td>Portada</td><td class="text-end">${{ costo.costo_portada }}</td></tr>
+                    <tr><td>Encuadernación</td><td class="text-end">${{ costo.costo_encuadernacion }}</td></tr>
+                    <tr><td>Electricidad</td><td class="text-end">${{ costo.costo_electricidad }}</td></tr>
+                    <tr><td>Diseño</td><td class="text-end">${{ costo.costo_diseno }}</td></tr>
+                    <tr class="table-light"><td><strong>Costo total</strong></td><td class="text-end"><strong>${{ costo.costo_total }}</strong></td></tr>
+                </table>
+            </div>
         </div>
 
+        <!-- Servicios externos -->
         {% if pedido.servicios_externos.all %}
         <div class="card card-kpi p-3 mb-3">
-            <h5>Servicios externos</h5>
-            <table class="table table-sm">
-                <thead><tr><th>Tipo</th><th>Proveedor</th><th>Monto</th><th>Estado</th></tr></thead>
-                <tbody>
-                    {% for servicio in pedido.servicios_externos.all %}
-                        {% if servicio.lote %}
-                        <div class="alert alert-info small">
-                            Este pedido pertenece al lote 
-                            <a href="{% url 'pedidos:detalle_lote' servicio.lote.id %}">{{ servicio.lote.numero }}</a>
-                            ({{ servicio.lote.get_tipo_display }})
-                        </div>
-                        {% endif %}
-                    {% endfor %}
-                </tbody>
-            </table>
+            <h5 class="border-bottom pb-2 mb-3">Servicios externos</h5>
+            
+            <!-- Alerta de lote (fuera de la tabla) -->
+            {% for servicio in pedido.servicios_externos.all %}
+                {% if servicio.lote %}
+                <div class="alert alert-info small py-2">
+                    <i class="bi bi-boxes"></i> Pertenece al lote: 
+                    <a href="{% url 'pedidos:detalle_lote' servicio.lote.id %}" class="fw-bold text-decoration-none">
+                        {{ servicio.lote.numero }}
+                    </a>
+                </div>
+                {% endif %}
+            {% endfor %}
+
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr><th>Tipo</th><th>Proveedor</th><th class="text-end">Monto</th><th>Estado</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for servicio in pedido.servicios_externos.all %}
+                        <tr>
+                            <td>{{ servicio.get_tipo_display }}</td>
+                            <td>{{ servicio.proveedor.nombre }}</td>
+                            <td class="text-end">${{ servicio.monto|floatformat:2 }}</td>
+                            <td><span class="badge bg-secondary">{{ servicio.get_estado_display }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
         {% endif %}
 
+        <!-- Historial de estados -->
         <div class="card card-kpi p-3">
-            <h5>Historial de estados</h5>
+            <h5 class="border-bottom pb-2 mb-3">Historial de estados</h5>
             <ul class="list-unstyled mb-0">
                 {% for h in pedido.historial.all %}
-                <li class="mb-2">
+                <li class="mb-2 pb-2 border-bottom">
                     <small class="text-muted">{{ h.fecha|date:"d/m/Y H:i" }}</small><br>
                     <strong>{{ h.estado_anterior.nombre|default:"—" }}</strong> → <strong>{{ h.estado_nuevo.nombre }}</strong>
-                    {% if h.notas %}<br><small>{{ h.notas }}</small>{% endif %}
+                    {% if h.notas %}<br><small class="text-muted fst-italic">{{ h.notas }}</small>{% endif %}
                 </li>
                 {% empty %}
                 <li class="text-muted">Sin cambios registrados</li>
@@ -94,18 +130,23 @@
         </div>
     </div>
 
-    <div class="col-md-4">
+    <!-- Columna Derecha: Acciones Rápidas (Arriba en móvil) -->
+    <div class="col-12 col-md-4 order-1 order-md-2">
+        
+        <!-- Vender Stock (Si aplica) -->
         {% if not pedido.cliente and pedido.estado.nombre == 'Listo para Entregar' %}
         <div class="card card-kpi p-3 mb-3 border-success border-4">
             <h5 class="text-success"><i class="bi bi-tag-fill"></i> Vender Libro de Stock</h5>
-            <p class="small text-muted">Este libro fue fabricado para stock. Asígnale un cliente y cobra para cerrar la venta.</p>
+            <p class="small text-muted">Asígnale un cliente y cobra para cerrar la venta.</p>
             <a href="{% url 'pedidos:asignar_cliente' pedido.id %}" class="btn btn-success w-100">
                 <i class="bi bi-cash-coin"></i> Asignar Cliente y Cobrar
             </a>
         </div>
         {% endif %}
-        <div class="card card-kpi p-3 mb-3">
-            <h5>Cambiar estado</h5>
+
+        <!-- Cambiar Estado -->
+        <div class="card card-kpi p-3 mb-3 border-primary border-2">
+            <h5 class="border-bottom pb-2 mb-3">Avanzar Producción</h5>
             <form method="post" action="{% url 'pedidos:cambiar_estado' pedido.id %}">
                 {% csrf_token %}
                 <select name="estado" class="form-select mb-2">
@@ -114,23 +155,27 @@
                     {% endfor %}
                 </select>
                 <input type="text" name="notas" class="form-control mb-2" placeholder="Notas (opcional)">
-                <button class="btn btn-primary w-100">Avanzar estado</button>
+                <button class="btn btn-primary w-100">
+                    <i class="bi bi-arrow-right-circle"></i> Cambiar Estado
+                </button>
             </form>
         </div>
-                <div class="card card-kpi p-3 mb-3">
-            <h5><i class="bi bi-printer"></i> Documentos</h5>
+
+        <!-- Documentos -->
+        <div class="card card-kpi p-3 mb-3">
+            <h5 class="border-bottom pb-2 mb-3"><i class="bi bi-printer"></i> Documentos</h5>
             <div class="d-grid gap-2">
-                <a href="{% url 'pedidos:imprimir_pedido' pedido.id %}" target="_blank" class="btn btn-outline-dark">
-                    <i class="bi bi-receipt"></i> Imprimir Comprobante de Pedido
+                <a href="{% url 'pedidos:imprimir_pedido' pedido.id %}" target="_blank" class="btn btn-outline-dark btn-sm">
+                    <i class="bi bi-receipt"></i> Comprobante Normal
                 </a>
-                <a href="{% url 'pedidos:imprimir_comprobante_termico' pedido.id %}" target="_blank" class="btn btn-outline-dark">
-                    <i class="bi bi-receipt"></i> Ticket térmico
+                <a href="{% url 'pedidos:imprimir_comprobante_termico' pedido.id %}" target="_blank" class="btn btn-outline-dark btn-sm">
+                    <i class="bi bi-receipt"></i> Ticket Térmico
                 </a>
-                <a href="{% url 'pedidos:imprimir_pedido_carta' pedido.id %}" target="_blank" class="btn btn-outline-dark">
+                <a href="{% url 'pedidos:imprimir_pedido_carta' pedido.id %}" target="_blank" class="btn btn-outline-dark btn-sm">
                     <i class="bi bi-file-earmark"></i> Comprobante 4×8
                 </a>
-                <a href="{% url 'pedidos:imprimir_servicio' pedido.id %}" target="_blank" class="btn btn-outline-dark">
-                    <i class="bi bi-tools"></i> Imprimir Orden de Servicio
+                <a href="{% url 'pedidos:imprimir_servicio' pedido.id %}" target="_blank" class="btn btn-outline-dark btn-sm">
+                    <i class="bi bi-tools"></i> Orden de Servicio
                 </a>
             </div>
         </div>
