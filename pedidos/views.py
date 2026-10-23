@@ -1076,7 +1076,10 @@ def imprimir_entrega_carta(request, pk):
     entrega = get_object_or_404(Entrega, pk=pk)
     pedidos = entrega.pedidos.select_related('libro', 'cliente').all()
 
+    # En la vista
+    total_descuento = sum(p.descuento_aplicado for p in pedidos)
     return render(request, 'pedidos/imprimir_entrega_carta.html', {
-        'entrega': entrega,
+        'entrega': entrega, 
         'pedidos': pedidos,
+        'total_descuento': total_descuento
     })
