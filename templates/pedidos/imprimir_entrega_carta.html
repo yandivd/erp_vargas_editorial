@@ -33,13 +33,13 @@
     </div>
 
     <!-- TABLA DE PEDIDOS (Mini) -->
-    <table class="etq-tabla" style="font-size: 4.5pt; margin-bottom: 1mm; width: 100%;">
+    <table class="etq-tabla" style="font-size: 4.5pt; margin-bottom: 1mm;">
         <thead>
             <tr>
-                <th style="width: 12%;">Ref</th>
-                <th style="width: 58%;">Libro</th>
+                <th style="width: 15%;">Ref</th>
+                <th style="width: 45%;">Libro</th>
                 <th class="center" style="width: 10%;">C</th>
-                <th class="right" style="width: 20%;">Saldo</th>
+                <th class="right" style="width: 30%;">Saldo</th>
             </tr>
         </thead>
         <tbody>
@@ -56,10 +56,24 @@
 
     <!-- TOTALES -->
     <div class="etq-totales" style="font-size: 4.5pt; margin-top: auto;">
+        
+        {# Usamos la variable directa total_descuento que viene de la vista #}
+        {% if total_descuento > 0 %}
+        <div class="fila" style="color: #27ae60;">
+            <span>Descuento:</span>
+            <span>-${{ total_descuento|floatformat:0 }}</span>
+        </div>
+        <div class="fila" style="border-top: 0.1mm dashed #ccc; padding-top: 0.2mm; margin-top: 0.2mm;">
+            <span>Subtotal:</span>
+            <span>${{ entrega.total_pedidos|floatformat:0 }}</span>
+        </div>
+        {% else %}
         <div class="fila">
             <span>Total pedidos:</span>
             <span>${{ entrega.total_pedidos|floatformat:0 }}</span>
         </div>
+        {% endif %}
+
         <div class="fila">
             <span>Anticipos:</span>
             <span>-${{ entrega.total_anticipos|floatformat:0 }}</span>

@@ -49,24 +49,43 @@
         </thead>
         <tbody>
             <tr>
-                <td style="word-wrap: break-word;">{{ pedido.libro.titulo }}</td>
+                <td style="word-wrap: break-word;">
+                    {{ pedido.libro.titulo }}
+                    {% if pedido.lleva_scotch %}<br><small style="font-size: 4pt; color: #666;">+ Scotch</small>{% endif %}
+                    {% if pedido.lleva_esquineros %}<br><small style="font-size: 4pt; color: #666;">+ Esquineros</small>{% endif %}
+                </td>
                 <td class="center">{{ pedido.cantidad }}</td>
-                <td class="right">${{ pedido.precio_venta|floatformat:0 }}</td>
+                <td class="right">
+                    ${{ pedido.precio_venta|add:pedido.descuento_aplicado|floatformat:0 }}
+                </td>
             </tr>
         </tbody>
     </table>
 
     <!-- TOTALES -->
     <div class="etq-totales" style="font-size: 4.5pt; margin-top: auto;">
-        <div class="fila">
-            <span>Total pedido:</span>
+        
+        {% if pedido.descuento_aplicado > 0 %}
+        <div class="fila" style="color: #27ae60;">
+            <span>Descuento:</span>
+            <span>-${{ pedido.descuento_aplicado|floatformat:0 }}</span>
+        </div>
+        <div class="fila" style="border-top: 0.1mm dashed #ccc; padding-top: 0.2mm; margin-top: 0.2mm;">
+            <span>Subtotal:</span>
             <span>${{ pedido.precio_venta|floatformat:0 }}</span>
         </div>
+        {% else %}
+        <div class="fila">
+            <span>Total:</span>
+            <span>${{ pedido.precio_venta|floatformat:0 }}</span>
+        </div>
+        {% endif %}
+
         <div class="fila">
             <span>Anticipo:</span>
             <span>-${{ pedido.anticipo_recibido|floatformat:0 }}</span>
         </div>
-        <div class="fila total-final" style="color: #c0392b; font-size: 6pt;">
+        <div class="fila total-final" style="color: #c0392b; font-size: 6pt; border-top: 0.2mm solid #ccc; padding-top: 0.5mm; margin-top: 0.5mm;">
             <span>SALDO A PAGAR:</span>
             <span>${{ pedido.saldo_pendiente|floatformat:2 }}</span>
         </div>
