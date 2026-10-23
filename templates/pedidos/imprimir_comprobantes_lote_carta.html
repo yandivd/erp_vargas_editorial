@@ -84,9 +84,6 @@
                     <td class="center">{{ p.cantidad }}</td>
                     <td class="right">
                         ${{ p.precio_venta|floatformat:0 }}
-                        {% if p.descuento_aplicado > 0 %}
-                        <br><small style="font-size: 3.5pt; color: #27ae60;">(-${{ p.descuento_aplicado|floatformat:0 }})</small>
-                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -97,11 +94,6 @@
         <div class="etq-totales" style="font-size: 4.5pt; margin-top: auto; border-top: 0.2mm solid #ccc; padding-top: 1mm;">
             
             {% if total_descuento > 0 %}
-            <div class="fila" style="color: #666;">
-                <span>Precio Original:</span>
-                <!-- Aquí usamos el filtro add para sumar -->
-                <span>${{ total_venta|add:total_descuento|floatformat:0 }}</span>
-            </div>
             <div class="fila" style="color: #27ae60;">
                 <span>Descuento:</span>
                 <span>-${{ total_descuento|floatformat:0 }}</span>
