@@ -19,16 +19,16 @@
 
     <!-- DATOS DEL CLIENTE Y PEDIDO -->
     <div style="display: flex; justify-content: space-between; font-size: 5pt; line-height: 1.1; margin-bottom: 1mm; border-bottom: 0.2mm solid #ccc; padding-bottom: 1mm;">
-        <div style="width: 60%;">
+        <div style="width: 60%; word-wrap: break-word;">
             <strong>CLIENTE</strong><br>
             {% if pedido.cliente %}
-                {{ pedido.cliente.nombre|truncatechars:20 }}<br>
+                {{ pedido.cliente.nombre }}<br>
                 Tel: {{ pedido.cliente.telefono|default:"—" }}<br>
-                Dir: {{ pedido.direccion_entrega|default:pedido.cliente.direccion|default:"—"|truncatechars:25 }}
+                Dir: {{ pedido.direccion_entrega|default:pedido.cliente.direccion|default:"—" }}
             {% else %}
                 <strong>Venta de Stock</strong><br>
                 Tel: {{ pedido.telefono_entrega|default:"—" }}<br>
-                Dir: {{ pedido.direccion_entrega|default:"En el taller"|truncatechars:25 }}
+                Dir: {{ pedido.direccion_entrega|default:"En el taller" }}
             {% endif %}
         </div>
         <div style="width: 35%; text-align: right;">
@@ -39,17 +39,17 @@
     </div>
 
     <!-- TABLA DEL LIBRO (Mini) -->
-    <table class="etq-tabla" style="font-size: 4.5pt; margin-bottom: 1mm;">
+    <table class="etq-tabla" style="font-size: 4.5pt; margin-bottom: 1mm; width: 100%;">
         <thead>
             <tr>
-                <th style="width: 60%;">Libro</th>
+                <th style="width: 65%;">Libro</th>
                 <th class="center" style="width: 10%;">C</th>
-                <th class="right" style="width: 30%;">Precio</th>
+                <th class="right" style="width: 25%;">Precio</th>
             </tr>
         </thead>
         <tbody>
             <tr>
-                <td>{{ pedido.libro.titulo|truncatechars:20 }}</td>
+                <td style="word-wrap: break-word;">{{ pedido.libro.titulo }}</td>
                 <td class="center">{{ pedido.cantidad }}</td>
                 <td class="right">${{ pedido.precio_venta|floatformat:0 }}</td>
             </tr>
