@@ -43,27 +43,19 @@ class ServicioInventario:
 
     @staticmethod
     def registrar_consumo(material, cantidad, pedido=None, motivo=''):
-        """Registra una salida por uso en producción y actualiza el stock."""
+        """Registra una salida por uso en producción."""
+        from decimal import Decimal
         cantidad = Decimal(str(cantidad))
-        costo_unitario = material.costo_promedio
-        costo_total = cantidad * costo_unitario
 
-        # 1. Crear el movimiento de salida
-        mov = MovimientoInventario.objects.create(
+        # El save() del modelo se encarga de restar el stock y calcular el costo_total
+        return MovimientoInventario.objects.create(
             material=material,
             tipo='SALIDA',
             cantidad=cantidad,
-            costo_unitario=costo_unitario,
-            costo_total=costo_total,
-            pedido=pedido,  # Ahora es opcional
+            costo_unitario=material.costo_promedio,
+            pedido=pedido,
             motivo=motivo or (f'Consumo en pedido #{pedido.id}' if pedido else 'Salida manual')
         )
-
-        # 2. Descontar del stock real
-        material.stock_actual -= cantidad
-        material.save(update_fields=['stock_actual'])
-
-        return mov
     
     @staticmethod
     def consumir_materiales_pedido(pedido, momento=None):
