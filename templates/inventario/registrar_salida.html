@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Salida de Material{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-box-arrow-up"></i> Salida de Material</h2>
+    <a href="{% url 'inventario:lista' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Volver
+    </a>
+</div>
+
+<div class="card card-kpi p-4">
+    <h4 class="mb-4">{{ material.nombre }}</h4>
+    <p class="text-muted">Stock actual: <strong>{{ material.stock_actual|floatformat:2 }} {{ material.unidad_medida }}</strong></p>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label fw-bold">Cantidad *</label>
+                <div class="input-group">
+                    <input type="number" name="cantidad" class="form-control" step="0.01" min="0.01" required>
+                    <span class="input-group-text">{{ material.unidad_medida }}</span>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <label class="form-label fw-bold">Pedido (Opcional)</label>
+                <select name="pedido_id" class="form-select">
+                    <option value="">— Sin pedido asociado —</option>
+                    {% for p in pedidos %}
+                    <option value="{{ p.id }}">#{{ p.referencia_externa|default:p.id }} - {{ p.libro.titulo|truncatechars:40 }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12">
+                <label class="form-label fw-bold">Motivo / Nota</label>
+                <input type="text" name="motivo" class="form-control" placeholder="Ej: Uso para portada especial...">
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-warning">
+                <i class="bi bi-check-lg"></i> Registrar Salida
+            </button>
+            <a href="{% url 'inventario:lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
