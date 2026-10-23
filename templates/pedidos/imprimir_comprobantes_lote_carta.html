@@ -80,6 +80,11 @@
                         {{ p.libro.titulo }}
                         {% if p.lleva_scotch %}<br><small style="font-size: 4pt; color: #666;">+ Scotch</small>{% endif %}
                         {% if p.lleva_esquineros %}<br><small style="font-size: 4pt; color: #666;">+ Esquineros</small>{% endif %}
+                        
+                        {# AQUI SE MUESTRA EL DESCUENTO SI EXISTE #}
+                        {% if p.descuento_aplicado > 0 %}
+                        <br><small style="font-size: 4pt; color: #27ae60;">- Desc: ${{ p.descuento_aplicado|floatformat:0 }}</small>
+                        {% endif %}
                     </td>
                     <td class="center">{{ p.cantidad }}</td>
                     <td class="right">${{ p.precio_venta|floatformat:0 }}</td>

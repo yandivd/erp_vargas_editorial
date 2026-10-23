@@ -41,7 +41,7 @@ class HistorialEstadoInline(admin.TabularInline):
 @admin.register(Pedido)
 class PedidoAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'referencia_externa', 'get_titulo_libro', 'cliente', 'get_paginas',
+        'id', 'referencia_externa', 'codigo_descuento', 'get_titulo_libro', 'cliente', 'get_paginas',
         'precio_venta', 'anticipo_recibido', 'saldo_pendiente', 'estado',
         'fecha_entrega_prometida', 'esta_atrasado'
     )
@@ -57,7 +57,14 @@ class PedidoAdmin(admin.ModelAdmin):
                        'lleva_scotch', 'lleva_esquineros')
         }),
         ('Precio y pagos', {
-            'fields': ('precio_venta', 'anticipo_requerido', 'anticipo_recibido', 'saldo_pendiente')
+            'fields': (
+                'precio_venta', 
+                'descuento_aplicado',  # <-- AGREGA ESTO
+                'codigo_descuento',    # <-- AGREGA ESTO
+                'anticipo_requerido', 
+                'anticipo_recibido', 
+                'saldo_pendiente'
+            )
         }),
         ('Estado', {
             'fields': ('estado', 'fecha_pedido', 'fecha_entrega_prometida',
