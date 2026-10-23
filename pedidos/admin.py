@@ -49,7 +49,7 @@ class PedidoAdmin(admin.ModelAdmin):
     search_fields = ('referencia_externa', 'libro__titulo', 'libro__autor', 'cliente__nombre')
     readonly_fields = ('fecha_pedido', 'saldo_pendiente')
     inlines = [HistorialEstadoInline]
-    autocomplete_fields = ['libro']
+    autocomplete_fields = ['libro', 'codigo_descuento']
 
     fieldsets = (
         ('Datos del libro', {
@@ -205,7 +205,7 @@ class ServicioExternoAdmin(admin.ModelAdmin):
 class CodigoDescuentoAdmin(admin.ModelAdmin):
     list_display = ('codigo', 'porcentaje', 'categoria', 'fecha_inicio', 'fecha_fin', 'activo', 'usos_actuales', 'usos_maximos')
     list_filter = ('activo', 'categoria')
-    search_fields = ('codigo', 'descripcion')
+    search_fields = ('codigo', 'descripcion') # <-- ESTO ES VITAL
 
 @admin.register(Entrega)
 class EntregaAdmin(admin.ModelAdmin):
