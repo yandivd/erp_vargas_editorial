@@ -4,25 +4,26 @@
 {% block title %}Comprobante consolidado{% endblock %}
 
 {% block etiquetas %}
-<div class="etiqueta">
+<div class="etiqueta" style="padding: 2mm; justify-content: flex-start;">
 
     <!-- CABECERA -->
-    <div class="etq-header">
-        <img src="{% static 'img/logo.png' %}" alt="Logo" class="etq-logo">
-        <div>
-            <p class="etq-empresa">Vargas Editorial</p>
-            <p class="etq-sub">Tel: +53 54545068</p>
+    <div class="etq-header" style="align-items: flex-start; margin-bottom: 1mm;">
+        <img src="{% static 'img/logo.png' %}" alt="Logo" class="etq-logo" style="max-height: 8mm; margin-top: 1mm;">
+        <div style="text-align: right; width: 100%;">
+            <p class="etq-empresa" style="font-size: 6pt;">Vargas Editorial</p>
+            <p class="etq-sub" style="font-size: 4.5pt;">Tel: +53 54545068</p>
+            <p style="font-size: 5pt; font-weight: bold; margin: 0.5mm 0 0 0; color: #c0392b;">COMPROBANTE CONSOLIDADO</p>
         </div>
     </div>
 
     <!-- CUERPO -->
-    <div class="etq-cuerpo">
+    <div class="etq-cuerpo" style="padding-top: 1mm;">
 
-        <!-- CLIENTE: nombre, teléfono y dirección siempre -->
+        <!-- CLIENTE -->
         {% with primer=pedidos.first %}
-        <p>
-            <span class="etq-label">Cliente</span><br>
-            <span class="etq-valor">
+        <p style="margin-bottom: 0.5mm;">
+            <span class="etq-label" style="font-size: 4.5pt; color: #777;">CLIENTE</span><br>
+            <span class="etq-valor" style="font-size: 6.5pt; word-wrap: break-word;">
                 {% if primer.cliente %}
                     {{ primer.cliente.nombre }}
                 {% else %}
@@ -31,9 +32,9 @@
             </span>
         </p>
 
-        <p>
-            <span class="etq-label">Tel.</span>
-            <span class="etq-valor">
+        <p style="margin-bottom: 0.5mm; word-wrap: break-word;">
+            <span class="etq-label" style="font-size: 4.5pt; color: #777;">TEL:</span>
+            <span class="etq-valor" style="font-size: 6pt;">
                 {% if primer.cliente %}
                     {{ primer.telefono_entrega|default:primer.cliente.telefono|default:"—" }}
                 {% else %}
@@ -42,40 +43,43 @@
             </span>
         </p>
 
-        <p>
-            <span class="etq-label">Dir.</span><br>
-            {% if primer.cliente %}
-                {{ primer.direccion_entrega|default:primer.cliente.direccion|default:"—" }}
-            {% else %}
-                {{ primer.direccion_entrega|default:"En el taller" }}
-            {% endif %}
+        <p style="margin-bottom: 1mm; word-wrap: break-word;">
+            <span class="etq-label" style="font-size: 4.5pt; color: #777;">DIR:</span>
+            <span class="etq-valor" style="font-size: 6pt;">
+                {% if primer.cliente %}
+                    {{ primer.direccion_entrega|default:primer.cliente.direccion|default:"—" }}
+                {% else %}
+                    {{ primer.direccion_entrega|default:"En el taller" }}
+                {% endif %}
+            </span>
         </p>
         {% endwith %}
 
-        <p>
-            <span class="etq-label">Pedidos</span>
-            <span class="etq-valor">{{ cantidad }}</span>
+        <!-- PEDIDOS Y FECHA -->
+        <p style="margin-bottom: 1mm; border-bottom: 0.2mm solid #ccc; padding-bottom: 1mm;">
+            <span class="etq-label" style="font-size: 4.5pt; color: #777;">PEDIDOS</span>
+            <span class="etq-valor" style="font-size: 6pt;">{{ cantidad }}</span>
             &nbsp;·&nbsp;
-            <span class="etq-label">Entrega</span>
-            <span class="etq-valor">{{ pedidos.first.fecha_entrega_prometida|date:"d/m/Y"|default:"—" }}</span>
+            <span class="etq-label" style="font-size: 4.5pt; color: #777;">ENTREGA</span>
+            <span class="etq-valor" style="font-size: 6pt;">{{ pedidos.first.fecha_entrega_prometida|date:"d/m/Y"|default:"—" }}</span>
         </p>
 
         <!-- TABLA MINI -->
-        <table class="etq-tabla">
+        <table class="etq-tabla" style="font-size: 4.5pt; width: 100%; margin-bottom: 1mm;">
             <thead>
                 <tr>
-                    <th>Libro</th>
-                    <th class="center">C</th>
-                    <th class="right">$</th>
+                    <th style="width: 65%;">Libro</th>
+                    <th class="center" style="width: 10%;">C</th>
+                    <th class="right" style="width: 25%;">$</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in pedidos %}
                 <tr>
-                    <td>
+                    <td style="word-wrap: break-word;">
                         {{ p.libro.titulo }}
-                        {% if p.lleva_scotch %}<br><small>+ Scotch</small>{% endif %}
-                        {% if p.lleva_esquineros %}<br><small>+ Esquineros</small>{% endif %}
+                        {% if p.lleva_scotch %}<br><small style="font-size: 4pt; color: #666;">+ Scotch</small>{% endif %}
+                        {% if p.lleva_esquineros %}<br><small style="font-size: 4pt; color: #666;">+ Esquineros</small>{% endif %}
                     </td>
                     <td class="center">{{ p.cantidad }}</td>
                     <td class="right">${{ p.precio_venta|floatformat:0 }}</td>
@@ -85,7 +89,7 @@
         </table>
 
         <!-- TOTALES -->
-        <div class="etq-totales">
+        <div class="etq-totales" style="font-size: 4.5pt; margin-top: auto; border-top: 0.2mm solid #ccc; padding-top: 1mm;">
             <div class="fila">
                 <span>Total:</span>
                 <span>${{ total_venta|floatformat:0 }}</span>
@@ -94,19 +98,19 @@
                 <span>Anticipo:</span>
                 <span>-${{ total_anticipo|floatformat:0 }}</span>
             </div>
-            <div class="fila total-final">
+            <div class="fila total-final" style="color: #c0392b; font-size: 6pt; border-top: 0.2mm solid #ccc; padding-top: 0.5mm; margin-top: 0.5mm;">
                 <span>SALDO:</span>
-                <span class="etq-saldo">${{ total_saldo|floatformat:0 }}</span>
+                <span>${{ total_saldo|floatformat:0 }}</span>
             </div>
         </div>
 
     </div>
 
     <!-- PIE -->
-    <div class="etq-footer">
+    <div class="etq-footer" style="border-top: 0.3mm solid #000; padding-top: 0.8mm;">
         <div>
-            <span class="etq-ref-label">Comprobante</span>
-            <span class="etq-ref">
+            <span class="etq-ref-label" style="font-size: 4.5pt; color: #777;">Comprobante</span>
+            <span class="etq-ref" style="font-size: 9pt; font-weight: bold;">
                 {% if cantidad == 1 %}
                     #{{ pedidos.first.referencia_externa|default:pedidos.first.id }}
                 {% else %}
@@ -116,10 +120,10 @@
         </div>
         <div style="text-align:right;">
             {% if total_saldo > 0 %}
-                <span class="etq-label">Saldo</span><br>
-                <span class="etq-saldo">${{ total_saldo|floatformat:0 }}</span>
+                <span class="etq-label" style="font-size: 4.5pt; color: #777;">Saldo</span><br>
+                <span class="etq-saldo" style="font-size: 6.5pt; font-weight: bold; color: #c0392b;">${{ total_saldo|floatformat:0 }}</span>
             {% else %}
-                <span class="etq-estado">Pagado</span>
+                <span class="etq-estado" style="font-size: 5pt; font-weight: bold; text-transform: uppercase; padding: 0.3mm 1mm; border-radius: 0.8mm; background: #000; color: #fff;">Pagado</span>
             {% endif %}
         </div>
     </div>
