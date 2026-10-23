@@ -213,7 +213,9 @@ def reporte_mensual(request):
     # ==========================================
     movimientos = MovimientoCaja.objects.filter(fecha__date__gte=desde, fecha__date__lte=hasta)
     
-    ingresos_totales = movimientos.filter(tipo='INGRESO').aggregate(t=Sum('monto'))['t'] or 0
+    ingresos_totales = movimientos.filter(tipo='INGRESO').exclude(
+        categoria__in=['SALDO_INICIAL', 'APERTURA', 'COMPRA_DIVISA', 'VENTA_DIVISA']
+    ).aggregate(t=Sum('monto'))['t'] or 0
     egresos_totales = movimientos.filter(tipo='EGRESO').aggregate(t=Sum('monto'))['t'] or 0
     saldo_periodo = ingresos_totales - egresos_totales
 
@@ -224,17 +226,22 @@ def reporte_mensual(request):
         estado__nombre='Entregado',
         fecha_entrega_real__date__gte=desde,
         fecha_entrega_real__date__lte=hasta
+    ).exclude(
+        referencia_externa__lt=487
     )
     # En lugar de sumar el precio teórico, sumamos el dinero que realmente entró a Caja
     # por concepto de Anticipos y Saldos de esos pedidos en ese rango de fechas.
     
-    # Lo que deberías hacer (sumar solo pedidos entregados)
+    # En finanzas/views.py, dentro de la función reporte_mensual
+
     total_ventas = Pedido.objects.filter(
         estado__nombre='Entregado',
         fecha_entrega_real__date__gte=desde,
         fecha_entrega_real__date__lte=hasta
+    ).exclude(
+        referencia_externa__lt=487  # <-- Ignora los pedidos anteriores al ERP
     ).aggregate(t=Sum('precio_venta'))['t'] or 0
-    
+
     cantidad_libros = pedidos_entregados.count()
 
     # ==========================================

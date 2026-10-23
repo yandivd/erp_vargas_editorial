@@ -33,8 +33,10 @@ def dashboard(request):
 
     CATEGORIAS_TRANSFERENCIA = ['COMPRA_DIVISA', 'VENTA_DIVISA']
 
+    CATEGORIAS_EXCLUIDAS = ['COMPRA_DIVISA', 'VENTA_DIVISA', 'SALDO_INICIAL', 'APERTURA']
+
     ingresos = movimientos.filter(tipo='INGRESO').exclude(
-        categoria__in=CATEGORIAS_TRANSFERENCIA
+        categoria__in=CATEGORIAS_EXCLUIDAS
     ).aggregate(t=Sum('monto'))['t'] or 0
 
     gastos = movimientos.filter(tipo='EGRESO').exclude(
@@ -263,10 +265,12 @@ def dashboard(request):
     # ==========================================
     # DATOS PARA LA PESTAÑA PRODUCCIÓN
     # ==========================================
+    # En tu core/views.py (dashboard)
     pedidos_prod = Pedido.objects.filter(
         fecha_pedido__date__gte=desde,
         fecha_pedido__date__lte=hasta,
         cliente__isnull=False,
+        es_historico=False  # <-- Solo pedidos reales del ERP
     )
 
     pedidos_totales = pedidos_prod.count()

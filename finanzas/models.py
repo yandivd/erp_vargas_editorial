@@ -12,6 +12,7 @@ class MovimientoCaja(models.Model):
     CATEGORIA_CHOICES = [
         ('ANTICIPO_CLIENTE', 'Anticipo de cliente'),
         ('SALDO_CLIENTE', 'Saldo de cliente'),
+        ('SALDO_INICIAL', 'Saldo de apertura'),
         ('INGRESO_MANUAL', 'Ingreso manual'),
         ('PROPINA', 'Propina'),
         ('MENSAJERIA', 'Mensajería / Envío'),
