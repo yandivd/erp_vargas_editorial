@@ -1,26 +1,30 @@
 import os
+from decimal import Decimal
+import json
+
 from django.db import transaction
+from django.db.models import Q, Count, Sum, F, IntegerField
+from django.db.models.functions import Cast
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from django.db.models import Q, Count
 from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django import forms
-from decimal import Decimal
-import json
-from django.db import models
+from weasyprint import HTML
 
 from config import settings
 from proveedores.models import Proveedor
-from .models import CodigoDescuento, HistorialEstado, Pedido, ServicioExterno, Book, Estado, LoteServicio
+from .models import (
+    CodigoDescuento, HistorialEstado, Pedido, ServicioExterno, 
+    Book, Estado, LoteServicio, Entrega
+)
 from .services import ServicioPedido, CosteadorPedido
 from clientes.models import Cliente
 from finanzas.services import ServicioFinanzas
 from finanzas.models import MovimientoCaja
-from weasyprint import HTML
 
 
 # ============================================================
@@ -64,10 +68,8 @@ class NuevoPedidoForm(forms.Form):
     nuevo_cliente_nombre = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre nuevo'}))
     nuevo_cliente_telefono = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono'}))
     nuevo_cliente_direccion = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Dirección (opcional)'}))
-    codigo_descuento = forms.CharField(
-        required=False,
-        widget=forms.HiddenInput()
-    )
+    codigo_descuento = forms.CharField(required=False, widget=forms.HiddenInput())
+    
     libro = forms.ModelChoiceField(
         queryset=Book.objects.all(),
         required=False,
@@ -105,10 +107,6 @@ class NuevoPedidoForm(forms.Form):
 # ============================================================
 def _siguiente_referencia():
     """Devuelve el siguiente número de referencia_externa (mayor + 1)."""
-    from django.db.models.functions import Cast
-    from django.db.models import IntegerField
-
-    # Filtramos solo los que sean números puros, ignorando textos viejos
     ultima = Pedido.objects.filter(
         referencia_externa__regex=r'^\d+$'
     ).annotate(
@@ -163,7 +161,10 @@ def _obtener_pedidos_filtrados(request, solo_entregados=False):
         elif pago_status == 'pendiente':
             pedidos_list = pedidos_list.filter(saldo_pendiente__gt=0)
         elif pago_status == 'atrasado':
-            pedidos_list = [p for p in pedidos_list if p.esta_atrasado]
+            # Optimización: filtro en base de datos en lugar de Python
+            pedidos_list = pedidos_list.filter(
+                fecha_entrega_prometida__lt=timezone.now().date()
+            )
 
     return pedidos_list
 
@@ -233,7 +234,7 @@ def lista_entregados_ajax(request):
 # DETALLE Y ESTADOS
 # ============================================================
 def detalle(request, pk):
-    pedido = get_object_or_404(Pedido, pk=pk)
+    pedido = get_object_or_404(Pedido.objects.select_related('cliente', 'libro', 'estado'), pk=pk)
     costo = CosteadorPedido(pedido).calcular()
 
     return render(request, 'pedidos/detalle.html', {
@@ -272,9 +273,11 @@ def cambiar_estado_masivo(request):
         actualizados = 0
         errores = []
 
-        for pid in pedido_ids:
+        # Optimización: Traemos todos los pedidos de una vez
+        pedidos = Pedido.objects.filter(id__in=pedido_ids).select_related('estado')
+        
+        for pedido in pedidos:
             try:
-                pedido = Pedido.objects.get(id=pid)
                 if pedido.estado_id == nuevo_estado.id:
                     continue
                 ServicioPedido.cambiar_estado(
@@ -282,10 +285,8 @@ def cambiar_estado_masivo(request):
                     usuario=request.user.username, notas='Cambio masivo'
                 )
                 actualizados += 1
-            except Pedido.DoesNotExist:
-                errores.append(f'Pedido {pid} no existe')
             except Exception as e:
-                errores.append(f'Pedido {pid}: {str(e)}')
+                errores.append(f'Pedido {pedido.id}: {str(e)}')
 
         return JsonResponse({
             'ok': True,
@@ -382,7 +383,7 @@ def nuevo_pedido_modal(request):
             # 5. Estado inicial: Pendiente a impresión
             estado_inicial = Estado.objects.get(nombre='Pendiente a impresión')
 
-            # 6. Crear el pedido ya en producción, con descuento
+            # 6. Crear el pedido
             pedido = Pedido.objects.create(
                 cliente=cliente,
                 libro=libro,
@@ -406,21 +407,15 @@ def nuevo_pedido_modal(request):
                 cod_obj.usos_actuales += 1
                 cod_obj.save(update_fields=['usos_actuales'])
 
-            # 8. Registrar el anticipo en caja (si es mayor a 0)
+            # 8. Registrar el anticipo en caja
             anticipo = form.cleaned_data.get('anticipo_requerido') or 0
             if anticipo > 0:
-                ServicioFinanzas.registrar_anticipo(
-                    pedido,
-                    monto=anticipo,
-                    metodo='EFECTIVO'
-                )
+                ServicioFinanzas.registrar_anticipo(pedido, monto=anticipo, metodo='EFECTIVO')
 
-            # 9. Registrar el cambio de estado en el historial
+            # 9. Registrar historial
             ServicioPedido.cambiar_estado(
-                pedido,
-                'Pendiente a impresión',
-                usuario=request.user.username,
-                notas='Pedido creado con anticipo pagado'
+                pedido, 'Pendiente a impresión',
+                usuario=request.user.username, notas='Pedido creado con anticipo pagado'
             )
 
         return JsonResponse({'ok': True, 'redirect': f'/pedidos/{pedido.id}/'})
@@ -629,23 +624,27 @@ def imprimir_comprobantes_masivo(request):
         messages.error(request, 'No seleccionaste pedidos para imprimir.')
         return redirect('pedidos:lista')
 
+    # Optimización: select_related
     pedidos = Pedido.objects.filter(id__in=ids).select_related(
         'cliente', 'libro', 'estado'
     ).order_by('cliente__nombre', 'fecha_pedido', 'id')
 
-    total_venta = sum(p.precio_venta for p in pedidos)
-    total_anticipo = sum(p.anticipo_recibido for p in pedidos)
-    total_saldo = sum(p.saldo_pendiente for p in pedidos)
+    # Optimización: aggregate en lugar de sum en Python
+    totales = pedidos.aggregate(
+        total_venta=Sum('precio_venta'),
+        total_anticipo=Sum('anticipo_recibido'),
+        total_saldo=Sum('saldo_pendiente')
+    )
 
-    clientes = set(p.cliente_id for p in pedidos)
+    clientes = set(pedidos.values_list('cliente_id', flat=True))
     un_solo_cliente = len(clientes) == 1
 
     return render(request, 'pedidos/imprimir_comprobantes_lote.html', {
         'pedidos': pedidos,
         'cantidad': pedidos.count(),
-        'total_venta': total_venta,
-        'total_anticipo': total_anticipo,
-        'total_saldo': total_saldo,
+        'total_venta': totales['total_venta'] or 0,
+        'total_anticipo': totales['total_anticipo'] or 0,
+        'total_saldo': totales['total_saldo'] or 0,
         'un_solo_cliente': un_solo_cliente,
     })
 
@@ -654,13 +653,7 @@ def imprimir_comprobantes_masivo(request):
 # LOTES DE SERVICIO
 # ============================================================
 def lista_lotes(request):
-    """Lista de lotes con dos pestañas: abiertos e historial, con filtros."""
-    from django.db.models import Q, Sum, Count
-
-    # Pestaña activa
     tab = request.GET.get('tab', 'abiertos')
-
-    # Filtros comunes
     q = request.GET.get('q', '').strip()
     proveedor_id = request.GET.get('proveedor', '')
     tipo = request.GET.get('tipo', '')
@@ -668,25 +661,19 @@ def lista_lotes(request):
     desde = request.GET.get('desde', '')
     hasta = request.GET.get('hasta', '')
 
-    # Base queryset
+    # Optimización: annotate para no calcular en Python
     lotes = LoteServicio.objects.select_related('proveedor').annotate(
         num_servicios=Count('servicios'),
         total=Sum('servicios__monto'),
     ).order_by('-fecha_apertura')
 
-    # Filtrar por pestaña
     if tab == 'abiertos':
         lotes = lotes.filter(estado='ABIERTO')
     else:
-        # Historial: todos los que no están abiertos
         lotes = lotes.exclude(estado='ABIERTO')
 
-    # Filtros
     if q:
-        lotes = lotes.filter(
-            Q(numero__icontains=q) |
-            Q(proveedor__nombre__icontains=q)
-        )
+        lotes = lotes.filter(Q(numero__icontains=q) | Q(proveedor__nombre__icontains=q))
     if proveedor_id:
         lotes = lotes.filter(proveedor_id=proveedor_id)
     if tipo:
@@ -698,7 +685,6 @@ def lista_lotes(request):
     if hasta:
         lotes = lotes.filter(fecha_apertura__date__lte=hasta)
 
-    # Datos para los selects
     proveedores = Proveedor.objects.filter(activo=True).order_by('nombre')
     tipos = LoteServicio._meta.get_field('tipo').choices
     estados = LoteServicio._meta.get_field('estado').choices
@@ -719,7 +705,7 @@ def lista_lotes(request):
 
 
 def detalle_lote(request, pk):
-    lote = get_object_or_404(LoteServicio, pk=pk)
+    lote = get_object_or_404(LoteServicio.objects.select_related('proveedor'), pk=pk)
     servicios = lote.servicios.select_related('pedido__libro', 'pedido__cliente').all()
     return render(request, 'pedidos/detalle_lote.html', {
         'lote': lote,
@@ -741,7 +727,7 @@ def pagar_lote(request, pk):
     lote = get_object_or_404(LoteServicio, pk=pk)
     if request.method == 'POST' and lote.estado == 'CERRADO':
         with transaction.atomic():
-            for servicio in lote.servicios.filter(estado__in=['SOLICITADO', 'RECIBIDO']):
+            for servicio in lote.servicios.filter(estado__in=['SOLICITADO', 'RECIBIDO']).select_related('pedido'):
                 MovimientoCaja.objects.create(
                     tipo='EGRESO',
                     categoria='PAGO_PROVEEDOR',
@@ -766,11 +752,8 @@ def pagar_lote(request, pk):
 
 def orden_lote_pdf(request, pk):
     lote = get_object_or_404(LoteServicio, pk=pk)
-    servicios = lote.servicios.select_related(
-        'pedido__libro', 'pedido__cliente'
-    ).order_by('pedido_id')
+    servicios = lote.servicios.select_related('pedido__libro', 'pedido__cliente').order_by('pedido_id')
 
-    # Rutas absolutas para WeasyPrint
     logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
     sello_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'sello_pagado.png')
 
@@ -787,17 +770,18 @@ def orden_lote_pdf(request, pk):
     response['Content-Disposition'] = f'inline; filename="orden-{lote.numero}.pdf"'
     return response
 
+
 def imprimir_comprobante_termico(request, pk):
     logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
     pedido = get_object_or_404(Pedido, pk=pk)
     return render(request, 'pedidos/imprimir_comprobante_termico.html', {
         'pedido': pedido,
         'logo_path': f'file:///{logo_path.replace(os.sep, "/")}',
-        })
+    })
+
 
 def imprimir_comprobantes_termico(request):
     logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
-    """Genera un ticket térmico consolidado con varios pedidos seleccionados."""
     ids = request.GET.getlist('ids')
     if not ids:
         messages.error(request, 'No seleccionaste pedidos para imprimir.')
@@ -811,22 +795,25 @@ def imprimir_comprobantes_termico(request):
         messages.error(request, 'No se encontraron pedidos con esos IDs.')
         return redirect('pedidos:lista')
 
-    total_venta = sum(p.precio_venta for p in pedidos)
-    total_anticipo = sum(p.anticipo_recibido for p in pedidos)
-    total_saldo = sum(p.saldo_pendiente for p in pedidos)
+    totales = pedidos.aggregate(
+        total_venta=Sum('precio_venta'),
+        total_anticipo=Sum('anticipo_recibido'),
+        total_saldo=Sum('saldo_pendiente')
+    )
 
-    clientes = set(p.cliente_id for p in pedidos)
+    clientes = set(pedidos.values_list('cliente_id', flat=True))
     un_solo_cliente = len(clientes) == 1
 
     return render(request, 'pedidos/imprimir_comprobantes_termico.html', {
         'pedidos': pedidos,
         'cantidad': pedidos.count(),
-        'total_venta': total_venta,
-        'total_anticipo': total_anticipo,
-        'total_saldo': total_saldo,
+        'total_venta': totales['total_venta'] or 0,
+        'total_anticipo': totales['total_anticipo'] or 0,
+        'total_saldo': totales['total_saldo'] or 0,
         'un_solo_cliente': un_solo_cliente,
         'logo_path': f'file:///{logo_path.replace(os.sep, "/")}',
     })
+
 
 def imprimir_pedido_carta(request, pk):
     pedido = get_object_or_404(Pedido, pk=pk)
@@ -847,22 +834,24 @@ def imprimir_comprobantes_lote_carta(request):
         messages.error(request, 'No se encontraron pedidos con esos IDs.')
         return redirect('pedidos:lista')
 
-    total_venta = sum(p.precio_venta for p in pedidos)
-    total_anticipo = sum(p.anticipo_recibido for p in pedidos)
-    total_saldo = sum(p.saldo_pendiente for p in pedidos)
-    total_descuento = sum(p.descuento_aplicado for p in pedidos)
+    totales = pedidos.aggregate(
+        total_venta=Sum('precio_venta'),
+        total_anticipo=Sum('anticipo_recibido'),
+        total_saldo=Sum('saldo_pendiente'),
+        total_descuento=Sum('descuento_aplicado')
+    )
 
     return render(request, 'pedidos/imprimir_comprobantes_lote_carta.html', {
         'pedidos': pedidos,
         'cantidad': pedidos.count(),
-        'total_venta': total_venta,
-        'total_anticipo': total_anticipo,
-        'total_saldo': total_saldo,
-        'total_descuento': total_descuento,
+        'total_venta': totales['total_venta'] or 0,
+        'total_anticipo': totales['total_anticipo'] or 0,
+        'total_saldo': totales['total_saldo'] or 0,
+        'total_descuento': totales['total_descuento'] or 0,
     })
 
+
 def validar_codigo_descuento(request):
-    """Valida un código de descuento y devuelve el porcentaje y el nuevo precio."""
     codigo = request.GET.get('codigo', '').strip().upper()
     precio = Decimal(request.GET.get('precio', 0))
     libro_id = request.GET.get('libro_id')
@@ -878,7 +867,6 @@ def validar_codigo_descuento(request):
     if not cod.vigente:
         return JsonResponse({'ok': False, 'error': 'Código expirado o inactivo'})
 
-    # Verificar condición por libro
     if libro_id:
         try:
             libro = Book.objects.get(id=libro_id)
@@ -887,7 +875,6 @@ def validar_codigo_descuento(request):
         except Book.DoesNotExist:
             pass
 
-    # Calcular descuento
     descuento = precio * (cod.porcentaje / Decimal('100'))
     precio_final = precio - descuento
 
@@ -899,9 +886,8 @@ def validar_codigo_descuento(request):
         'descripcion': cod.descripcion,
     })
 
+
 def codigos_vigentes(request):
-    """Devuelve los códigos de descuento activos y vigentes."""
-    from django.utils import timezone
     hoy = timezone.now().date()
 
     codigos = CodigoDescuento.objects.filter(activo=True).filter(
@@ -909,7 +895,7 @@ def codigos_vigentes(request):
     ).filter(
         Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=hoy)
     ).filter(
-        Q(usos_maximos__isnull=True) | Q(usos_actuales__lt=models.F('usos_maximos'))
+        Q(usos_maximos__isnull=True) | Q(usos_actuales__lt=F('usos_maximos'))
     ).order_by('codigo')
 
     data = [{
@@ -922,8 +908,10 @@ def codigos_vigentes(request):
 
     return JsonResponse({'ok': True, 'codigos': data})
 
-from .models import Entrega
 
+# ============================================================
+# ENTREGAS
+# ============================================================
 def lista_entregas(request):
     """Lista todas las entregas."""
     entregas = Entrega.objects.select_related('cliente').prefetch_related('pedidos').order_by('-fecha_creacion')
@@ -931,7 +919,6 @@ def lista_entregas(request):
 
 
 def crear_entrega(request):
-    """Crea una entrega a partir de pedidos seleccionados."""
     if request.method == 'POST':
         pedido_ids = request.POST.getlist('pedido_ids')
         direccion = request.POST.get('direccion', '')
@@ -949,7 +936,6 @@ def crear_entrega(request):
             messages.error(request, 'No se encontraron pedidos.')
             return redirect('pedidos:crear_entrega')
 
-        # Verificar que todos sean del mismo cliente
         clientes = set(p.cliente_id for p in pedidos if p.cliente_id)
         if len(clientes) > 1:
             messages.error(request, 'Todos los pedidos deben ser del mismo cliente.')
@@ -974,12 +960,11 @@ def crear_entrega(request):
         messages.success(request, f'Entrega #{entrega.id} creada con {pedidos.count()} pedidos de {cliente.nombre}.')
         return redirect('pedidos:detalle_entrega', pk=entrega.id)
 
-    # GET: pedidos disponibles
     pedidos_disponibles = Pedido.objects.filter(
         estado__nombre='Listo para Entregar',
-        cliente__isnull=False,           # <-- solo con cliente
+        cliente__isnull=False,
     ).exclude(
-        entregas__isnull=False           # <-- que no estén ya en una entrega
+        entregas__isnull=False
     ).select_related('cliente', 'libro', 'estado').order_by('referencia_externa')
 
     return render(request, 'pedidos/crear_entrega.html', {
@@ -999,7 +984,6 @@ def detalle_entrega(request, pk):
                 entrega.fecha_entrega_real = timezone.now()
                 entrega.save()
 
-                # Cambiar estado de cada pedido a "Entregado"
                 for pedido in pedidos:
                     if pedido.estado.nombre != 'Entregado':
                         ServicioPedido.cambiar_estado(
@@ -1009,9 +993,7 @@ def detalle_entrega(request, pk):
                             notas=f'Entrega #{entrega.id} marcada como entregada'
                         )
 
-                # Cobrar la mensajería en caja (si tiene costo)
                 if entrega.costo_mensajeria > 0:
-                    from finanzas.models import MovimientoCaja
                     MovimientoCaja.objects.create(
                         tipo='INGRESO',
                         categoria='MENSAJERIA',
@@ -1037,7 +1019,6 @@ def detalle_entrega(request, pk):
 
 
 def imprimir_entrega(request, pk):
-    """Genera el comprobante de la entrega."""
     entrega = get_object_or_404(Entrega, pk=pk)
     pedidos = entrega.pedidos.select_related('libro', 'cliente').all()
 
@@ -1046,8 +1027,8 @@ def imprimir_entrega(request, pk):
         'pedidos': pedidos,
     })
 
+
 def agregar_esquineros(request, pk):
-    """Marca el pedido como que lleva esquineros y los consume del inventario."""
     pedido = get_object_or_404(Pedido, pk=pk)
     
     if request.method == 'POST' and not pedido.lleva_esquineros:
@@ -1055,10 +1036,8 @@ def agregar_esquineros(request, pk):
             pedido.lleva_esquineros = True
             pedido.save(update_fields=['lleva_esquineros'])
             
-            # Consumir esquineros del inventario
             ServicioPedido.consumir_materiales(pedido, momento='ENTREGA')
             
-            # Registrar en historial
             HistorialEstado.objects.create(
                 pedido=pedido,
                 estado_anterior=pedido.estado,
@@ -1071,13 +1050,13 @@ def agregar_esquineros(request, pk):
     
     return redirect('pedidos:detalle', pk=pedido.id)
 
+
 def imprimir_entrega_carta(request, pk):
-    """Genera el comprobante de entrega en formato pequeño (5x8cm)."""
     entrega = get_object_or_404(Entrega, pk=pk)
     pedidos = entrega.pedidos.select_related('libro', 'cliente').all()
 
-    # En la vista
     total_descuento = sum(p.descuento_aplicado for p in pedidos)
+    
     return render(request, 'pedidos/imprimir_entrega_carta.html', {
         'entrega': entrega, 
         'pedidos': pedidos,
