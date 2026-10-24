@@ -53,7 +53,8 @@ INSTALLED_APPS = [
     'proveedores',
     'finanzas',
     'empleados',
-    'compras'
+    'compras',
+    'pwa'
 ]
 
 MIDDLEWARE = [
@@ -142,3 +143,41 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
+
+# ==========================================
+# CONFIGURACIÓN PWA (App para el teléfono)
+# ==========================================
+PWA_APP_NAME = 'Vargas Editorial'
+PWA_APP_DESCRIPTION = "ERP de gestión editorial y encuadernación"
+PWA_APP_THEME_COLOR = '#3b82f6'  # El azul de tu marca
+PWA_APP_BACKGROUND_COLOR = '#ffffff'
+PWA_APP_DISPLAY = 'standalone'   # Para que se vea sin barra de navegador
+PWA_APP_SCOPE = '/'
+PWA_APP_ORIENTATION = 'portrait' # Forzar vertical en el teléfono
+PWA_APP_START_URL = '/'
+PWA_APP_STATUS_BAR_COLOR = 'default'
+
+# Íconos: Necesitas tener estas imágenes en tu carpeta static
+PWA_APP_ICONS = [
+    {
+        'src': '/static/img/icono-192.png',
+        'sizes': '192x192',
+        'type': 'image/png'
+    },
+    {
+        'src': '/static/img/icono-512.png',
+        'sizes': '512x512',
+        'type': 'image/png'
+    }
+]
+
+# Íconos para iPhone (opcional pero recomendado)
+PWA_APP_ICONS_APPLE = [
+    {
+        'src': '/static/img/icono-192.png',
+        'sizes': '192x192'
+    }
+]
+
+PWA_APP_DIR = 'ltr'
+PWA_APP_LANG = 'es-ES'
