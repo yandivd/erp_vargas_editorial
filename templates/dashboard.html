@@ -20,7 +20,6 @@
         margin-bottom: 1rem;
     }
     
-    /* Ajuste de padding en móvil */
     @media (max-width: 767.98px) {
         .section-card { padding: 16px; }
     }
@@ -74,7 +73,6 @@
         line-height: 1;
     }
 
-    /* Ajuste de KPI en móvil */
     @media (max-width: 575.98px) {
         .kpi-value { font-size: 1.3rem; }
         .kpi-label { font-size: 0.6rem; }
@@ -124,7 +122,7 @@
         height: 28px;
         border-radius: 4px;
         display: inline-block;
-        min-width: 28px; /* Para que no se aplasten en móvil */
+        min-width: 28px;
     }
 
     .nav-tabs .nav-link {
@@ -140,13 +138,11 @@
         background: transparent;
     }
     
-    /* Ajuste para tabs en móvil */
     @media (max-width: 575.98px) {
         .nav-tabs .nav-link { padding: 0.5rem; font-size: 0.85rem; }
-        .nav-tabs .nav-link i { display: none; } /* Ocultar iconos en móvil para ahorrar espacio */
+        .nav-tabs .nav-link i { display: none; }
     }
 
-    /* Ocultar columnas secundarias en móvil */
     @media (max-width: 767.98px) {
         .hide-mobile { display: none !important; }
     }
@@ -155,22 +151,39 @@
 
 {% block content %}
 <!-- CABECERA CON FILTROS -->
-<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mb-4 gap-3">
     <div>
         <h2 class="mb-0 fw-bold"><i class="bi bi-grid-1x2 text-primary"></i> Dashboard</h2>
-        <p class="text-muted mb-0">Análisis completo del negocio</p>
+        <p class="text-muted mb-0">
+            {% if desde and hasta %}
+                Mostrando datos del {{ desde }} al {{ hasta }}
+            {% else %}
+                Mostrando información general de todo el negocio
+            {% endif %}
+        </p>
     </div>
-    <form method="get" class="d-flex flex-wrap gap-2 align-items-end">
-        <div class="flex-grow-1 flex-md-grow-0">
-            <label class="form-label small text-muted mb-0">Desde</label>
-            <input type="date" name="desde" class="form-control form-control-sm" value="{{ desde }}">
-        </div>
-        <div class="flex-grow-1 flex-md-grow-0">
-            <label class="form-label small text-muted mb-0">Hasta</label>
-            <input type="date" name="hasta" class="form-control form-control-sm" value="{{ hasta }}">
-        </div>
-        <button type="submit" class="btn btn-primary btn-sm w-100 w-md-auto"><i class="bi bi-filter"></i> Filtrar</button>
-    </form>
+    
+    <div class="d-flex flex-column flex-sm-row gap-2 align-items-sm-end">
+        <form method="get" class="d-flex flex-column flex-sm-row gap-2 align-items-sm-end">
+            <div>
+                <label class="form-label small text-muted mb-0">Desde</label>
+                <input type="date" name="desde" class="form-control form-control-sm" value="{{ desde }}">
+            </div>
+            <div>
+                <label class="form-label small text-muted mb-0">Hasta</label>
+                <input type="date" name="hasta" class="form-control form-control-sm" value="{{ hasta }}">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="bi bi-filter"></i> Filtrar
+            </button>
+        </form>
+
+        {% if desde and hasta %}
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-x-circle"></i> Ver Todo
+            </a>
+        {% endif %}
+    </div>
 </div>
 
 <!-- PESTAÑAS -->
@@ -199,7 +212,7 @@
     <!-- ========================================== -->
     <div class="tab-pane fade show active" id="pane-resumen" role="tabpanel">
 
-        <!-- KPIs: 2 columnas en móvil, 4 en PC -->
+        <!-- KPIs -->
         <div class="row g-2 g-md-3 mb-4">
             <div class="col-6 col-md-3">
                 <div class="kpi-card ingresos">
@@ -254,6 +267,7 @@
             </div>
         </div>
 
+        <!-- Gráficos -->
         <div class="row g-3 mb-4">
             <div class="col-12 col-md-6">
                 <div class="section-card">
