@@ -1,37 +1,50 @@
 from django.shortcuts import render
-from django.db.models import Sum, Count, Q, F, Max, OuterRef, Subquery
+from django.db.models import Sum, Count, Q, F, Max, OuterRef, Subquery, Avg
 from django.db.models.functions import TruncMonth, TruncWeek, ExtractWeekDay, ExtractHour
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.core.cache import cache
+from django.http import JsonResponse
 import json
 
-from pedidos.models import Pedido
+from pedidos.models import Pedido, CodigoDescuento
 from clientes.models import Cliente
-from finanzas.models import MovimientoCaja
 from inventario.models import Material, MovimientoInventario
+from finanzas.models import MovimientoCaja
 
 
 def dashboard(request):
     # ==========================================
-    # FILTROS Y CACHÉ
+    # FILTROS (Si no hay fechas, mostramos TODO)
     # ==========================================
     hoy = timezone.now().date()
-    desde_str = request.GET.get('desde', (hoy - timedelta(days=180)).strftime('%Y-%m-%d'))
-    hasta_str = request.GET.get('hasta', hoy.strftime('%Y-%m-%d'))
+    desde_str = request.GET.get('desde', '')
+    hasta_str = request.GET.get('hasta', '')
 
-    desde = datetime.strptime(desde_str, '%Y-%m-%d').date()
-    hasta = datetime.strptime(hasta_str, '%Y-%m-%d').date()
-
-    # Clave de caché única basada en las fechas
-    cache_key = f'dashboard_{desde_str}_{hasta_str}'
+    # Clave de caché: si no hay fechas, la clave es "todo"
+    cache_key = f'dashboard_{desde_str or "todo"}_{hasta_str or "todo"}'
     context = cache.get(cache_key)
 
     if context is None:
+        # Querysets base
+        movimientos = MovimientoCaja.objects.all()
+        pedidos_qs = Pedido.objects.filter(cliente__isnull=False)
+        pedidos_todos = Pedido.objects.all()
+        pedidos_prod = Pedido.objects.filter(cliente__isnull=False, es_historico=False)
+
+        # Aplicar filtros solo si el usuario envió fechas
+        if desde_str and hasta_str:
+            desde = datetime.strptime(desde_str, '%Y-%m-%d').date()
+            hasta = datetime.strptime(hasta_str, '%Y-%m-%d').date()
+            
+            movimientos = movimientos.filter(fecha__date__gte=desde, fecha__date__lte=hasta)
+            pedidos_qs = pedidos_qs.filter(fecha_pedido__date__gte=desde, fecha_pedido__date__lte=hasta)
+            pedidos_todos = pedidos_todos.filter(fecha_pedido__date__gte=desde, fecha_pedido__date__lte=hasta)
+            pedidos_prod = pedidos_prod.filter(fecha_pedido__date__gte=desde, fecha_pedido__date__lte=hasta)
+
         # ==========================================
         # 1. KPIs PRINCIPALES
         # ==========================================
-        movimientos = MovimientoCaja.objects.filter(fecha__date__gte=desde, fecha__date__lte=hasta)
         CATEGORIAS_TRANSFERENCIA = ['COMPRA_DIVISA', 'VENTA_DIVISA']
         CATEGORIAS_EXCLUIDAS = ['COMPRA_DIVISA', 'VENTA_DIVISA', 'SALDO_INICIAL', 'APERTURA']
 
@@ -46,20 +59,9 @@ def dashboard(request):
         saldo_neto = ingresos - gastos
         margen = (saldo_neto / ingresos * 100) if ingresos > 0 else 0
 
-        # Pedidos con cliente (demanda real)
-        pedidos_qs = Pedido.objects.filter(
-            fecha_pedido__date__gte=desde,
-            fecha_pedido__date__lte=hasta,
-            cliente__isnull=False,
-        )
         total_pedidos = pedidos_qs.count()
         clientes_unicos = pedidos_qs.values('cliente').distinct().count()
 
-        # Ventas totales
-        pedidos_todos = Pedido.objects.filter(
-            fecha_pedido__date__gte=desde,
-            fecha_pedido__date__lte=hasta,
-        )
         ventas = pedidos_todos.aggregate(t=Sum('precio_venta'))['t'] or 0
         ganancia_promedio = (saldo_neto / total_pedidos) if total_pedidos > 0 else 0
 
@@ -78,9 +80,11 @@ def dashboard(request):
         # ==========================================
         # 3. COSTO UNITARIO POR CONSUMO
         # ==========================================
-        consumos = MovimientoInventario.objects.filter(
-            tipo='SALIDA', fecha__date__gte=desde, fecha__date__lte=hasta
-        ).values('material__nombre', 'material__unidad_medida').annotate(
+        consumos = MovimientoInventario.objects.filter(tipo='SALIDA')
+        if desde_str and hasta_str:
+            consumos = consumos.filter(fecha__date__gte=desde, fecha__date__lte=hasta)
+            
+        consumos = consumos.values('material__nombre', 'material__unidad_medida').annotate(
             cantidad=Sum('cantidad'), costo_total=Sum('costo_total'),
         ).order_by('-costo_total')
 
@@ -215,13 +219,6 @@ def dashboard(request):
         # ==========================================
         # 9. DATOS PARA LA PESTAÑA PRODUCCIÓN
         # ==========================================
-        pedidos_prod = Pedido.objects.filter(
-            fecha_pedido__date__gte=desde,
-            fecha_pedido__date__lte=hasta,
-            cliente__isnull=False,
-            es_historico=False
-        )
-
         pedidos_totales = pedidos_prod.count()
         libros_unicos = pedidos_prod.values('libro').distinct().count()
 
@@ -281,9 +278,8 @@ def dashboard(request):
         }
 
         # ==========================================
-        # 10. DATOS PARA LA PESTAÑA CLIENTES (Optimizado)
+        # 10. DATOS PARA LA PESTAÑA CLIENTES
         # ==========================================
-        # En lugar de hacer un bucle con consultas, usamos annotate
         ultimo_pedido_subquery = Pedido.objects.filter(
             cliente=OuterRef('pk')
         ).order_by('-fecha_pedido').values('fecha_pedido')[:1]
@@ -375,7 +371,125 @@ def dashboard(request):
             'tipo_cliente_data': tipo_cliente_data, 'frecuencia_data': frecuencia_data,
         }
         
-        # Guardar en caché por 5 minutos (300 segundos)
         cache.set(cache_key, context, 300)
 
     return render(request, 'dashboard.html', context)
+
+
+def exportar_datos_ia(request):
+    # ==========================================
+    # LÓGICA DE FECHAS (Si no hay, exporta todo)
+    # ==========================================
+    hoy = timezone.now().date()
+    desde_str = request.GET.get('desde', '')
+    hasta_str = request.GET.get('hasta', '')
+    
+    movimientos = MovimientoCaja.objects.all()
+    pedidos = Pedido.objects.filter(cliente__isnull=False)
+    consumos = MovimientoInventario.objects.filter(tipo='SALIDA')
+
+    if desde_str and hasta_str:
+        desde = datetime.strptime(desde_str, '%Y-%m-%d').date()
+        hasta = datetime.strptime(hasta_str, '%Y-%m-%d').date()
+        movimientos = movimientos.filter(fecha__date__gte=desde, fecha__date__lte=hasta)
+        pedidos = pedidos.filter(fecha_pedido__date__gte=desde, fecha_pedido__date__lte=hasta)
+        consumos = consumos.filter(fecha__date__gte=desde, fecha__date__lte=hasta)
+        periodo_texto = f"{desde_str} al {hasta_str}"
+        dias = (hasta - desde).days
+    else:
+        periodo_texto = "Historial completo"
+        dias = "N/A"
+
+    # 1. FINANZAS
+    ingresos = movimientos.filter(tipo='INGRESO').exclude(categoria__in=['COMPRA_DIVISA', 'VENTA_DIVISA', 'SALDO_INICIAL']).aggregate(t=Sum('monto'))['t'] or 0
+    gastos = movimientos.filter(tipo='EGRESO').exclude(categoria__in=['COMPRA_DIVISA', 'VENTA_DIVISA']).aggregate(t=Sum('monto'))['t'] or 0
+    
+    gastos_por_categoria = movimientos.filter(tipo='EGRESO').values('categoria').annotate(total=Sum('monto')).order_by('-total')
+    gastos_detallados = {dict(MovimientoCaja.CATEGORIA_CHOICES).get(g['categoria'], g['categoria']): float(g['total']) for g in gastos_por_categoria}
+
+    tendencia_mensual = movimientos.annotate(mes=TruncMonth('fecha')).values('mes').annotate(
+        ingresos=Sum('monto', filter=Q(tipo='INGRESO')),
+        gastos=Sum('monto', filter=Q(tipo='EGRESO'))
+    ).order_by('mes')
+    
+    historial_mensual = [{
+        'mes': t['mes'].strftime('%Y-%m'),
+        'ingresos': float(t['ingresos'] or 0),
+        'gastos': float(t['gastos'] or 0)
+    } for t in tendencia_mensual if t['mes']]
+
+    # 2. PRODUCCIÓN
+    total_pedidos = pedidos.count()
+    ventas_totales = pedidos.aggregate(t=Sum('precio_venta'))['t'] or 0
+    
+    top_libros = pedidos.values('libro__titulo').annotate(
+        cantidad=Count('id'), 
+        ingresos=Sum('precio_venta'),
+        margen_bruto=Sum(F('precio_venta') - F('descuento_aplicado'))
+    ).order_by('-cantidad')[:5]
+    
+    horas_totales = pedidos.aggregate(t=Sum('horas_invertidas'))['t'] or 0
+    promedio_horas = pedidos.aggregate(p=Avg('horas_invertidas'))['p'] or 0
+
+    # 3. CLIENTES
+    clientes_unicos = pedidos.values('cliente').distinct().count()
+    clientes_nuevos = Cliente.objects.filter(fecha_registro__date__gte=desde, fecha_registro__date__lte=hasta).count() if desde_str and hasta_str else Cliente.objects.count()
+    clientes_con_deuda = pedidos.filter(saldo_pendiente__gt=0).values('cliente').distinct().count()
+    deuda_total = pedidos.filter(saldo_pendiente__gt=0).aggregate(t=Sum('saldo_pendiente'))['t'] or 0
+
+    # 4. MARKETING
+    pedidos_con_descuento = pedidos.filter(codigo_descuento__isnull=False)
+    descuentos_otorgados = pedidos_con_descuento.aggregate(t=Sum('descuento_aplicado'))['t'] or 0
+    facturacion_con_descuento = pedidos_con_descuento.aggregate(t=Sum('precio_venta'))['t'] or 0
+    campanas = pedidos_con_descuento.values('codigo_descuento__codigo').annotate(
+        veces_usado=Count('id'),
+        descuento_total=Sum('descuento_aplicado'),
+        ingresos_generados=Sum('precio_venta')
+    )
+
+    # 5. INVENTARIO
+    materiales_bajos = Material.objects.filter(activo=True, stock_actual__lte=F('stock_minimo')).values('nombre', 'stock_actual', 'unidad_medida')
+    valor_inventario = Material.objects.filter(activo=True).aggregate(t=Sum(F('stock_actual') * F('costo_promedio')))['t'] or 0
+    
+    materiales_mas_consumidos = consumos.values('material__nombre').annotate(cantidad=Sum('cantidad')).order_by('-cantidad')[:5]
+
+    data = {
+        "periodo": {"rango": periodo_texto, "dias": dias},
+        "finanzas": {
+            "ingresos": float(ingresos),
+            "gastos": float(gastos),
+            "utilidad": float(ingresos - gastos),
+            "margen_%": round(float((ingresos - gastos) / ingresos * 100), 2) if ingresos > 0 else 0,
+            "desglose_gastos": gastos_detallados,
+            "evolucion_mensual": historial_mensual
+        },
+        "produccion": {
+            "total_pedidos": total_pedidos,
+            "facturacion": float(ventas_totales),
+            "ticket_promedio": round(float(ventas_totales / total_pedidos), 2) if total_pedidos > 0 else 0,
+            "horas_totales_invertidas": float(horas_totales),
+            "promedio_horas_por_pedido": round(float(promedio_horas), 2),
+            "top_5_libros": list(top_libros)
+        },
+        "clientes": {
+            "total_activos": clientes_unicos,
+            "nuevos_registrados": clientes_nuevos,
+            "clientes_con_deuda": clientes_con_deuda,
+            "dinero_pendiente_cobro": float(deuda_total)
+        },
+        "marketing": {
+            "descuentos_otorgados": float(descuentos_otorgados),
+            "facturacion_con_descuento": float(facturacion_con_descuento),
+            "desempeno_campanas": list(campanas)
+        },
+        "inventario": {
+            "valor_total_parado": float(valor_inventario),
+            "materiales_bajos": list(materiales_bajos),
+            "top_consumo": list(materiales_mas_consumidos)
+        }
+    }
+
+    response = JsonResponse(data, json_dumps_params={'indent': 2, 'ensure_ascii': False})
+    filename = f'data_ia_{desde_str}_{hasta_str}.json' if desde_str and hasta_str else 'data_ia_completo.json'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
