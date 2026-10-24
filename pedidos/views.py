@@ -577,25 +577,26 @@ def asignar_cliente_y_cobrar(request, pk):
         cliente_id = request.POST.get('cliente_id')
         metodo = request.POST.get('metodo_pago', 'EFECTIVO')
 
-        if not cliente_id:
-            messages.error(request, 'Debes seleccionar un cliente.')
-            return redirect('pedidos:detalle', pk=pedido.id)
-
-        cliente = get_object_or_404(Cliente, id=cliente_id)
-
         with transaction.atomic():
-            pedido.cliente = cliente
-            pedido.save()
+            # Si se seleccionó un cliente, se lo asignamos.
+            # Si no, el pedido sigue siendo de stock (cliente=None).
+            if cliente_id:
+                cliente = get_object_or_404(Cliente, id=cliente_id)
+                pedido.cliente = cliente
+                pedido.save()
 
+            # Cobrar el saldo pendiente (registra en caja)
             if pedido.saldo_pendiente > 0:
                 ServicioFinanzas.registrar_saldo(pedido, monto=pedido.saldo_pendiente, metodo=metodo)
 
+            # Avanzar el estado a Entregado
             ServicioPedido.cambiar_estado(
                 pedido, 'Entregado',
                 usuario=request.user.username, notas='Venta directa de stock'
             )
 
-        messages.success(request, f'Pedido #{pedido.id} vendido a {cliente.nombre} por ${pedido.precio_venta}.')
+        nombre_cliente = pedido.cliente.nombre if pedido.cliente else "Cliente no registrado (Stock)"
+        messages.success(request, f'Pedido #{pedido.id} vendido a {nombre_cliente} por ${pedido.precio_venta}.')
         return redirect('pedidos:detalle', pk=pedido.id)
 
     clientes = Cliente.objects.all().order_by('nombre')
