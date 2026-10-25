@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Orden de {{ movimiento.get_tipo_display }} #{{ movimiento.id }}</title>
+    <style>
+        @page { size: A4; margin: 1.5cm; }
+        body { font-family: Arial, sans-serif; font-size: 11pt; color: #222; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #1a3a5c; padding-bottom: 10px; margin-bottom: 20px; }
+        .logo { height: 60px; }
+        .titulo { font-size: 16pt; font-weight: bold; color: #1a3a5c; margin: 0; }
+        .subtitulo { font-size: 10pt; color: #666; margin: 0; }
+        .info-grid { display: flex; gap: 20px; margin-bottom: 20px; }
+        .info-box { flex: 1; border: 1px solid #ccc; border-radius: 6px; padding: 10px; background: #f9f9f9; }
+        .info-box h4 { margin: 0 0 5px 0; font-size: 8pt; text-transform: uppercase; color: #888; }
+        .info-box p { margin: 2px 0; font-size: 10pt; }
+        .info-box .valor { font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background: #1a3a5c; color: white; padding: 8px; text-align: left; font-size: 9pt; }
+        td { padding: 8px; border-bottom: 1px solid #ddd; font-size: 10pt; }
+        .firmas { display: flex; justify-content: space-around; margin-top: 60px; }
+        .firma { text-align: center; width: 200px; }
+        .firma-linea { border-top: 1px solid #333; margin-top: 50px; padding-top: 5px; font-size: 9pt; }
+        .notas { background: #fffbe6; border-left: 4px solid #f1c40f; padding: 10px; margin-bottom: 20px; font-size: 9pt; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div style="display:flex; align-items:center; gap:15px;">
+            <img src="{{ logo_path }}" class="logo" alt="Logo">
+            <div>
+                <h1 class="titulo">VARGAS EDITORIAL</h1>
+                <p class="subtitulo">Encuadernación artesanal y libros por encargo</p>
+            </div>
+        </div>
+        <div style="text-align:right;">
+            <p class="titulo">ORDEN DE {{ movimiento.get_tipo_display|upper }}</p>
+            <p class="subtitulo">No. {{ movimiento.id|stringformat:"05d" }}</p>
+            <p class="subtitulo">Fecha: {{ movimiento.fecha|date:"d/m/Y H:i" }}</p>
+        </div>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-box">
+            <h4>Material</h4>
+            <p class="valor">{{ movimiento.material.nombre }}</p>
+            <p>Unidad: {{ movimiento.material.unidad_medida }}</p>
+        </div>
+        <div class="info-box">
+            <h4>Cantidad</h4>
+            <p class="valor">{{ movimiento.cantidad|floatformat:2 }} {{ movimiento.material.unidad_medida }}</p>
+            <p>Costo Unitario: ${{ movimiento.costo_unitario|floatformat:2 }}</p>
+        </div>
+        <div class="info-box">
+            <h4>Motivo / Referencia</h4>
+            <p>{{ movimiento.motivo|default:"—" }}</p>
+            {% if movimiento.pedido %}
+            <p>Pedido: #{{ movimiento.pedido.referencia_externa|default:movimiento.pedido.id }}</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Material</th>
+                <th>Cantidad</th>
+                <th>Costo Unit.</th>
+                <th>Costo Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{ movimiento.material.nombre }}</td>
+                <td>{{ movimiento.cantidad|floatformat:2 }} {{ movimiento.material.unidad_medida }}</td>
+                <td>${{ movimiento.costo_unitario|floatformat:2 }}</td>
+                <td>${{ movimiento.costo_total|floatformat:2 }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    {% if movimiento.motivo %}
+    <div class="notas">
+        <strong>Motivo / Notas:</strong> {{ movimiento.motivo }}
+    </div>
+    {% endif %}
+
+    <div class="firmas">
+        <div class="firma">
+            <div class="firma-linea">Autorizado por (Vargas Editorial)</div>
+        </div>
+        <div class="firma">
+            <div class="firma-linea">Recibido por (Almacenero)</div>
+        </div>
+    </div>
+
+</body>
+</html>

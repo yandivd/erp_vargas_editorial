@@ -45,6 +45,7 @@
                     <th>Costo Unit.</th>
                     <th>Costo Total</th>
                     <th>Motivo / Pedido</th>
+                    <th>Opciones</th>
                 </tr>
             </thead>
             <tbody>
@@ -68,6 +69,11 @@
                         {% if mov.pedido %}
                             <br><small><a href="{% url 'pedidos:detalle' mov.pedido.id %}">Ver Pedido #{{ mov.pedido.id }}</a></small>
                         {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'inventario:imprimir_movimiento' mov.id %}" target="_blank" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-printer"></i> Imprimir Orden
+                        </a>
                     </td>
                 </tr>
                 {% empty %}

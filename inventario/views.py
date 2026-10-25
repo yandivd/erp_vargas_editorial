@@ -10,6 +10,11 @@ from django.utils import timezone
 from .models import Material, MovimientoInventario, LoteConsumo
 from .services import ServicioInventario
 from django.db import transaction
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from weasyprint import HTML
+import os
+from django.conf import settings
 # ... tus otros imports ...
 
 
@@ -215,3 +220,21 @@ def registrar_salida_material(request, pk):
         'material': material,
         'pedidos': pedidos,
     })
+
+def imprimir_movimiento(request, pk):
+    movimiento = get_object_or_404(MovimientoInventario, pk=pk)
+    
+    # Rutas absolutas para WeasyPrint (logo)
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
+    
+    html_string = render_to_string('inventario/imprimir_movimiento.html', {
+        'movimiento': movimiento,
+        'logo_path': f'file:///{logo_path.replace(os.sep, "/")}',
+    }, request=request)
+    
+    pdf = HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
+    
+    response = HttpResponse(pdf, content_type='application/pdf')
+    tipo = 'salida' if movimiento.tipo == 'SALIDA' else 'entrada'
+    response['Content-Disposition'] = f'inline; filename="orden-{tipo}-{movimiento.id}.pdf"'
+    return response
