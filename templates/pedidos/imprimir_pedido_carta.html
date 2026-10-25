@@ -1,95 +1,83 @@
-{% extends 'impresion_carta_pequena.html' %}
+{% extends 'impresion_termica_base.html' %}
 {% load static %}
 
-{% block title %}Comprobante #{{ pedido.id }}{% endblock %}
+{% block title %}Ticket #{{ pedido.id }}{% endblock %}
+{% block tipo_documento %}COMPROBANTE DE VENTA{% endblock %}
+{% block numero_doc %}{{ pedido.referencia_externa|default:pedido.id }}{% endblock %}
 
-{% block etiquetas %}
-<div class="etiqueta" style="padding: 2mm; justify-content: flex-start;">
+{% block contenido %}
 
-    <!-- CABECERA -->
-    <div class="etq-header" style="align-items: flex-start; margin-bottom: 1mm;">
-        <img src="{% static 'img/logo.png' %}" alt="Logo" class="etq-logo" style="max-height: 8mm; margin-top: 1mm;">
-        <div style="text-align: right; width: 100%;">
-            <p class="etq-empresa" style="font-size: 6pt;">Vargas Editorial</p>
-            <p class="etq-sub" style="font-size: 4.5pt;">Tel: +53 54545068</p>
-            <p style="font-size: 5pt; font-weight: bold; margin: 0.5mm 0 0 0; color: #c0392b;">COMPROBANTE DE PEDIDO</p>
-            <p style="font-size: 4.5pt; margin: 0;">No. {{ pedido.referencia_externa|default:pedido.id }} | Fecha: {% now "d/m/Y" %}</p>
-        </div>
+<!-- CLIENTE -->
+<p class="bold">CLIENTE:</p>
+{% if pedido.cliente %}
+    <p>{{ pedido.cliente.nombre }}</p>
+    <p>Tel: {{ pedido.telefono_entrega|default:pedido.cliente.telefono|default:"—" }}</p>
+    <p>Dir: {{ pedido.direccion_entrega|default:pedido.cliente.direccion|default:"—" }}</p>
+{% else %}
+    <p><strong>Venta de Stock</strong></p>
+    <p>Tel: {{ pedido.telefono_entrega|default:"—" }}</p>
+    <p>Dir: {{ pedido.direccion_entrega|default:"En el taller" }}</p>
+{% endif %}
+
+<div class="separador"></div>
+
+<!-- DETALLE DEL PEDIDO -->
+<table>
+    <thead>
+        <tr>
+            <th>Libro</th>
+            <th class="cant">C</th>
+            <th class="total">Precio</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+                {{ pedido.libro.titulo }}
+                {% if pedido.lleva_scotch %}<br><small>+ Scotch</small>{% endif %}
+                {% if pedido.lleva_esquineros %}<br><small>+ Esquineros</small>{% endif %}
+            </td>
+            <td class="cant">{{ pedido.cantidad }}</td>
+            <td class="total">
+                ${{ pedido.precio_venta|add:pedido.descuento_aplicado|floatformat:0 }}
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="separador"></div>
+
+<!-- TOTALES CON DESCUENTO -->
+<div class="totales">
+    {% if pedido.descuento_aplicado > 0 %}
+    <div class="fila" style="color: #27ae60;">
+        <span>Descuento:</span>
+        <span>-${{ pedido.descuento_aplicado|floatformat:0 }}</span>
     </div>
-
-    <!-- DATOS DEL CLIENTE Y PEDIDO -->
-    <div style="display: flex; justify-content: space-between; font-size: 5pt; line-height: 1.1; margin-bottom: 1mm; border-bottom: 0.2mm solid #ccc; padding-bottom: 1mm;">
-        <div style="width: 60%; word-wrap: break-word;">
-            <strong>CLIENTE</strong><br>
-            {% if pedido.cliente %}
-                {{ pedido.cliente.nombre }}<br>
-                Tel: {{ pedido.cliente.telefono|default:"—" }}<br>
-                Dir: {{ pedido.direccion_entrega|default:pedido.cliente.direccion|default:"—" }}
-            {% else %}
-                <strong>Venta de Stock</strong><br>
-                Tel: {{ pedido.telefono_entrega|default:"—" }}<br>
-                Dir: {{ pedido.direccion_entrega|default:"En el taller" }}
-            {% endif %}
-        </div>
-        <div style="width: 35%; text-align: right;">
-            <strong>PEDIDO</strong><br>
-            Fecha: {{ pedido.fecha_pedido|date:"d/m/Y" }}<br>
-            Entrega: {{ pedido.fecha_entrega_prometida|date:"d/m/Y"|default:"—" }}
-        </div>
+    <div class="fila" style="border-top: 1px dashed #000; padding-top: 1mm; margin-top: 1mm;">
+        <span>Subtotal:</span>
+        <span>${{ pedido.precio_venta|floatformat:0 }}</span>
     </div>
-
-    <!-- TABLA DEL LIBRO (Mini) -->
-    <table class="etq-tabla" style="font-size: 4.5pt; margin-bottom: 1mm; width: 100%;">
-        <thead>
-            <tr>
-                <th style="width: 65%;">Libro</th>
-                <th class="center" style="width: 10%;">C</th>
-                <th class="right" style="width: 25%;">Precio</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td style="word-wrap: break-word;">
-                    {{ pedido.libro.titulo }}
-                    {% if pedido.lleva_scotch %}<br><small style="font-size: 4pt; color: #666;">+ Scotch</small>{% endif %}
-                    {% if pedido.lleva_esquineros %}<br><small style="font-size: 4pt; color: #666;">+ Esquineros</small>{% endif %}
-                </td>
-                <td class="center">{{ pedido.cantidad }}</td>
-                <td class="right">
-                    ${{ pedido.precio_venta|add:pedido.descuento_aplicado|floatformat:0 }}
-                </td>
-            </tr>
-        </tbody>
-    </table>
-
-    <!-- TOTALES -->
-    <div class="etq-totales" style="font-size: 4.5pt; margin-top: auto;">
-        
-        {% if pedido.descuento_aplicado > 0 %}
-        <div class="fila" style="color: #27ae60;">
-            <span>Descuento:</span>
-            <span>-${{ pedido.descuento_aplicado|floatformat:0 }}</span>
-        </div>
-        <div class="fila" style="border-top: 0.1mm dashed #ccc; padding-top: 0.2mm; margin-top: 0.2mm;">
-            <span>Subtotal:</span>
-            <span>${{ pedido.precio_venta|floatformat:0 }}</span>
-        </div>
-        {% else %}
-        <div class="fila">
-            <span>Total:</span>
-            <span>${{ pedido.precio_venta|floatformat:0 }}</span>
-        </div>
-        {% endif %}
-
-        <div class="fila">
-            <span>Anticipo:</span>
-            <span>-${{ pedido.anticipo_recibido|floatformat:0 }}</span>
-        </div>
-        <div class="fila total-final" style="color: #c0392b; font-size: 6pt; border-top: 0.2mm solid #ccc; padding-top: 0.5mm; margin-top: 0.5mm;">
-            <span>SALDO A PAGAR:</span>
-            <span>${{ pedido.saldo_pendiente|floatformat:2 }}</span>
-        </div>
+    {% else %}
+    <div class="fila">
+        <span>Total:</span>
+        <span>${{ pedido.precio_venta|floatformat:0 }}</span>
     </div>
-
+    {% endif %}
+    
+    <div class="fila">
+        <span>Anticipo:</span>
+        <span>-${{ pedido.anticipo_recibido|floatformat:0 }}</span>
+    </div>
+    
+    <div class="fila total-final">
+        <span>SALDO A PAGAR:</span>
+        <span>${{ pedido.saldo_pendiente|floatformat:2 }}</span>
+    </div>
 </div>
+
+<div class="separador"></div>
+
+<p class="nota">Presente este comprobante al recoger su pedido.</p>
+
 {% endblock %}
