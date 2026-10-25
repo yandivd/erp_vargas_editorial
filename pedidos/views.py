@@ -323,9 +323,6 @@ def registrar_anticipo(request, pk):
     return redirect('pedidos:detalle', pk=pk)
 
 
-# ============================================================
-# NUEVO PEDIDO (MODAL)
-# ============================================================
 def nuevo_pedido_modal(request):
     if request.method != 'POST':
         return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
@@ -370,7 +367,11 @@ def nuevo_pedido_modal(request):
                             'ok': False,
                             'errors': {'codigo_descuento': ['El código no aplica a este libro.']}
                         })
-                    descuento = form.cleaned_data['precio_venta'] * (cod_obj.porcentaje / Decimal('100'))
+                    
+                    # Recuperar el descuento que envió el JavaScript
+                    descuento_enviado = Decimal(request.POST.get('descuento_aplicado', 0))
+                    descuento = descuento_enviado
+
                 except CodigoDescuento.DoesNotExist:
                     return JsonResponse({
                         'ok': False,

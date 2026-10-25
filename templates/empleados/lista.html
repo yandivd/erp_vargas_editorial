@@ -2,13 +2,14 @@
 {% block title %}Nómina - ERP Libros{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
+<!-- Cabecera responsive -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
     <h2 class="mb-0"><i class="bi bi-people-fill"></i> Nómina y Salarios</h2>
-    <div>
-        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEmpleado">
+    <div class="d-flex flex-column flex-sm-row gap-2">
+        <button class="btn btn-outline-primary w-100 w-sm-auto" data-bs-toggle="modal" data-bs-target="#modalEmpleado">
             <i class="bi bi-person-plus"></i> Nuevo Empleado
         </button>
-        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalPago">
+        <button class="btn btn-success w-100 w-sm-auto" data-bs-toggle="modal" data-bs-target="#modalPago">
             <i class="bi bi-cash-coin"></i> Pagar Salario
         </button>
     </div>
@@ -17,125 +18,135 @@
 <!-- Tarjeta de Termómetro Financiero -->
 <div class="card card-kpi p-4 mb-4 border-start border-success border-4 bg-light">
     <div class="row align-items-center">
-        <div class="col-md-8">
-            <h5><i class="bi bi-piggy-bank"></i> ¿Cuánto puedo retirar como Dueño?</h5>
+        <div class="col-12 col-md-8">
+            <h5 class="mb-2"><i class="bi bi-piggy-bank"></i> ¿Cuánto puedo retirar como Dueño?</h5>
             <p class="text-muted mb-2 small">
                 Este cálculo descuenta las deudas con proveedores, un fondo de reserva de ${{ utilidad.fondo_reserva }} y un margen de seguridad del 50%.
             </p>
             <ul class="list-inline mb-0 small text-muted">
-                <li class="list-inline-item">Saldo en Caja: <strong>${{ utilidad.saldo_caja|floatformat:2 }}</strong></li>
-                <li class="list-inline-item">Deudas/Comprometido: <strong>-${{ utilidad.comprometido|floatformat:2 }}</strong></li>
-                <li class="list-inline-item">Fondo Reserva: <strong>-${{ utilidad.fondo_reserva|floatformat:2 }}</strong></li>
+                <li class="list-inline-item d-block d-sm-inline">Saldo en Caja: <strong>${{ utilidad.saldo_caja|floatformat:2 }}</strong></li>
+                <li class="list-inline-item d-block d-sm-inline">Deudas/Comprometido: <strong>-${{ utilidad.comprometido|floatformat:2 }}</strong></li>
+                <li class="list-inline-item d-block d-sm-inline">Fondo Reserva: <strong>-${{ utilidad.fondo_reserva|floatformat:2 }}</strong></li>
             </ul>
         </div>
-        <div class="col-md-4 text-center border-start">
+        <div class="col-12 col-md-4 text-center border-top border-md-start border-md-top-0 mt-3 mt-md-0 pt-3 pt-md-0">
             <small class="text-muted d-block">Sugerencia de Retiro Seguro</small>
             <h2 class="text-success fw-bold mb-0">${{ utilidad.retiro_sugerido|floatformat:2 }}</h2>
             <small class="text-muted">{{ utilidad.mensaje }}</small>
         </div>
     </div>
 </div>
+
 <div class="row g-3">
-    <div class="col-md-5">
+    <!-- Plantilla de Empleados -->
+    <div class="col-12 col-md-5">
         <div class="card card-kpi p-3 h-100">
-            <h5>Plantilla de Empleados</h5>
-            <table class="table table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Salario</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for e in empleados %}
-                    <tr>
-                        <td>
-                            <strong>{{ e.nombre }}</strong><br>
-                            <small class="text-muted">{{ e.get_cargo_display }}</small>
-                        </td>
-                        <td class="text-end fw-bold">${{ e.salario_base|floatformat:2 }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="2" class="text-center text-muted">No hay empleados registrados.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <h5 class="border-bottom pb-2 mb-3">Plantilla de Empleados</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nombre</th>
+                            <th class="text-end d-none d-sm-table-cell">Salario</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in empleados %}
+                        <tr>
+                            <td>
+                                <strong>{{ e.nombre }}</strong><br>
+                                <small class="text-muted">{{ e.get_cargo_display }}</small>
+                            </td>
+                            <td class="text-end fw-bold d-none d-sm-table-cell">${{ e.salario_base|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="2" class="text-center text-muted">No hay empleados registrados.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
     
-    <div class="col-md-7">
+    <!-- Historial de Pagos -->
+    <div class="col-12 col-md-7">
         <div class="card card-kpi p-3 h-100">
-            <h5>Historial de Pagos Recientes</h5>
-            <table class="table table-sm table-hover">
-                <thead class="table-light">
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Empleado</th>
-                        <th>Concepto</th>
-                        <th>Notas</th>
-                        <th class="text-end">Monto</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in pagos %}
-                    <tr>
-                        <td>{{ p.fecha|date:"d/m/Y" }}</td>
-                        <td>{{ p.empleado.nombre }}</td>
-                        <td>
-                            {% if p.tipo == 'SALARIO' %}
-                                <span class="badge bg-secondary">Salario</span>
-                            {% else %}
-                                <span class="badge bg-warning text-dark">Utilidades</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ p.mes_correspondiente }}</td>
-                        <td class="text-end text-danger">-${{ p.monto_pagado|floatformat:2 }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4" class="text-center text-muted">No hay pagos registrados.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <h5 class="border-bottom pb-2 mb-3">Historial de Pagos Recientes</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Empleado</th>
+                            <th class="d-none d-md-table-cell">Concepto</th>
+                            <th class="text-end">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in pagos %}
+                        <tr>
+                            <td><small>{{ p.fecha|date:"d/m/Y" }}</small></td>
+                            <td>
+                                {{ p.empleado.nombre }}
+                                <br><small class="text-muted d-md-none">{{ p.get_tipo_pago_display }} · {{ p.mes_correspondiente }}</small>
+                            </td>
+                            <td class="d-none d-md-table-cell">
+                                {% if p.tipo == 'SALARIO' %}
+                                    <span class="badge bg-secondary">Salario</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">Utilidades</span>
+                                {% endif %}
+                                <br><small class="text-muted">{{ p.mes_correspondiente }}</small>
+                            </td>
+                            <td class="text-end text-danger fw-bold">-${{ p.monto_pagado|floatformat:2 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center text-muted">No hay pagos registrados.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Modal Nuevo Empleado -->
 <div class="modal fade" id="modalEmpleado" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <form method="post" action="{% url 'empleados:registrar' %}">
             {% csrf_token %}
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Registrar Empleado</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-person-plus"></i> Registrar Empleado</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label class="form-label">Nombre Completo *</label>
-                        <input type="text" name="nombre" class="form-control" required>
+                        <label class="form-label fw-bold small">Nombre Completo *</label>
+                        <input type="text" name="nombre" class="form-control form-control-lg" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Cargo *</label>
-                        <select name="cargo" class="form-select" required>
+                        <label class="form-label fw-bold small">Cargo *</label>
+                        <select name="cargo" class="form-select form-select-lg" required>
                             <option value="GERENTE">Gerente / Dueño</option>
                             <option value="OPERARIO">Operario de Taller</option>
                             <option value="AYUDANTE">Ayudante</option>
                         </select>
                     </div>
                     <div class="row g-2">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Teléfono</label>
+                        <div class="col-12 col-sm-6 mb-3">
+                            <label class="form-label fw-bold small">Teléfono</label>
                             <input type="text" name="telefono" class="form-control">
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Salario Base ($) *</label>
+                        <div class="col-12 col-sm-6 mb-3">
+                            <label class="form-label fw-bold small">Salario Base ($) *</label>
                             <input type="number" name="salario_base" class="form-control" step="0.01" required>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Guardar</button>
+                <div class="modal-footer bg-light d-flex flex-column flex-sm-row gap-2">
+                    <button type="button" class="btn btn-outline-secondary w-100 w-sm-auto" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary w-100 w-sm-auto">Guardar Empleado</button>
                 </div>
             </div>
         </form>
@@ -144,47 +155,50 @@
 
 <!-- Modal Pagar Salario -->
 <div class="modal fade" id="modalPago" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <form method="post" action="{% url 'empleados:pagar' %}">
             {% csrf_token %}
-            <div class="modal-content">
+            <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title"><i class="bi bi-cash-coin"></i> Registrar Pago de Salario</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title"><i class="bi bi-cash-coin"></i> Registrar Pago</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
                     <p class="text-muted small">Al guardar, el monto se restará automáticamente de tu Caja.</p>
+                    
                     <div class="mb-3">
-                        <label class="form-label">Empleado *</label>
-                        <select name="empleado_id" class="form-select" required>
+                        <label class="form-label fw-bold small">Empleado *</label>
+                        <select name="empleado_id" class="form-select form-select-lg" required>
                             {% for e in empleados %}
                             <option value="{{ e.id }}">{{ e.nombre }} (Base: ${{ e.salario_base }})</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Mes a Pagar *</label>
-                        <input type="text" name="mes" class="form-control" placeholder="Ej: Octubre 2026" required>
+                    <div class="row g-2">
+                        <div class="col-12 col-sm-6 mb-3">
+                            <label class="form-label fw-bold small">Mes a Pagar *</label>
+                            <input type="text" name="mes" class="form-control" placeholder="Ej: Octubre 2026" required>
+                        </div>
+                        <div class="col-12 col-sm-6 mb-3">
+                            <label class="form-label fw-bold small">Monto ($) *</label>
+                            <input type="number" name="monto" class="form-control" step="0.01" required>
+                        </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Monto a Pagar ($) *</label>
-                        <input type="number" name="monto" class="form-control" step="0.01" required>
-                        <small class="text-muted">Puedes ajustar el monto si hay descuentos o bonos.</small>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Tipo de Pago *</label>
+                        <label class="form-label fw-bold small">Tipo de Pago *</label>
                         <select name="tipo_pago" class="form-select" required>
                             <option value="SALARIO">Salario Fijo (Afecta Ganancia)</option>
                             <option value="UTILIDADES">Retiro de Utilidades (No afecta Ganancia)</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Notas (Opcional)</label>
+                        <label class="form-label fw-bold small">Notas (Opcional)</label>
                         <textarea name="notas" class="form-control" rows="2" placeholder="Ej: Incluye bono por entrega"></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-success">Pagar y descontar de Caja</button>
+                <div class="modal-footer bg-light d-flex flex-column flex-sm-row gap-2">
+                    <button type="button" class="btn btn-outline-secondary w-100 w-sm-auto" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success w-100 w-sm-auto">Pagar y descontar</button>
                 </div>
             </div>
         </form>
