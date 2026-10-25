@@ -123,7 +123,7 @@ def _obtener_pedidos_filtrados(request, solo_entregados=False):
         ).order_by('-fecha_entrega_real', '-fecha_pedido')
     else:
         pedidos_list = Pedido.objects.select_related('cliente', 'libro', 'estado').exclude(
-            estado__nombre__in=['Entregado', 'Cancelado']
+            estado__nombre__in=['Entregado', 'Cancelado', 'En Stock']  # <-- AÑADIDO 'En Stock'
         ).order_by('-fecha_pedido')
 
     busqueda = request.GET.get('q', '').strip()
@@ -1072,3 +1072,24 @@ def imprimir_entrega_carta(request, pk):
         'pedidos': pedidos,
         'total_descuento': total_descuento
     })
+
+def lista_tienda(request):
+    """Muestra los libros de stock que están listos para vender."""
+    libros_stock = Pedido.objects.filter(
+        estado__nombre='En Stock',
+        cliente__isnull=True  # Solo los que no tienen cliente
+    ).select_related('libro', 'estado').order_by('-fecha_pedido')
+
+    return render(request, 'pedidos/lista_tienda.html', {
+        'libros': libros_stock,
+        'total_libros': libros_stock.count(),
+    })
+
+def cerrar_lote_manual(request, pk):
+    lote = get_object_or_404(LoteServicio, pk=pk)
+    if lote.estado == 'ABIERTO':
+        lote.estado = 'CERRADO'
+        lote.fecha_cierre = timezone.now()
+        lote.save()
+        messages.success(request, f'Lote {lote.numero} cerrado manualmente.')
+    return redirect('pedidos:detalle_lote', pk=pk)

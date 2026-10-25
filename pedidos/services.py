@@ -4,6 +4,8 @@ from core.models import Parametro
 from inventario.models import Material
 from .models import HistorialEstado, LoteServicio, ServicioExterno, Estado
 from proveedores.models import Proveedor
+from datetime import timedelta
+from django.utils import timezone
 
 
 # ============================================================
@@ -163,14 +165,19 @@ class ServicioPedido:
 
     @staticmethod
     def _obtener_o_crear_lote(proveedor, tipo):
-        """Devuelve el lote ABIERTO del proveedor+tipo, o crea uno nuevo."""
+        """Devuelve el lote ABIERTO del proveedor+tipo creado en las últimas 2 horas, o crea uno nuevo."""
+        hace_dos_horas = timezone.now() - timedelta(hours=2)
+        
+        # Buscamos un lote abierto que se haya creado recientemente
         lote = LoteServicio.objects.filter(
             proveedor=proveedor,
             tipo=tipo,
-            estado='ABIERTO'
+            estado='ABIERTO',
+            fecha_apertura__gte=hace_dos_horas  # <-- La clave está aquí
         ).order_by('-fecha_apertura').first()
-
+        
         if not lote:
+            # Si no hay ninguno reciente, creamos uno nuevo
             lote = LoteServicio.objects.create(
                 proveedor=proveedor,
                 tipo=tipo
