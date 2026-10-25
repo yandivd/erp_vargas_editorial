@@ -10,4 +10,5 @@ urlpatterns = [
     path('<int:pk>/ajuste/', views.registrar_ajuste, name='ajuste'),
     path('lote/<int:lote_id>/abrir/', views.abrir_lote, name='abrir_lote'),
     path('material/<int:pk>/salida/', views.registrar_salida_material, name='registrar_salida'),
+    path('movimiento/<int:pk>/imprimir/', views.imprimir_movimiento, name='imprimir_movimiento'),
 ]

@@ -914,9 +914,17 @@ def codigos_vigentes(request):
 # ENTREGAS
 # ============================================================
 def lista_entregas(request):
-    """Lista todas las entregas."""
-    entregas = Entrega.objects.select_related('cliente').prefetch_related('pedidos').order_by('-fecha_creacion')
-    return render(request, 'pedidos/lista_entregas.html', {'entregas': entregas})
+    tab = request.GET.get('tab', 'pendientes')
+    
+    if tab == 'pendientes':
+        entregas = Entrega.objects.filter(entregado=False).select_related('cliente').prefetch_related('pedidos').order_by('-fecha_creacion')
+    else:
+        entregas = Entrega.objects.filter(entregado=True).select_related('cliente').prefetch_related('pedidos').order_by('-fecha_creacion')
+    
+    return render(request, 'pedidos/lista_entregas.html', {
+        'entregas': entregas,
+        'tab': tab,
+    })
 
 
 def crear_entrega(request):
