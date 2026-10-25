@@ -237,6 +237,9 @@
             <a href="{% url 'pedidos:lista' %}" class="sidebar-link {% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'lista' %}active{% endif %}">
                 <i class="bi bi-journal-text"></i> Pedidos (Taller)
             </a>
+            <a href="{% url 'pedidos:lista_tienda' %}" class="sidebar-link {% if request.resolver_match.url_name == 'lista_tienda' %}active{% endif %}">
+                <i class="bi bi-shop"></i> Tienda
+            </a>
             <a href="{% url 'pedidos:lista_entregas' %}" class="sidebar-link {% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'lista_entregas' %}active{% endif %}">
                 <i class="bi bi-truck"></i> Entregas
             </a>

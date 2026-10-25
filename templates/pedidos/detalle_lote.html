@@ -10,6 +10,12 @@
         <a href="{% url 'pedidos:orden_lote_pdf' lote.id %}" target="_blank" class="btn btn-outline-danger">
             <i class="bi bi-file-earmark-pdf"></i> Generar Orden PDF
         </a>
+        <!-- BOTÓN PARA CERRAR EL LOTE (Solo se muestra si está ABIERTO) -->
+        {% if lote.estado == 'ABIERTO' %}
+        <a href="{% url 'pedidos:cerrar_lote_manual' lote.id %}" class="btn btn-warning">
+            <i class="bi bi-lock"></i> Cerrar Lote
+        </a>
+        {% endif %}
         <span class="badge bg-info fs-6 align-self-center">{{ lote.get_estado_display }}</span>
     </div>
 </div>

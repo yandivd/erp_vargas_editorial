@@ -41,4 +41,5 @@ urlpatterns = [
     path('entregas/crear/', views.crear_entrega, name='crear_entrega'),
     path('entregas/<int:pk>/', views.detalle_entrega, name='detalle_entrega'),
     path('entregas/<int:pk>/imprimir/', views.imprimir_entrega, name='imprimir_entrega'),
+    path('tienda/', views.lista_tienda, name='lista_tienda'),
 ]
