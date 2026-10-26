@@ -17,6 +17,7 @@ urlpatterns = [
     path('entregados/ajax/', views.lista_entregados_ajax, name='lista_entregados_ajax'),
     path('libros/ajax/', views.lista_libros_ajax, name='lista_libros_ajax'),
     path('lotes/', views.lista_lotes, name='lista_lotes'),
+    path('lotes/<int:pk>/cerrar-manual/', views.cerrar_lote_manual, name='cerrar_lote_manual'),
     path('lotes/<int:pk>/', views.detalle_lote, name='detalle_lote'),
     path('lotes/<int:pk>/cerrar/', views.cerrar_lote, name='cerrar_lote'),
     path('lotes/<int:pk>/pagar/', views.pagar_lote, name='pagar_lote'),
