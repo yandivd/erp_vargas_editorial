@@ -54,7 +54,8 @@ INSTALLED_APPS = [
     'finanzas',
     'empleados',
     'compras',
-    'pwa'
+    'pwa',
+    'rest_framework'
 ]
 
 MIDDLEWARE = [

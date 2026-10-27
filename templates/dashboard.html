@@ -178,8 +178,15 @@
             </button>
         </form>
 
+        <!-- BOTÓN DE EXPORTAR PARA IA (AGREGADO AQUÍ) -->
+        <a href="{% url 'exportar_datos_ia' %}?desde={{ desde }}&hasta={{ hasta }}" 
+           class="btn btn-dark btn-sm w-100 w-sm-auto" 
+           title="Descargar JSON con toda la información para analizar con IA">
+            <i class="bi bi-robot"></i> Exportar para IA
+        </a>
+
         {% if desde and hasta %}
-            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm w-100 w-sm-auto">
                 <i class="bi bi-x-circle"></i> Ver Todo
             </a>
         {% endif %}
