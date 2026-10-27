@@ -1,0 +1,9 @@
+{
+  "appId": "com.erp_libros",
+  "appName": "erp_libros",
+  "webDir": "www",
+  "server": {
+    "url": "https://vargaserp.pythonanywhere.com",
+    "cleartext": true
+  }
+}
