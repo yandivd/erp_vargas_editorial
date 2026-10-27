@@ -1,6 +1,12 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.contrib.auth import views as auth_views
+from rest_framework import routers
+from pedidos.api import PedidoViewSet
+
+# 1. INSTANCIAR EL ROUTER (Te faltaba esto)
+router = routers.DefaultRouter()
+router.register(r'pedidos', PedidoViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -20,4 +26,7 @@ urlpatterns = [
     path('proveedores/', include('proveedores.urls')),
     path('empleados/', include('empleados.urls')),
     path('compras/', include('compras.urls')),
+    
+    # 2. API
+    path('api/', include(router.urls)),
 ]
