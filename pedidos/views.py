@@ -1093,3 +1093,45 @@ def cerrar_lote_manual(request, pk):
         lote.save()
         messages.success(request, f'Lote {lote.numero} cerrado manualmente.')
     return redirect('pedidos:detalle_lote', pk=pk)
+
+
+# pedidos/views.py (añade esto al final)
+
+def api_lista_pedidos(request):
+    """API para devolver pedidos en JSON (lista y paginación)."""
+    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=False).order_by('referencia_externa')
+    paginator = Paginator(pedidos_list, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    data = []
+    for p in page_obj:
+        data.append({
+            'id': p.id,
+            'referencia_externa': p.referencia_externa,
+            'libro_titulo': p.libro.titulo,
+            'libro_paginas': p.libro.paginas,
+            'cliente_nombre': p.cliente.nombre if p.cliente else '[ Stock ]',
+            'cliente_telefono': p.telefono_entrega or (p.cliente.telefono if p.cliente else '—'),
+            'direccion_completa': p.direccion_completa,
+            'fecha_pedido': p.fecha_pedido.strftime('%d/%m/%Y'),
+            'fecha_entrega_prometida': p.fecha_entrega_prometida.strftime('%d/%m/%Y') if p.fecha_entrega_prometida else None,
+            'precio_venta': float(p.precio_venta),
+            'saldo_pendiente': float(p.saldo_pendiente),
+            'estado_id': p.estado.id,
+            'estado_nombre': p.estado.nombre,
+            'estado_color': p.estado.color,
+            'esta_atrasado': p.esta_atrasado,
+        })
+
+    return JsonResponse({
+        'pedidos': data,
+        'paginacion': {
+            'total': paginator.count,
+            'pagina_actual': page_obj.number,
+            'total_paginas': paginator.num_pages,
+            'tiene_siguiente': page_obj.has_next(),
+            'tiene_anterior': page_obj.has_previous(),
+            'siguiente_pagina': page_obj.next_page_number() if page_obj.has_next() else None,
+            'anterior_pagina': page_obj.previous_page_number() if page_obj.has_previous() else None,
+        }
+    })

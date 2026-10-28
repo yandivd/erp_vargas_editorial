@@ -10,10 +10,8 @@
     /* Solución para que el modal tenga scroll interno y el footer siempre visible */
     #modalNuevoPedido .modal-body {
         overflow-y: auto;
-        max-height: calc(100vh - 200px); /* Ajusta según el tamaño de tu header/footer */
+        max-height: calc(100vh - 200px);
     }
-    
-    /* En pantallas pequeñas, ajustamos un poco más */
     @media (max-width: 767.98px) {
         #modalNuevoPedido .modal-body {
             max-height: calc(100vh - 160px);
@@ -337,6 +335,117 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ==========================================
+    // RENDERIZADO DE TABLA DESDE JSON
+    // ==========================================
+    function renderizarTabla(data) {
+        const tbody = document.getElementById('tabla-pedidos-body');
+        const paginacion = document.getElementById('paginacion-pedidos');
+        tbody.innerHTML = '';
+
+        if (data.pedidos.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-5">
+                <i class="bi bi-inbox fs-1 d-block mb-2"></i> No se encontraron pedidos.
+            </td></tr>`;
+            paginacion.classList.add('d-none');
+            return;
+        }
+
+        data.pedidos.forEach(p => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input type="checkbox" class="form-check-input check-pedido" value="${p.id}"></td>
+                <td>${p.referencia_externa ? `<span class="badge bg-secondary">${p.referencia_externa}</span>` : `<span class="text-muted small">#${p.id}</span>`}</td>
+                <td>
+                    <strong>${p.libro_titulo}</strong><br>
+                    <small class="text-muted d-block">${p.libro_paginas} pág.</small>
+                    <div class="mt-1 small">
+                        <i class="bi bi-person text-muted"></i>
+                        <strong>${p.cliente_nombre}</strong>
+                        <span class="text-muted d-none d-sm-inline">· ${p.cliente_telefono}</span>
+                    </div>
+                    <div class="text-muted small d-none d-md-block">
+                        <i class="bi bi-geo-alt"></i> ${p.direccion_completa}
+                    </div>
+                </td>
+                <td class="d-none d-md-table-cell">
+                    <small class="text-muted d-block">Pedido: ${p.fecha_pedido}</small>
+                    ${p.fecha_entrega_prometida ? `<span class="badge bg-light text-dark border"><i class="bi bi-truck"></i> ${p.fecha_entrega_prometida}</span>` : ''}
+                </td>
+                <td class="fw-bold d-none d-sm-table-cell">$${p.precio_venta.toFixed(0)}</td>
+                <td>
+                    ${p.saldo_pendiente > 0 ? `<span class="text-danger fw-bold">$${p.saldo_pendiente.toFixed(0)}</span>` : `<span class="badge bg-success">Pagado</span>`}
+                </td>
+                <td>
+                    <span class="badge" style="background-color: ${p.estado_color}; color: white;">${p.estado_nombre}</span>
+                    ${p.esta_atrasado ? `<br><span class="badge bg-danger mt-1"><i class="bi bi-exclamation-triangle"></i> Atrasado</span>` : ''}
+                </td>
+                <td class="text-end">
+                    <a href="/pedidos/${p.id}/" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if (data.paginacion.total_paginas > 1) {
+            paginacion.classList.remove('d-none');
+            paginacion.innerHTML = `
+                <small class="text-muted">Mostrando ${data.paginacion.pagina_actual} de ${data.paginacion.total_paginas} páginas (Total: ${data.paginacion.total})</small>
+                <ul class="pagination pagination-sm mb-0" id="paginacion-ajax">
+                    ${data.paginacion.tiene_anterior ? `<li class="page-item"><a class="page-link" href="#" data-page="${data.paginacion.anterior_pagina}">Anterior</a></li>` : ''}
+                    ${data.paginacion.tiene_siguiente ? `<li class="page-item"><a class="page-link" href="#" data-page="${data.paginacion.siguiente_pagina}">Siguiente</a></li>` : ''}
+                </ul>
+            `;
+            engancharPaginacion();
+        } else {
+            paginacion.classList.add('d-none');
+        }
+    }
+
+    // ==========================================
+    // FUNCIÓN PARA ACTUALIZAR TABLA (API)
+    // ==========================================
+    function actualizarTabla(page = null) {
+        const formFiltros = document.getElementById('formFiltros');
+        if (!formFiltros) return;
+        
+        const formData = new FormData(formFiltros);
+        if (page) formData.set('page', page);
+        const params = new URLSearchParams(formData).toString();
+
+        // Añadimos un pequeño efecto de carga
+        const contenedor = document.getElementById('contenedor-tabla');
+        contenedor.style.opacity = '0.5';
+
+        fetch(`{% url 'pedidos:api_lista_pedidos' %}?${params}`)
+            .then(r => r.json())
+            .then(data => {
+                renderizarTabla(data);
+                sincronizarCheckboxes();
+                contenedor.style.opacity = '1';
+            })
+            .catch(err => {
+                console.error(err);
+                contenedor.style.opacity = '1';
+            });
+    }
+
+    // ==========================================
+    // PAGINACIÓN DINÁMICA
+    // ==========================================
+    function engancharPaginacion() {
+        const paginacion = document.getElementById('paginacion-ajax');
+        if (!paginacion) return;
+        
+        paginacion.querySelectorAll('a.page-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const page = this.getAttribute('data-page');
+                if (page) actualizarTabla(page);
+            });
+        });
+    }
+
+    // ==========================================
     // CÁLCULO DE COSTO (MODAL)
     // ==========================================
     function actualizarCosto() {
@@ -352,7 +461,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const anticipoBase = opcionSeleccionada.getAttribute('data-anticipo');
             
             if (precioInput) precioInput.value = precioBase;
-            // Solo sobrescribir el anticipo si el usuario no lo ha editado
             if (anticipoInput && !anticipoEditado) {
                 anticipoInput.value = anticipoBase;
             }
@@ -532,7 +640,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (paginasInput) paginasInput.addEventListener('input', actualizarCosto);
         if (precioInput) precioInput.addEventListener('input', actualizarCosto);
         
-        // El anticipo solo marca el flag, no dispara actualizarCosto
         if (anticipoInput) {
             anticipoInput.addEventListener('input', () => {
                 anticipoEditado = true;
@@ -614,67 +721,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ==========================================
-    // 2. LÓGICA DE FILTROS AJAX
+    // 2. LÓGICA DE FILTROS (Llama a actualizarTabla)
     // ==========================================
     const formFiltros = document.getElementById('formFiltros');
-    const contenedor = document.getElementById('contenedor-tabla');
-
-    function engancharPaginacion() {
-        const paginacion = document.getElementById('paginacion-ajax');
-        if (!paginacion) return;
-        
-        paginacion.querySelectorAll('a.page-link').forEach(link => {
-            link.replaceWith(link.cloneNode(true));
-        });
-        
-        const paginacionNueva = document.getElementById('paginacion-ajax');
-        if (!paginacionNueva) return;
-        
-        paginacionNueva.querySelectorAll('a.page-link').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                const page = this.getAttribute('data-page');
-                if (!page) return;
-                
-                const formData = new FormData(formFiltros);
-                formData.set('page', page);
-                const params = new URLSearchParams(formData).toString();
-                
-                contenedor.style.opacity = '0.5';
-                fetch(`{% url 'pedidos:lista_ajax' %}?${params}`)
-                    .then(r => r.json())
-                    .then(data => {
-                        contenedor.innerHTML = data.html;
-                        contenedor.style.opacity = '1';
-                        engancharPaginacion();
-                        sincronizarCheckboxes();
-                    });
-            });
-        });
-    }
-
-    function actualizarTabla(page = null) {
-        if (!formFiltros || !contenedor) return;
-        contenedor.style.opacity = '0.5';
-        const formData = new FormData(formFiltros);
-        if (page) formData.set('page', page);
-        const params = new URLSearchParams(formData).toString();
-        
-        fetch(`{% url 'pedidos:lista_ajax' %}?${params}`)
-            .then(response => response.json())
-            .then(data => {
-                contenedor.innerHTML = data.html;
-                contenedor.style.opacity = '1';
-                engancharPaginacion();
-                sincronizarCheckboxes();
-            })
-            .catch(err => {
-                console.error(err);
-                contenedor.style.opacity = '1';
-            });
-    }
-
-    if (formFiltros && contenedor) {
+    if (formFiltros) {
         const searchInput = formFiltros.querySelector('input[type="text"]');
 
         formFiltros.querySelectorAll('select, input[type="date"]').forEach(el => {
@@ -695,7 +745,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
         }
-        engancharPaginacion();
     }
 
     // ==========================================
@@ -927,6 +976,9 @@ document.addEventListener('DOMContentLoaded', function () {
             );
         });
     }
+
+    // Llamar a actualizarTabla al cargar la página
+    actualizarTabla();
 });
 </script>
 {% endblock %}

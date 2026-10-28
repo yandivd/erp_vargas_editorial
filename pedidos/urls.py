@@ -43,4 +43,7 @@ urlpatterns = [
     path('entregas/<int:pk>/', views.detalle_entrega, name='detalle_entrega'),
     path('entregas/<int:pk>/imprimir/', views.imprimir_entrega, name='imprimir_entrega'),
     path('tienda/', views.lista_tienda, name='lista_tienda'),
-]
+
+    #### #APIS# ####
+    path('api/lista/', views.api_lista_pedidos, name='api_lista_pedidos'),
+]   
