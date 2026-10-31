@@ -8,7 +8,9 @@
 
     <!-- CABECERA -->
     <div class="etq-header">
-        <img src="{% static 'img/logo.png' %}?v=3" alt="Logo" class="etq-logo">
+        <!-- Quitamos el ?v=3 y el estilo en línea -->
+        <img src="{% static 'img/logo.png' %}" alt="Logo" class="etq-logo">
+        
         <p class="etq-empresa">VARGAS EDITORIAL</p>
         <p class="etq-sub">TEL: +53 54545068</p>
         <p class="etq-sub" style="color: #c0392b;">COMPROBANTE DE ENTREGA</p>
@@ -27,7 +29,6 @@
             <thead>
                 <tr>
                     <th style="width: 15%; text-align: left;">REF</th>
-                    <!-- AQUÍ CENTRAMOS "LIBRO" -->
                     <th class="center" style="width: 60%;">LIBRO</th>
                     <th class="right" style="width: 25%;">SALDO</th>
                 </tr>
@@ -36,7 +37,6 @@
                 {% for p in pedidos %}
                 <tr>
                     <td style="text-align: left;">{{ p.referencia_externa|default:p.id }}</td>
-                    <!-- AQUÍ CENTRAMOS EL CONTENIDO Y QUITAMOS EL TRUNCATE -->
                     <td class="center">{{ p.libro.titulo }}</td>
                     <td class="right">${{ p.saldo_pendiente|floatformat:0 }}</td>
                 </tr>
