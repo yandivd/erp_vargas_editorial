@@ -17,12 +17,12 @@
             print-color-adjust: exact !important;
         }
 
-        /* Fuente monoespaciada, todo en mayúsculas y GIGANTE */
+        /* Fuente monoespaciada para todos los textos */
         body {
             font-family: 'Consolas', 'Courier New', monospace; 
-            font-weight: bold; /* Todo en negrita para que resalte */
+            font-weight: bold;
             text-transform: uppercase; 
-            font-size: 26px; /* Tamaño base gigante */
+            font-size: 22px; /* Este es el tamaño base para todos los textos */
             color: #000;
             background: #ffffff; 
             margin: 0 !important; 
@@ -45,7 +45,7 @@
             flex-direction: column;
         }
 
-        /* Cabecera */
+        /* Cabecera de la empresa */
         .etq-header {
             text-align: center;
             border-bottom: 4px dashed #000;
@@ -54,21 +54,21 @@
         }
 
         .etq-empresa {
-            font-size: 36px; /* Enorme */
+            font-size: 28px; /* Un poco más grande para el nombre de la editorial */
             font-weight: 900;
             margin: 0;
             line-height: 1;
         }
 
         .etq-sub {
-            font-size: 22px; 
+            font-size: 22px; /* Igual al base */
             margin: 4px 0 0 0;
             line-height: 1.1;
         }
 
         /* Cuerpo */
         .etq-cuerpo {
-            font-size: 26px; 
+            font-size: 22px; 
             line-height: 1.2;
         }
 
@@ -78,11 +78,11 @@
             justify-content: space-between;
         }
 
-        /* Tabla mini */
+        /* Tabla */
         .etq-tabla {
             width: 100%;
             border-collapse: collapse;
-            font-size: 24px; 
+            font-size: 22px; /* El mismo tamaño base para las filas */
             margin: 3mm 0;
         }
 
@@ -91,7 +91,8 @@
             border-bottom: 3px solid #000;
             border-top: 3px solid #000;
             padding: 2mm 0;
-            font-size: 22px;
+            font-size: 28px; /* 6px más grande que el texto normal para resaltar */
+            font-weight: 900; /* Extra negrita */
         }
 
         .etq-tabla td {
@@ -104,7 +105,7 @@
 
         /* Totales */
         .etq-totales {
-            font-size: 26px;
+            font-size: 22px;
             border-top: 4px dashed #000;
             padding-top: 3mm;
             margin-top: 3mm;
@@ -118,7 +119,7 @@
 
         .etq-totales .fila.total-final {
             font-weight: 900;
-            font-size: 40px; /* ¡El total es gigante! */
+            font-size: 32px; /* El total final resalta aún más */
             border-top: 3px solid #000;
             padding-top: 3mm;
             margin-top: 3mm;
