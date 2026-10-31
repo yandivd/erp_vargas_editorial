@@ -6,14 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Comprobante{% endblock %}</title>
     <style>
-        /* Reseteo total */
         body, div, p, span, table, th, td {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
-        /* Fuente, negrita y mayúsculas para TODO */
         body {
             font-family: 'Courier New', Courier, monospace; 
             font-weight: bold;
@@ -29,38 +27,40 @@
             padding: 2mm; 
             display: flex;
             flex-direction: column;
-            /* TAMAÑO BASE A 35px */
-            font-size: 35px; 
+            /* TAMAÑO BASE A 24px */
+            font-size: 24px; 
         }
 
         /* Cabecera */
         .etq-header {
             text-align: center;
-            border-bottom: 4px dashed #000;
+            border-bottom: 3px dashed #000;
             padding-bottom: 2mm;
             margin-bottom: 2mm;
         }
 
-        /* LOGO MÁS GRANDE (100px) */
+        /* LOGO MÁS GRANDE */
         .etq-logo {
-            height: 100px; 
-            max-width: 100%;
-            margin-bottom: 8px;
+            height: 120px !important; 
+            width: auto !important; 
+            max-width: none !important; 
+            margin-bottom: 10px;
+            display: inline-block;
         }
 
         /* Empresa un poco más grande que el resto */
         .etq-empresa {
-            font-size: 42px !important; 
+            font-size: 32px !important; 
             font-weight: 900;
         }
 
         .etq-sub {
-            font-size: 32px !important;
+            font-size: 22px !important;
         }
 
         /* Cuerpo */
         .etq-cuerpo p {
-            font-size: 35px !important;
+            font-size: 24px !important;
             margin-bottom: 4px;
             display: block; 
         }
@@ -73,16 +73,16 @@
         }
 
         .etq-tabla th {
-            font-size: 35px !important;
+            font-size: 24px !important;
             text-align: left;
-            border-bottom: 4px solid #000;
-            border-top: 4px solid #000;
-            padding: 2mm 0;
+            border-bottom: 3px solid #000;
+            border-top: 3px solid #000;
+            padding: 1.5mm 0;
         }
 
         .etq-tabla td {
-            font-size: 35px !important;
-            padding: 2mm 0;
+            font-size: 24px !important;
+            padding: 1.5mm 0;
             vertical-align: top;
             word-wrap: break-word; 
         }
@@ -92,13 +92,13 @@
 
         /* Totales */
         .etq-totales {
-            border-top: 4px dashed #000;
+            border-top: 3px dashed #000;
             padding-top: 2mm;
             margin-top: 2mm;
         }
 
         .etq-totales .fila span {
-            font-size: 35px !important;
+            font-size: 24px !important;
             display: inline-block;
         }
 
@@ -110,12 +110,12 @@
 
         /* Total final resaltado */
         .etq-totales .fila.total-final span {
-            font-size: 42px !important; 
+            font-size: 32px !important; 
             font-weight: 900;
         }
 
         .etq-totales .fila.total-final {
-            border-top: 4px solid #000;
+            border-top: 3px solid #000;
             padding-top: 2mm;
             margin-top: 2mm;
         }

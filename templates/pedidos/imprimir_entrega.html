@@ -3,12 +3,10 @@
 
 {% block etiquetas %}
     {% for entrega in entregas %}
-    <!-- Forzamos el tamaño con un estilo en línea -->
-    <div class="etiqueta" style="font-size: 40px !important;">
+    <div class="etiqueta">
         
         <div class="etq-header">
-            <img src="{% static 'img/logo.png' %}" class="etq-logo" alt="Logo">
-            <p class="etq-empresa">VARGAS EDITORIAL</p>
+            <img src="{% static 'img/logo.png' %}?v=2" class="etq-logo" style="height: 120px !important;" alt="Logo">
             <p class="etq-sub">TEL: +53 54545068 | ARTEMISA</p>
         </div>
 
