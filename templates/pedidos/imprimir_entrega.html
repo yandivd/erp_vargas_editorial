@@ -1,55 +1,62 @@
 {% extends 'impresion_carta_pequena.html' %}
+{% load static %} <!-- Asegúrate de cargar static aquí si no lo está -->
 
 {% block etiquetas %}
     {% for entrega in entregas %}
     <div class="etiqueta">
+        
+        <!-- CABECERA (Centrada, con el logo grande) -->
         <div class="etq-header">
             <img src="{% static 'img/logo.png' %}" class="etq-logo" alt="Logo">
-            <p class="etq-empresa">Vargas Editorial</p>
-            <p class="etq-sub">Artemisa, Cuba</p>
+            <p class="etq-empresa">VARGAS EDITORIAL</p>
+            <p class="etq-sub">TEL: +53 54545068</p>
+            <p class="etq-sub">ARTEMISA, CUBA</p>
         </div>
 
+        <!-- CUERPO (Datos apilados hacia abajo) -->
         <div class="etq-cuerpo">
-            <p><span class="etq-label">CLIENTE:</span> <span>{{ entrega.cliente.nombre }}</span></p>
-            <p><span class="etq-label">FECHA:</span> <span>{{ entrega.fecha_entrega|date:"d/m/Y" }}</span></p>
-            <p><span class="etq-label">ENTREGA:</span> <span>#{{ entrega.id|stringformat:"05d" }}</span></p>
+            <p><span class="etq-label">CLIENTE:</span> {{ entrega.cliente.nombre }}</p>
+            <p><span class="etq-label">FECHA:</span> {{ entrega.fecha_entrega|date:"d/m/Y" }}</p>
+            <p><span class="etq-label">ENTREGA:</span> #{{ entrega.id|stringformat:"05d" }}</p>
             
-            <div class="etq-titulo-libro">{{ entrega.pedidos.0.libro.titulo|default:"Varios libros" }}</div>
-
+            <!-- TABLA -->
             <table class="etq-tabla">
                 <thead>
                     <tr>
-                        <th class="col-libro">Libro</th>
-                        <th class="col-cant">C</th>
-                        <th class="col-saldo">Saldo</th>
+                        <th style="width: 55%;">LIBRO</th>
+                        <th style="width: 15%; text-align: center;">C</th>
+                        <th style="width: 30%; text-align: right;">SALDO</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for p in pedidos %}
+                    <!-- OJO AQUÍ: Iteramos sobre entrega.pedidos (o el related_name que tengas) -->
+                    {% for p in entrega.pedidos.all %}
                     <tr>
-                        <td class="col-libro">{{ p.libro.titulo }}</td>
-                        <td class="col-cant">{{ p.cantidad }}</td>
-                        <td class="col-saldo">${{ p.saldo_pendiente|floatformat:2 }}</td>
+                        <td>{{ p.libro.titulo }}</td>
+                        <td style="text-align: center;">{{ p.cantidad }}</td>
+                        <td style="text-align: right;">${{ p.saldo_pendiente|floatformat:0 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
 
+        <!-- TOTALES -->
         <div class="etq-totales">
             <div class="fila">
-                <span>Subtotal:</span>
-                <span>${{ entrega.saldo_pedidos|floatformat:2 }}</span>
+                <span>TOTAL PEDIDOS:</span>
+                <span>${{ entrega.saldo_pedidos|floatformat:0 }}</span>
             </div>
             <div class="fila">
-                <span>Mensajería:</span>
-                <span>${{ entrega.costo_mensajeria|floatformat:2 }}</span>
+                <span>MENSAJERÍA:</span>
+                <span>${{ entrega.costo_mensajeria|floatformat:0 }}</span>
             </div>
             <div class="fila total-final">
-                <span>TOTAL:</span>
-                <span>${{ entrega.total_a_cobrar|floatformat:2 }}</span>
+                <span>TOTAL A COBRAR:</span>
+                <span>${{ entrega.total_a_cobrar|floatformat:0 }}</span>
             </div>
         </div>
+
     </div>
     {% endfor %}
 {% endblock %}
