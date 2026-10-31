@@ -28,16 +28,14 @@
                 <tr>
                     <th>REF</th>
                     <th>LIBRO</th>
-                    <th class="center">C</th>
                     <th class="right">SALDO</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in pedidos %}
                 <tr>
-                    <td>#{{ p.referencia_externa|default:p.id }}</td>
+                    <td>{{ p.referencia_externa|default:p.id }}</td>
                     <td>{{ p.libro.titulo|truncatechars:15 }}</td>
-                    <td class="center">{{ p.cantidad }}</td>
                     <td class="right">${{ p.saldo_pendiente|floatformat:0 }}</td>
                 </tr>
                 {% endfor %}
