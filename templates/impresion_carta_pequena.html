@@ -17,16 +17,16 @@
             print-color-adjust: exact !important;
         }
 
-        /* Fuente base GIGANTE para compensar el escalado de la app */
+        /* Letra base ENORME */
         body {
-            font-family: 'Courier New', Courier, monospace; 
+            font-family: Arial, Helvetica, sans-serif;
             font-weight: bold;
             color: #000;
             background: #ffffff; 
             margin: 0 !important; 
             padding: 0 !important;
             width: 100% !important; 
-            font-size: 22px; /* Todo parte de 22px */
+            font-size: 28px; /* Letra gigante */
         }
 
         .hoja {
@@ -38,7 +38,7 @@
         .etiqueta { 
             width: 100%;      
             background: #ffffff;
-            padding: 2mm; 
+            padding: 1mm 2mm; /* Mínimo espacio interno */
             margin: 0; 
             display: flex;
             flex-direction: column;
@@ -46,42 +46,41 @@
 
         /* --- CABECERA --- */
         .etq-header {
-            text-align: center; /* Todo centrado para que se lea mejor */
-            border-bottom: 2px dashed #000;
-            padding-bottom: 2mm;
-            margin-bottom: 2mm;
+            text-align: center;
+            border-bottom: 3px dashed #000;
+            padding-bottom: 3mm;
+            margin-bottom: 3mm;
         }
 
         .etq-logo {
-            /* Forzamos un tamaño grande para el logo */
-            height: 60px; 
+            /* Forzamos un logo GIGANTE */
+            height: 90px; 
             width: auto;
-            max-width: 90%;
+            max-width: 100%;
             margin-bottom: 5px;
             display: inline-block;
         }
 
         .etq-empresa {
-            font-size: 26px; /* Empresa GIGANTE */
+            font-size: 34px; /* Empresa gigante */
             font-weight: 900;
             margin: 0;
             line-height: 1;
         }
 
         .etq-sub {
-            font-size: 18px; 
+            font-size: 22px; 
             margin: 3px 0 0 0;
             line-height: 1.1;
         }
 
-        /* --- CUERPO / CLIENTE --- */
+        /* --- CUERPO --- */
         .etq-cuerpo {
-            font-size: 20px; 
+            font-size: 24px; 
             line-height: 1.3;
             margin-bottom: 3mm;
         }
 
-        /* Forzamos a que el texto no se ponga lado a lado, sino uno debajo del otro */
         .etq-cuerpo p {
             margin: 0 0 3px 0;
             display: block; 
@@ -96,20 +95,20 @@
         .etq-tabla {
             width: 100%;
             border-collapse: collapse;
-            font-size: 20px; 
-            margin: 2mm 0;
+            font-size: 24px; 
+            margin: 3mm 0;
         }
 
         .etq-tabla th {
             text-align: left;
-            border-bottom: 2px solid #000;
-            border-top: 2px solid #000;
-            padding: 1.5mm 0;
-            font-size: 18px;
+            border-bottom: 3px solid #000;
+            border-top: 3px solid #000;
+            padding: 2mm 0;
+            font-size: 22px;
         }
 
         .etq-tabla td {
-            padding: 1.5mm 0;
+            padding: 2mm 0;
             vertical-align: top;
             word-wrap: break-word;
         }
@@ -119,10 +118,10 @@
 
         /* --- TOTALES --- */
         .etq-totales {
-            font-size: 20px;
-            border-top: 2px dashed #000;
-            padding-top: 2mm;
-            margin-top: 2mm;
+            font-size: 24px;
+            border-top: 3px dashed #000;
+            padding-top: 3mm;
+            margin-top: 3mm;
         }
 
         .etq-totales .fila {
@@ -133,10 +132,10 @@
 
         .etq-totales .fila.total-final {
             font-weight: 900;
-            font-size: 28px; /* El total, enorme */
-            border-top: 2px solid #000;
-            padding-top: 2mm;
-            margin-top: 2mm;
+            font-size: 34px; /* Total GIGANTE */
+            border-top: 3px solid #000;
+            padding-top: 3mm;
+            margin-top: 3mm;
         }
     </style>
 </head>
