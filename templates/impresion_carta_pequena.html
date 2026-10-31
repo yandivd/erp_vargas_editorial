@@ -5,10 +5,10 @@
     <meta charset="UTF-8">
     <title>{% block title %}Comprobante{% endblock %}</title>
     <style>
-        /* Dimensiones exactas de la etiqueta */
+        /* Configuración para impresora de rollo */
         @page {
-            size: 58mm 61mm;
-            margin: 0;
+            size: 58mm auto; /* Ancho fijo, largo automático */
+            margin: 0;       /* Cero márgenes para que no haya bordes blancos */
         }
 
         * { 
@@ -18,8 +18,8 @@
         }
 
         body {
-            font-family: Arial, Helvetica, sans-serif; /* Arial se lee más grande que Courier */
-            font-size: 9pt; /* Aumentado de tamaño */
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9.5pt;
             color: #000;
             margin: 0;
             padding: 0;
@@ -35,10 +35,10 @@
             padding: 10px;
         }
 
-        /* La etiqueta/ticket */
+        /* La etiqueta/ticket: Ancho exacto, largo dinámico */
         .etiqueta { 
-            width: 58mm;  /* Ancho exacto */
-            height: 61mm; /* Alto exacto */
+            width: 58mm;  
+            /* Quitamos el height fijo, ahora crece lo que necesite */
             background: white;
             padding: 2mm;
             border: 1px dashed #ccc;
@@ -52,7 +52,7 @@
         .etq-header {
             text-align: center;
             border-bottom: 1px dashed #000;
-            padding-bottom: 1mm;
+            padding-bottom: 1.5mm;
             margin-bottom: 2mm;
             flex-shrink: 0;
         }
@@ -64,7 +64,7 @@
         }
 
         .etq-empresa {
-            font-size: 11pt; /* Más grande */
+            font-size: 11pt;
             font-weight: bold;
             text-transform: uppercase;
             margin: 0;
@@ -80,8 +80,7 @@
         /* Cuerpo */
         .etq-cuerpo {
             font-size: 9.5pt;
-            line-height: 1.2;
-            flex-grow: 1; /* Ocupa el espacio central */
+            line-height: 1.3;
         }
 
         .etq-cuerpo p {
@@ -106,11 +105,11 @@
             text-align: left;
             border-bottom: 1px solid #000;
             border-top: 1px solid #000;
-            padding: 0.5mm 0;
+            padding: 1mm 0;
         }
 
         .etq-tabla td {
-            padding: 0.5mm 0;
+            padding: 1mm 0;
         }
 
         .etq-tabla .right { text-align: right; }
@@ -121,8 +120,7 @@
             font-size: 9.5pt;
             border-top: 1px dashed #000;
             padding-top: 1.5mm;
-            margin-top: auto; /* Empuja los totales al fondo */
-            flex-shrink: 0;
+            margin-top: 2mm;
         }
 
         .etq-totales .fila {
@@ -140,35 +138,39 @@
         }
 
         /* =========================================
-           REGLAS DE IMPRESIÓN
+           REGLAS DE IMPRESIÓN PARA OCULTAR BOTONES
            ========================================= */
         @media print {
             body { background: white; }
-            .hoja { padding: 0; display: block; }
             
-            /* Ocultar botones y cualquier cosa que no sea la etiqueta */
+            /* Ocultar botones de forma agresiva */
             .no-print { 
                 display: none !important; 
-                visibility: hidden !important;
-                height: 0 !important;
-                width: 0 !important;
-                opacity: 0 !important;
+            }
+            
+            .hoja { 
+                padding: 0; 
+                display: block; 
             }
             
             .etiqueta { 
                 border: none; /* Quitamos el borde punteado en el papel */
                 margin: 0; 
+                padding: 0; /* El margen lo da la propia impresora */
             }
+
+            /* Ocultar encabezados y pies de página del navegador */
+            @page { margin: 0; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Botones (Ocultos estrictamente en impresión) -->
-    <div class="no-print" style="text-align:center; margin: 10px 0;">
-        <button onclick="window.print()" style="padding: 8px 15px; cursor:pointer; font-size: 14px;">🖨 Imprimir</button>
-        <button onclick="window.close()" style="padding: 8px 15px; cursor:pointer; font-size: 14px;">✕ Cerrar</button>
-    </div>
+    <!-- Botones -->
+    {% comment %} <div class="no-print" style="text-align:center; margin: 20px 0;">
+        <button onclick="window.print()" style="padding: 10px 20px; cursor:pointer; font-size: 16px; background-color: #333; color: white; border: none; border-radius: 5px;">🖨 Imprimir</button>
+        <button onclick="window.close()" style="padding: 10px 20px; cursor:pointer; font-size: 16px; background-color: #ccc; border: none; border-radius: 5px; margin-left: 10px;">✕ Cerrar</button>
+    </div> {% endcomment %}
 
     <!-- Las etiquetas -->
     <div class="hoja">
