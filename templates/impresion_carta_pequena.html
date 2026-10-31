@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <title>{% block title %}Comprobante{% endblock %}</title>
     <style>
-        /* Ancho exacto del papel */
+        /* Forzamos el tamaño exacto del papel */
         @page {
             size: 58mm auto;
             margin: 0; 
@@ -17,33 +17,31 @@
             print-color-adjust: exact !important;
         }
 
+        /* Eliminamos fondos y forzamos el ancho a 58mm */
         body {
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 12pt; /* Fuente grande */
+            font-size: 14pt; /* Letra base mucho más grande */
             color: #000;
-            margin: 0;
-            padding: 0;
-            background: #f4f6f9;
-            width: 100%;
+            background: #ffffff; /* Fondo blanco puro, sin grises */
+            margin: 0 auto !important; 
+            padding: 0 !important;
+            width: 58mm !important; /* Ancho exacto de la impresora */
+            max-width: 58mm !important;
         }
 
-        /* Contenedor para pantalla */
+        /* El contenedor ya no centra, solo envuelve */
         .hoja {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
             width: 100%;
-            padding: 10px;
+            padding: 0;
+            margin: 0;
         }
 
-        /* La etiqueta/ticket: Forzando los 58mm */
+        /* La etiqueta ocupa el 100% del body */
         .etiqueta { 
-            width: 58mm;      /* Ancho exacto */
-            background: white;
-            padding: 1mm;     /* Margen mínimo en pantalla */
-            border: 1px dashed #ccc;
-            margin-bottom: 5mm; 
-            page-break-inside: avoid;
+            width: 100%;      
+            background: #ffffff;
+            padding: 1mm; /* Margen mínimo interno para que no toque el borde */
+            margin: 0; 
             display: flex;
             flex-direction: column;
         }
@@ -52,12 +50,12 @@
         .etq-header {
             text-align: center;
             border-bottom: 1px dashed #000;
-            padding-bottom: 1.5mm;
-            margin-bottom: 2mm;
+            padding-bottom: 1mm;
+            margin-bottom: 1.5mm;
         }
 
         .etq-empresa {
-            font-size: 15pt; 
+            font-size: 16pt; /* Empresa bien grande */
             font-weight: bold;
             text-transform: uppercase;
             margin: 0;
@@ -65,19 +63,19 @@
         }
 
         .etq-sub {
-            font-size: 10pt; 
+            font-size: 11pt; 
             margin: 1mm 0 0 0;
             line-height: 1.1;
         }
 
         /* Cuerpo */
         .etq-cuerpo {
-            font-size: 12pt; 
-            line-height: 1.3;
+            font-size: 14pt; /* Letra grande y clara */
+            line-height: 1.2;
         }
 
         .etq-cuerpo p {
-            margin: 0 0 1.5mm 0;
+            margin: 0 0 1mm 0;
             display: flex;
             justify-content: space-between;
         }
@@ -90,7 +88,7 @@
         .etq-tabla {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11pt; 
+            font-size: 13pt; 
             margin: 1.5mm 0;
         }
 
@@ -110,10 +108,10 @@
 
         /* Totales */
         .etq-totales {
-            font-size: 12pt;
+            font-size: 14pt;
             border-top: 1px dashed #000;
             padding-top: 1.5mm;
-            margin-top: 2mm;
+            margin-top: 1.5mm;
         }
 
         .etq-totales .fila {
@@ -124,53 +122,33 @@
 
         .etq-totales .fila.total-final {
             font-weight: bold;
-            font-size: 14pt; 
+            font-size: 16pt; /* TOTAL bien grande */
             border-top: 1px solid #000;
             padding-top: 1.5mm;
             margin-top: 1.5mm;
         }
 
-        /* =========================================
-           REGLAS DE IMPRESIÓN ESTRICTAS
-           ========================================= */
+        /* Botones (Invisibles al imprimir) */
+        .no-print {
+            text-align: center;
+            margin: 20px 0;
+        }
         @media print {
-            body { 
-                background: white; 
-                width: 58mm !important; /* Forzar ancho del body */
-                margin: 0 !important;
-                padding: 0 !important;
-            }
-            
-            .no-print { 
-                display: none !important; 
-            }
-            
-            .hoja { 
-                padding: 0 !important; 
-                display: block; 
-                width: 58mm !important;
-            }
-            
-            .etiqueta { 
-                border: none !important; 
-                margin: 0 !important; 
-                /* Forzamos los 58mm exactos y quitamos padding */
-                width: 58mm !important; 
-                max-width: 58mm !important; 
-                padding: 0 !important; /* Sin margen interno extra */
-            }
+            .no-print { display: none !important; }
+            /* Aseguramos que en impresión no haya márgenes */
+            body { margin: 0 !important; padding: 0 !important; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Botones (Ocultos al imprimir) -->
-    {% comment %} <div class="no-print" style="text-align:center; margin: 20px 0;">
-        <button onclick="window.print()" style="padding: 10px 20px; cursor:pointer; font-size: 16px; background-color: #000; color: white; border: none; border-radius: 5px;">🖨 Imprimir</button>
-        <button onclick="window.close()" style="padding: 10px 20px; cursor:pointer; font-size: 16px; background-color: #eee; border: 1px solid #ccc; border-radius: 5px; margin-left: 10px;">✕ Cerrar</button>
-    </div> {% endcomment %}
+    <!-- Botones -->
+    <div class="no-print">
+        <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px;">🖨 Imprimir</button>
+        <button onclick="window.close()" style="padding: 10px 20px; font-size: 16px;">✕ Cerrar</button>
+    </div>
 
-    <!-- Las etiquetas -->
+    <!-- Contenido -->
     <div class="hoja">
         {% block etiquetas %}{% endblock %}
     </div>
