@@ -6,10 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Comprobante{% endblock %}</title>
     <style>
+        /* Configuración de la hoja para largo infinito */
+        @page {
+            size: 58mm auto; /* Ancho fijo, alto automático */
+            margin: 0; 
+        }
+
         body, div, p, span, table, th, td {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        /* EL TRUCO: Quitamos cualquier height fijo y permitimos scroll */
+        html, body {
+            height: auto !important;
+            min-height: 100% !important;
+            overflow-y: auto !important; /* Permite que crezca hacia abajo */
         }
 
         body {
@@ -21,6 +34,11 @@
             width: 100%;
         }
 
+        .hoja {
+            width: 100%;
+            height: auto !important; /* Crece lo que necesite */
+        }
+
         .etiqueta { 
             width: 100%;      
             background: #ffffff;
@@ -28,6 +46,9 @@
             display: flex;
             flex-direction: column;
             font-size: 24px; 
+            /* Eliminamos cualquier límite de página */
+            page-break-inside: auto !important; 
+            break-inside: auto !important;
         }
 
         /* Cabecera */
@@ -36,13 +57,13 @@
             border-bottom: 3px dashed #000;
             padding-bottom: 2mm;
             margin-bottom: 2mm;
+            page-break-after: avoid; /* Evita que se separe del contenido */
         }
 
-        /* CONTROL DEL LOGO */
         .etq-logo {
-            height: 80px; /* Tamaño equilibrado */
+            height: 80px; 
             width: auto;
-            max-width: 90%; /* Para que no se salga del ticket */
+            max-width: 90%; 
             margin-bottom: 10px;
             display: inline-block;
         }
