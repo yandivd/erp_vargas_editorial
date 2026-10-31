@@ -5,9 +5,10 @@
     <meta charset="UTF-8">
     <title>{% block title %}Comprobante{% endblock %}</title>
     <style>
-        /* Configuración para impresión térmica (80mm) o Carta */
+        /* Dimensiones exactas de la etiqueta */
         @page {
-            margin: 0; /* Quitamos márgenes para aprovechar todo el ancho */
+            size: 58mm 61mm;
+            margin: 0;
         }
 
         * { 
@@ -17,15 +18,15 @@
         }
 
         body {
-            font-family: 'Courier New', Courier, monospace; /* Fuente tipo ticket */
-            font-size: 10pt;
+            font-family: Arial, Helvetica, sans-serif; /* Arial se lee más grande que Courier */
+            font-size: 9pt; /* Aumentado de tamaño */
             color: #000;
             margin: 0;
             padding: 0;
             background: #f4f6f9;
         }
 
-        /* Contenedor principal para pantalla */
+        /* Contenedor para pantalla */
         .hoja {
             display: flex;
             flex-direction: column;
@@ -34,48 +35,53 @@
             padding: 10px;
         }
 
-        /* La etiqueta/ticket ocupa el 100% del ancho */
+        /* La etiqueta/ticket */
         .etiqueta { 
-            width: 100%;
-            max-width: 80mm; /* Ancho estándar de impresora térmica. Si es Carta, quita esto */
+            width: 58mm;  /* Ancho exacto */
+            height: 61mm; /* Alto exacto */
             background: white;
-            padding: 5mm;
+            padding: 2mm;
             border: 1px dashed #ccc;
-            margin-bottom: 5mm; /* Separación entre tickets si hay varios */
+            margin-bottom: 5mm; 
             page-break-inside: avoid;
+            display: flex;
+            flex-direction: column;
         }
 
         /* Cabecera */
         .etq-header {
             text-align: center;
             border-bottom: 1px dashed #000;
-            padding-bottom: 3mm;
-            margin-bottom: 3mm;
+            padding-bottom: 1mm;
+            margin-bottom: 2mm;
+            flex-shrink: 0;
         }
 
         .etq-logo {
-            max-height: 15mm;
-            max-width: 30mm;
-            margin-bottom: 2mm;
+            max-height: 8mm;
+            max-width: 20mm;
+            margin-bottom: 1mm;
         }
 
         .etq-empresa {
-            font-size: 12pt;
+            font-size: 11pt; /* Más grande */
             font-weight: bold;
             text-transform: uppercase;
             margin: 0;
+            line-height: 1;
         }
 
         .etq-sub {
-            font-size: 8pt;
+            font-size: 7.5pt;
             margin: 1mm 0 0 0;
+            line-height: 1;
         }
 
         /* Cuerpo */
         .etq-cuerpo {
-            font-size: 9pt;
-            line-height: 1.3;
-            margin-bottom: 3mm;
+            font-size: 9.5pt;
+            line-height: 1.2;
+            flex-grow: 1; /* Ocupa el espacio central */
         }
 
         .etq-cuerpo p {
@@ -88,31 +94,23 @@
             font-weight: bold;
         }
 
-        .etq-titulo-libro {
-            font-size: 10pt;
-            font-weight: bold;
-            margin: 2mm 0;
-            text-align: center;
-        }
-
         /* Tabla mini */
         .etq-tabla {
             width: 100%;
             border-collapse: collapse;
-            font-size: 8pt;
-            margin: 2mm 0;
+            font-size: 8.5pt;
+            margin: 1mm 0;
         }
 
         .etq-tabla th {
             text-align: left;
             border-bottom: 1px solid #000;
             border-top: 1px solid #000;
-            padding: 1mm 0;
+            padding: 0.5mm 0;
         }
 
         .etq-tabla td {
-            padding: 1mm 0;
-            vertical-align: top;
+            padding: 0.5mm 0;
         }
 
         .etq-tabla .right { text-align: right; }
@@ -120,48 +118,56 @@
 
         /* Totales */
         .etq-totales {
-            font-size: 9pt;
+            font-size: 9.5pt;
             border-top: 1px dashed #000;
-            padding-top: 3mm;
-            margin-top: 3mm;
+            padding-top: 1.5mm;
+            margin-top: auto; /* Empuja los totales al fondo */
+            flex-shrink: 0;
         }
 
         .etq-totales .fila {
             display: flex;
             justify-content: space-between;
-            margin: 1mm 0;
+            margin: 0.5mm 0;
         }
 
         .etq-totales .fila.total-final {
             font-weight: bold;
-            font-size: 12pt;
+            font-size: 11pt;
             border-top: 1px solid #000;
-            padding-top: 2mm;
-            margin-top: 2mm;
+            padding-top: 1mm;
+            margin-top: 1mm;
         }
 
-        /* Impresión */
+        /* =========================================
+           REGLAS DE IMPRESIÓN
+           ========================================= */
         @media print {
             body { background: white; }
             .hoja { padding: 0; display: block; }
             
-            /* Si usas hoja Carta en vez de impresora térmica, descomenta esto: */
-            /* .etiqueta { max-width: 100%; border: none; padding: 0; } */
-
+            /* Ocultar botones y cualquier cosa que no sea la etiqueta */
+            .no-print { 
+                display: none !important; 
+                visibility: hidden !important;
+                height: 0 !important;
+                width: 0 !important;
+                opacity: 0 !important;
+            }
+            
             .etiqueta { 
-                border: none; /* Quitamos el borde punteado al imprimir */
+                border: none; /* Quitamos el borde punteado en el papel */
                 margin: 0; 
             }
-            .no-print { display: none !important; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Botones (no se imprimen) -->
-    <div class="no-print" style="text-align:center; margin: 5mm 0;">
-        <button onclick="window.print()" style="padding: 2mm 5mm; cursor:pointer; font-size: 14px;">🖨 Imprimir</button>
-        <button onclick="window.close()" style="padding: 2mm 5mm; cursor:pointer; font-size: 14px;">✕ Cerrar</button>
+    <!-- Botones (Ocultos estrictamente en impresión) -->
+    <div class="no-print" style="text-align:center; margin: 10px 0;">
+        <button onclick="window.print()" style="padding: 8px 15px; cursor:pointer; font-size: 14px;">🖨 Imprimir</button>
+        <button onclick="window.close()" style="padding: 8px 15px; cursor:pointer; font-size: 14px;">✕ Cerrar</button>
     </div>
 
     <!-- Las etiquetas -->
