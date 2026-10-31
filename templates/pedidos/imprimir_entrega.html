@@ -1,25 +1,20 @@
 {% extends 'impresion_carta_pequena.html' %}
-{% load static %} <!-- Asegúrate de cargar static aquí si no lo está -->
+{% load static %}
 
 {% block etiquetas %}
     {% for entrega in entregas %}
     <div class="etiqueta">
         
-        <!-- CABECERA (Centrada, con el logo grande) -->
         <div class="etq-header">
             <img src="{% static 'img/logo.png' %}" class="etq-logo" alt="Logo">
             <p class="etq-empresa">VARGAS EDITORIAL</p>
-            <p class="etq-sub">TEL: +53 54545068</p>
-            <p class="etq-sub">ARTEMISA, CUBA</p>
+            <p class="etq-sub">TEL: +53 54545068 | ARTEMISA</p>
         </div>
 
-        <!-- CUERPO (Datos apilados hacia abajo) -->
         <div class="etq-cuerpo">
             <p><span class="etq-label">CLIENTE:</span> {{ entrega.cliente.nombre }}</p>
             <p><span class="etq-label">FECHA:</span> {{ entrega.fecha_entrega|date:"d/m/Y" }}</p>
-            <p><span class="etq-label">ENTREGA:</span> #{{ entrega.id|stringformat:"05d" }}</p>
             
-            <!-- TABLA -->
             <table class="etq-tabla">
                 <thead>
                     <tr>
@@ -29,7 +24,6 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- OJO AQUÍ: Iteramos sobre entrega.pedidos (o el related_name que tengas) -->
                     {% for p in entrega.pedidos.all %}
                     <tr>
                         <td>{{ p.libro.titulo }}</td>
@@ -41,18 +35,13 @@
             </table>
         </div>
 
-        <!-- TOTALES -->
         <div class="etq-totales">
             <div class="fila">
                 <span>TOTAL PEDIDOS:</span>
                 <span>${{ entrega.saldo_pedidos|floatformat:0 }}</span>
             </div>
-            <div class="fila">
-                <span>MENSAJERÍA:</span>
-                <span>${{ entrega.costo_mensajeria|floatformat:0 }}</span>
-            </div>
             <div class="fila total-final">
-                <span>TOTAL A COBRAR:</span>
+                <span>TOTAL:</span>
                 <span>${{ entrega.total_a_cobrar|floatformat:0 }}</span>
             </div>
         </div>
