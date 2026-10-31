@@ -27,7 +27,6 @@
             padding: 2mm; 
             display: flex;
             flex-direction: column;
-            /* TAMAÑO BASE A 24px */
             font-size: 24px; 
         }
 
@@ -39,7 +38,6 @@
             margin-bottom: 2mm;
         }
 
-        /* LOGO MÁS GRANDE */
         .etq-logo {
             height: 120px !important; 
             width: auto !important; 
@@ -48,7 +46,6 @@
             display: inline-block;
         }
 
-        /* Empresa un poco más grande que el resto */
         .etq-empresa {
             font-size: 32px !important; 
             font-weight: 900;
@@ -84,7 +81,9 @@
             font-size: 24px !important;
             padding: 1.5mm 0;
             vertical-align: top;
+            /* ESTO HACE QUE EL TEXTO BAJE DE LÍNEA SI ES MUY LARGO */
             word-wrap: break-word; 
+            word-break: break-word;
         }
 
         .etq-tabla .right { text-align: right; }
@@ -108,7 +107,6 @@
             margin: 2mm 0;
         }
 
-        /* Total final resaltado */
         .etq-totales .fila.total-final span {
             font-size: 32px !important; 
             font-weight: 900;

@@ -15,7 +15,7 @@
         <p class="etq-sub">NO. {{ entrega.id|stringformat:"05d" }} | FECHA: {% now "d/m/Y" %}</p>
     </div>
 
-    <!-- DATOS DEL CLIENTE (Apilados para que ocupen todo el ancho) -->
+    <!-- DATOS DEL CLIENTE -->
     <div class="etq-cuerpo">
         <p><strong>CLIENTE:</strong> {{ entrega.cliente.nombre }}</p>
         <p><strong>TEL:</strong> {{ entrega.cliente.telefono|default:"—" }}</p>
@@ -26,16 +26,18 @@
         <table class="etq-tabla">
             <thead>
                 <tr>
-                    <th>REF</th>
-                    <th>LIBRO</th>
-                    <th class="right">SALDO</th>
+                    <th style="width: 15%; text-align: left;">REF</th>
+                    <!-- AQUÍ CENTRAMOS "LIBRO" -->
+                    <th class="center" style="width: 60%;">LIBRO</th>
+                    <th class="right" style="width: 25%;">SALDO</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in pedidos %}
                 <tr>
-                    <td>{{ p.referencia_externa|default:p.id }}</td>
-                    <td>{{ p.libro.titulo|truncatechars:15 }}</td>
+                    <td style="text-align: left;">{{ p.referencia_externa|default:p.id }}</td>
+                    <!-- AQUÍ CENTRAMOS EL CONTENIDO Y QUITAMOS EL TRUNCATE -->
+                    <td class="center">{{ p.libro.titulo }}</td>
                     <td class="right">${{ p.saldo_pendiente|floatformat:0 }}</td>
                 </tr>
                 {% endfor %}
