@@ -6,97 +6,93 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Comprobante{% endblock %}</title>
     <style>
-        @page {
-            size: 58mm auto;
-            margin: 0; 
+        /* Forzamos un tamaño de letra base */
+        html {
+            font-size: 24px; /* ¡GIGANTE! Todo se basará en esto */
         }
 
-        * { 
-            box-sizing: border-box; 
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-
-        /* Fuente monoespaciada tipo ticket, negrita y letra grande */
         body {
             font-family: 'Courier New', Courier, monospace; 
             font-weight: bold;
-            text-transform: uppercase; /* Todo en mayúsculas */
-            font-size: 18px; /* Letra base GIGANTE */
+            text-transform: uppercase;
             color: #000;
             background: #ffffff; 
-            margin: 0 !important; 
-            padding: 0 !important;
-            width: 100% !important; 
-        }
-
-        .hoja {
-            width: 100%;
-            padding: 0;
-            margin: 0;
-        }
-
-        .etiqueta { 
-            width: 100%;      
-            background: #ffffff;
-            padding: 1mm; 
             margin: 0; 
+            padding: 0;
+            width: 100%;
+        }
+
+        /* Hacemos que TODO herede el mismo tamaño */
+        * {
+            font-size: inherit !important;
+            box-sizing: border-box;
+        }
+
+        .hoja, .etiqueta {
+            width: 100%;
+            margin: 0;
+            padding: 0;
             display: flex;
             flex-direction: column;
+        }
+
+        .etiqueta {
+            padding: 2mm 1mm; /* Mínimo margen interno */
         }
 
         /* Cabecera */
         .etq-header {
             text-align: center;
-            border-bottom: 2px dashed #000;
+            border-bottom: 3px dashed #000;
             padding-bottom: 2mm;
             margin-bottom: 2mm;
         }
 
+        .etq-logo {
+            height: 60px; 
+            max-width: 100%;
+            margin-bottom: 5px;
+        }
+
         .etq-empresa {
-            font-size: 24px; /* Enorme */
             font-weight: 900;
             margin: 0;
-            line-height: 1;
+            /* Aquí NO ponemos font-size, hereda el de html (24px) */
         }
 
         .etq-sub {
-            font-size: 16px; 
             margin: 2px 0 0 0;
-            line-height: 1;
         }
 
         /* Cuerpo */
         .etq-cuerpo {
-            font-size: 18px; 
-            line-height: 1.2;
+            margin-bottom: 2mm;
         }
 
         .etq-cuerpo p {
-            margin: 0 0 2px 0;
-            display: flex;
-            justify-content: space-between;
+            margin: 0 0 3px 0;
+            display: block; 
         }
 
-        /* Tabla mini */
+        /* Tabla: Forzada a tener el mismo tamaño */
         .etq-tabla {
             width: 100%;
             border-collapse: collapse;
-            font-size: 18px; 
             margin: 2mm 0;
         }
 
         .etq-tabla th {
             text-align: left;
-            border-bottom: 2px solid #000;
-            border-top: 2px solid #000;
-            padding: 1mm 0;
-            font-size: 16px;
+            border-bottom: 3px solid #000;
+            border-top: 3px solid #000;
+            padding: 1.5mm 0;
         }
 
         .etq-tabla td {
-            padding: 1mm 0;
+            padding: 1.5mm 0;
             vertical-align: top;
+            /* Evita que palabras largas rompan la tabla */
+            word-wrap: break-word; 
         }
 
         .etq-tabla .right { text-align: right; }
@@ -104,8 +100,7 @@
 
         /* Totales */
         .etq-totales {
-            font-size: 18px;
-            border-top: 2px dashed #000;
+            border-top: 3px dashed #000;
             padding-top: 2mm;
             margin-top: 2mm;
         }
@@ -113,13 +108,12 @@
         .etq-totales .fila {
             display: flex;
             justify-content: space-between;
-            margin: 1mm 0;
+            margin: 1.5mm 0;
         }
 
         .etq-totales .fila.total-final {
             font-weight: 900;
-            font-size: 24px; /* El total gigante */
-            border-top: 2px solid #000;
+            border-top: 3px solid #000;
             padding-top: 2mm;
             margin-top: 2mm;
         }
@@ -127,7 +121,6 @@
 </head>
 <body>
 
-    <!-- Las etiquetas -->
     <div class="hoja">
         {% block etiquetas %}{% endblock %}
     </div>

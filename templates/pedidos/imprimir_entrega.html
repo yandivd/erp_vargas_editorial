@@ -15,20 +15,21 @@
             <p><span class="etq-label">CLIENTE:</span> {{ entrega.cliente.nombre }}</p>
             <p><span class="etq-label">FECHA:</span> {{ entrega.fecha_entrega|date:"d/m/Y" }}</p>
             
+            <!-- Tabla sin estilos en línea para que herede todo -->
             <table class="etq-tabla">
                 <thead>
                     <tr>
-                        <th style="width: 55%;">LIBRO</th>
-                        <th style="width: 15%; text-align: center;">C</th>
-                        <th style="width: 30%; text-align: right;">SALDO</th>
+                        <th>LIBRO</th>
+                        <th class="center">C</th>
+                        <th class="right">SALDO</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in entrega.pedidos.all %}
                     <tr>
                         <td>{{ p.libro.titulo }}</td>
-                        <td style="text-align: center;">{{ p.cantidad }}</td>
-                        <td style="text-align: right;">${{ p.saldo_pendiente|floatformat:0 }}</td>
+                        <td class="center">{{ p.cantidad }}</td>
+                        <td class="right">${{ p.saldo_pendiente|floatformat:0 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
