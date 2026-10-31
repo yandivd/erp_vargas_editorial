@@ -17,12 +17,11 @@
             print-color-adjust: exact !important;
         }
 
-        /* Fuente base: TODO EL TEXTO SERÁ DE 28px */
         body {
             font-family: 'Consolas', 'Courier New', monospace; 
             font-weight: bold;
             text-transform: uppercase; 
-            font-size: 28px; /* Tamaño del encabezado de la tabla aplicado a todo */
+            font-size: 22px; /* Tamaño uniforme */
             color: #000;
             background: #ffffff; 
             margin: 0 !important; 
@@ -41,88 +40,78 @@
             background: #ffffff;
             padding: 1mm; 
             margin: 0; 
-            display: flex;
-            flex-direction: column;
         }
 
-        /* Cabecera de la empresa */
+        /* Cabecera */
         .etq-header {
             text-align: center;
-            border-bottom: 4px dashed #000;
-            padding-bottom: 3mm;
-            margin-bottom: 3mm;
+            border-bottom: 3px dashed #000;
+            padding-bottom: 2mm;
+            margin-bottom: 2mm;
         }
 
-        .etq-empresa {
-            font-size: 36px; /* Un poco más grande para el nombre */
-            font-weight: 900;
+        .etq-empresa, .etq-sub {
+            font-size: 22px; 
             margin: 0;
-            line-height: 1;
-        }
-
-        .etq-sub {
-            font-size: 36px; /* Mismo tamaño base */
-            margin: 4px 0 0 0;
-            line-height: 1.1;
         }
 
         /* Cuerpo */
         .etq-cuerpo {
-            font-size: 36px; 
+            font-size: 22px; 
             line-height: 1.2;
         }
 
         .etq-cuerpo p {
-            margin: 0 0 3px 0;
-            display: flex;
-            justify-content: space-between;
+            margin: 0 0 2px 0;
         }
 
         /* Tabla */
         .etq-tabla {
             width: 100%;
             border-collapse: collapse;
-            font-size: 36px; /* Mismo tamaño base */
-            margin: 3mm 0;
+            font-size: 22px; 
+            margin: 2mm 0;
+            table-layout: fixed; /* ESTO ES CLAVE: Fija el ancho de las columnas */
+        }
+
+        .etq-tabla th, .etq-tabla td {
+            padding: 1mm 0;
+            font-size: 22px; 
+            vertical-align: top;
+            /* Permitir que el texto salte de línea */
+            word-wrap: break-word; 
+            white-space: normal; 
         }
 
         .etq-tabla th {
             text-align: left;
-            border-bottom: 3px solid #000;
-            border-top: 3px solid #000;
-            padding: 2mm 0;
-            font-size: 36px; /* Encabezados un poco más grandes para resaltar */
-            font-weight: 900; 
+            border-bottom: 2px solid #000;
+            border-top: 2px solid #000;
         }
 
-        .etq-tabla td {
-            padding: 2mm 0;
-            vertical-align: top;
-        }
-
-        .etq-tabla .right { text-align: right; }
-        .etq-tabla .center { text-align: center; }
+        /* Definimos los anchos de las columnas */
+        .etq-tabla .col-libro { width: 60%; } /* El libro ocupa la mayor parte y salta de línea */
+        .etq-tabla .col-cant { width: 15%; text-align: center; }
+        .etq-tabla .col-saldo { width: 25%; text-align: right; }
 
         /* Totales */
         .etq-totales {
-            font-size: 36px;
-            border-top: 4px dashed #000;
-            padding-top: 3mm;
-            margin-top: 3mm;
+            font-size: 22px;
+            border-top: 3px dashed #000;
+            padding-top: 2mm;
+            margin-top: 2mm;
         }
 
         .etq-totales .fila {
-            display: flex;
-            justify-content: space-between;
-            margin: 2mm 0;
+            margin: 1mm 0;
         }
 
         .etq-totales .fila.total-final {
-            font-weight: 900;
-            font-size: 36px; /* El total final resalta aún más */
-            border-top: 3px solid #000;
-            padding-top: 3mm;
-            margin-top: 3mm;
+            font-weight: bold;
+            font-size: 22px; 
+            border-top: 2px solid #000;
+            padding-top: 2mm;
+            margin-top: 2mm;
         }
     </style>
 </head>

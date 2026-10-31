@@ -19,17 +19,17 @@
             <table class="etq-tabla">
                 <thead>
                     <tr>
-                        <th>REF</th>
-                        <th class="center">CANT</th>
-                        <th class="right">SALDO</th>
+                        <th class="col-libro">Libro</th>
+                        <th class="col-cant">C</th>
+                        <th class="col-saldo">Saldo</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for p in entrega.pedidos %}
+                    {% for p in pedidos %}
                     <tr>
-                        <td>#{{ p.id }}</td>
-                        <td class="center">{{ p.cantidad }}</td>
-                        <td class="right">${{ p.saldo_pendiente|floatformat:2 }}</td>
+                        <td class="col-libro">{{ p.libro.titulo }}</td>
+                        <td class="col-cant">{{ p.cantidad }}</td>
+                        <td class="col-saldo">${{ p.saldo_pendiente|floatformat:2 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
