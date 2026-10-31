@@ -3,7 +3,8 @@
 
 {% block etiquetas %}
     {% for entrega in entregas %}
-    <div class="etiqueta">
+    <!-- Forzamos el tamaño con un estilo en línea -->
+    <div class="etiqueta" style="font-size: 40px !important;">
         
         <div class="etq-header">
             <img src="{% static 'img/logo.png' %}" class="etq-logo" alt="Logo">
@@ -15,7 +16,6 @@
             <p><span class="etq-label">CLIENTE:</span> {{ entrega.cliente.nombre }}</p>
             <p><span class="etq-label">FECHA:</span> {{ entrega.fecha_entrega|date:"d/m/Y" }}</p>
             
-            <!-- Tabla sin estilos en línea para que herede todo -->
             <table class="etq-tabla">
                 <thead>
                     <tr>
@@ -27,7 +27,7 @@
                 <tbody>
                     {% for p in entrega.pedidos.all %}
                     <tr>
-                        <td>{{ p.libro.titulo }}</td>
+                        <td>{{ p.libro.titulo|truncatechars:15 }}</td>
                         <td class="center">{{ p.cantidad }}</td>
                         <td class="right">${{ p.saldo_pendiente|floatformat:0 }}</td>
                     </tr>

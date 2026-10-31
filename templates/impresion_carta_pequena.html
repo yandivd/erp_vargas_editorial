@@ -6,92 +6,84 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Comprobante{% endblock %}</title>
     <style>
-        /* Forzamos un tamaño de letra base */
-        html {
-            font-size: 24px; /* ¡GIGANTE! Todo se basará en esto */
+        /* Reseteo total */
+        body, div, p, span, table, th, td {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
+        /* Fuente, negrita y mayúsculas para TODO */
         body {
             font-family: 'Courier New', Courier, monospace; 
             font-weight: bold;
             text-transform: uppercase;
             color: #000;
             background: #ffffff; 
-            margin: 0; 
-            padding: 0;
             width: 100%;
         }
 
-        /* Hacemos que TODO herede el mismo tamaño */
-        * {
-            font-size: inherit !important;
-            box-sizing: border-box;
-        }
-
-        .hoja, .etiqueta {
-            width: 100%;
-            margin: 0;
-            padding: 0;
+        .etiqueta { 
+            width: 100%;      
+            background: #ffffff;
+            padding: 2mm; 
             display: flex;
             flex-direction: column;
-        }
-
-        .etiqueta {
-            padding: 2mm 1mm; /* Mínimo margen interno */
+            /* TAMAÑO BASE A 35px */
+            font-size: 35px; 
         }
 
         /* Cabecera */
         .etq-header {
             text-align: center;
-            border-bottom: 3px dashed #000;
+            border-bottom: 4px dashed #000;
             padding-bottom: 2mm;
             margin-bottom: 2mm;
         }
 
+        /* LOGO MÁS GRANDE (100px) */
         .etq-logo {
-            height: 60px; 
+            height: 100px; 
             max-width: 100%;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
         }
 
+        /* Empresa un poco más grande que el resto */
         .etq-empresa {
+            font-size: 42px !important; 
             font-weight: 900;
-            margin: 0;
-            /* Aquí NO ponemos font-size, hereda el de html (24px) */
         }
 
         .etq-sub {
-            margin: 2px 0 0 0;
+            font-size: 32px !important;
         }
 
         /* Cuerpo */
-        .etq-cuerpo {
-            margin-bottom: 2mm;
-        }
-
         .etq-cuerpo p {
-            margin: 0 0 3px 0;
+            font-size: 35px !important;
+            margin-bottom: 4px;
             display: block; 
         }
 
-        /* Tabla: Forzada a tener el mismo tamaño */
+        /* Tabla */
         .etq-tabla {
             width: 100%;
             border-collapse: collapse;
-            margin: 2mm 0;
+            margin: 3mm 0;
         }
 
         .etq-tabla th {
+            font-size: 35px !important;
             text-align: left;
-            border-bottom: 3px solid #000;
-            border-top: 3px solid #000;
-            padding: 1.5mm 0;
+            border-bottom: 4px solid #000;
+            border-top: 4px solid #000;
+            padding: 2mm 0;
         }
 
         .etq-tabla td {
-            padding: 1.5mm 0;
+            font-size: 35px !important;
+            padding: 2mm 0;
             vertical-align: top;
-            /* Evita que palabras largas rompan la tabla */
             word-wrap: break-word; 
         }
 
@@ -100,20 +92,30 @@
 
         /* Totales */
         .etq-totales {
-            border-top: 3px dashed #000;
+            border-top: 4px dashed #000;
             padding-top: 2mm;
             margin-top: 2mm;
+        }
+
+        .etq-totales .fila span {
+            font-size: 35px !important;
+            display: inline-block;
         }
 
         .etq-totales .fila {
             display: flex;
             justify-content: space-between;
-            margin: 1.5mm 0;
+            margin: 2mm 0;
+        }
+
+        /* Total final resaltado */
+        .etq-totales .fila.total-final span {
+            font-size: 42px !important; 
+            font-weight: 900;
         }
 
         .etq-totales .fila.total-final {
-            font-weight: 900;
-            border-top: 3px solid #000;
+            border-top: 4px solid #000;
             padding-top: 2mm;
             margin-top: 2mm;
         }
