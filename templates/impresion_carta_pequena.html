@@ -21,7 +21,7 @@
             font-family: 'Consolas', 'Courier New', monospace; 
             font-weight: bold;
             text-transform: uppercase; 
-            font-size: 22px; /* Tamaño uniforme */
+            font-size: 22px; /* Tamaño base del cuerpo */
             color: #000;
             background: #ffffff; 
             margin: 0 !important; 
@@ -42,7 +42,9 @@
             margin: 0; 
         }
 
-        /* Cabecera */
+        /* =========================================
+           ENCABEZADO DEL DOCUMENTO
+           ========================================= */
         .etq-header {
             text-align: center;
             border-bottom: 3px dashed #000;
@@ -51,11 +53,15 @@
         }
 
         .etq-empresa, .etq-sub {
-            font-size: 22px; 
+            font-size: 28px; /* AUMENTADO: Encabezado más grande */
+            font-weight: bold;
             margin: 0;
+            line-height: 1.1;
         }
 
-        /* Cuerpo */
+        /* =========================================
+           CUERPO
+           ========================================= */
         .etq-cuerpo {
             font-size: 22px; 
             line-height: 1.2;
@@ -71,14 +77,13 @@
             border-collapse: collapse;
             font-size: 22px; 
             margin: 2mm 0;
-            table-layout: fixed; /* ESTO ES CLAVE: Fija el ancho de las columnas */
+            table-layout: fixed; 
         }
 
         .etq-tabla th, .etq-tabla td {
             padding: 1mm 0;
             font-size: 22px; 
             vertical-align: top;
-            /* Permitir que el texto salte de línea */
             word-wrap: break-word; 
             white-space: normal; 
         }
@@ -89,12 +94,13 @@
             border-top: 2px solid #000;
         }
 
-        /* Definimos los anchos de las columnas */
-        .etq-tabla .col-libro { width: 60%; } /* El libro ocupa la mayor parte y salta de línea */
+        .etq-tabla .col-libro { width: 60%; } 
         .etq-tabla .col-cant { width: 15%; text-align: center; }
         .etq-tabla .col-saldo { width: 25%; text-align: right; }
 
-        /* Totales */
+        /* =========================================
+           PIE DE PÁGINA (TOTALES)
+           ========================================= */
         .etq-totales {
             font-size: 22px;
             border-top: 3px dashed #000;
@@ -108,7 +114,7 @@
 
         .etq-totales .fila.total-final {
             font-weight: bold;
-            font-size: 22px; 
+            font-size: 28px; /* AUMENTADO: El total final resalta más */
             border-top: 2px solid #000;
             padding-top: 2mm;
             margin-top: 2mm;
