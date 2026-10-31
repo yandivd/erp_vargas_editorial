@@ -3,9 +3,10 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Comprobante{% endblock %}</title>
     <style>
-        /* Forzamos el tamaño exacto del papel */
+        /* Ancho 100% del contenedor */
         @page {
             size: 58mm auto;
             margin: 0; 
@@ -17,30 +18,28 @@
             print-color-adjust: exact !important;
         }
 
-        /* Eliminamos fondos y forzamos el ancho a 58mm */
+        /* El body ahora ocupa TODO el ancho de la pantalla, sin márgenes ni fondos */
         body {
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 14pt; /* Letra base mucho más grande */
+            font-size: 14pt; /* Letra grande */
             color: #000;
-            background: #ffffff; /* Fondo blanco puro, sin grises */
-            margin: 0 auto !important; 
+            background: #ffffff; 
+            margin: 0 !important; 
             padding: 0 !important;
-            width: 58mm !important; /* Ancho exacto de la impresora */
-            max-width: 58mm !important;
+            width: 100% !important; /* Ocupa toda la pantalla */
         }
 
-        /* El contenedor ya no centra, solo envuelve */
         .hoja {
             width: 100%;
             padding: 0;
             margin: 0;
         }
 
-        /* La etiqueta ocupa el 100% del body */
+        /* El ticket ocupa el 100% */
         .etiqueta { 
             width: 100%;      
             background: #ffffff;
-            padding: 1mm; /* Margen mínimo interno para que no toque el borde */
+            padding: 2mm; /* Un pequeño margen para que no toque el borde físico */
             margin: 0; 
             display: flex;
             flex-direction: column;
@@ -50,12 +49,12 @@
         .etq-header {
             text-align: center;
             border-bottom: 1px dashed #000;
-            padding-bottom: 1mm;
-            margin-bottom: 1.5mm;
+            padding-bottom: 1.5mm;
+            margin-bottom: 2mm;
         }
 
         .etq-empresa {
-            font-size: 16pt; /* Empresa bien grande */
+            font-size: 16pt;
             font-weight: bold;
             text-transform: uppercase;
             margin: 0;
@@ -63,19 +62,19 @@
         }
 
         .etq-sub {
-            font-size: 11pt; 
+            font-size: 12pt; 
             margin: 1mm 0 0 0;
             line-height: 1.1;
         }
 
         /* Cuerpo */
         .etq-cuerpo {
-            font-size: 14pt; /* Letra grande y clara */
+            font-size: 14pt; 
             line-height: 1.2;
         }
 
         .etq-cuerpo p {
-            margin: 0 0 1mm 0;
+            margin: 0 0 1.5mm 0;
             display: flex;
             justify-content: space-between;
         }
@@ -122,33 +121,18 @@
 
         .etq-totales .fila.total-final {
             font-weight: bold;
-            font-size: 16pt; /* TOTAL bien grande */
+            font-size: 16pt; 
             border-top: 1px solid #000;
             padding-top: 1.5mm;
             margin-top: 1.5mm;
-        }
-
-        /* Botones (Invisibles al imprimir) */
-        .no-print {
-            text-align: center;
-            margin: 20px 0;
-        }
-        @media print {
-            .no-print { display: none !important; }
-            /* Aseguramos que en impresión no haya márgenes */
-            body { margin: 0 !important; padding: 0 !important; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Botones -->
-    <div class="no-print">
-        <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px;">🖨 Imprimir</button>
-        <button onclick="window.close()" style="padding: 10px 20px; font-size: 16px;">✕ Cerrar</button>
-    </div>
+    <!-- Ya NO hay botones en el HTML. Usa el botón de la app. -->
 
-    <!-- Contenido -->
+    <!-- Las etiquetas -->
     <div class="hoja">
         {% block etiquetas %}{% endblock %}
     </div>
