@@ -174,23 +174,37 @@ document.addEventListener('DOMContentLoaded', function () {
         return '<div class="table-responsive"><table class="table table-hover mb-0"><tbody><tr><td colspan="5" class="text-center text-muted py-4">No hay movimientos registrados</td></tr></tbody></table></div>';
     }
 
-    function renderFila(m) {
-        const badge = m.tipo === 'INGRESO'
-            ? '<span class="badge bg-success">Ingreso</span>'
-            : '<span class="badge bg-danger">Egreso</span>';
-        const categoria = m.categoria === 'COMPRA_DIVISA' || m.categoria === 'VENTA_DIVISA'
-            ? '<span class="badge bg-secondary">Transferencia</span>'
-            : (m.categoria.startsWith('GANANCIA')
-                ? '<span class="badge bg-success">Ganancia cambiaria</span>'
-                : (m.categoria.startsWith('PERDIDA')
-                    ? '<span class="badge bg-danger">Pérdida cambiaria</span>'
-                    : badge));
-        const signo = (m.categoria === 'COMPRA_DIVISA' || m.categoria === 'VENTA_DIVISA')
-            ? '↔'
-            : (m.tipo === 'INGRESO' ? '+' : '-');
-        const monto = `${signo} ${ERP.format.money(m.monto, m.moneda)}${m.moneda === 'USD' ? ' <small class="text-muted">USD</small>' : ''}`;
-        return `<tr><td>${ERP.format.escapeHtml(m.fecha)}</td><td>${categoria}</td><td>${ERP.format.escapeHtml(m.concepto)}</td><td><small>${ERP.format.escapeHtml(m.categoria_display)}</small></td><td class="${m.tipo === 'INGRESO' ? 'text-success' : 'text-danger'} fw-bold">${monto}</td></tr>`;
-    }
+        function renderFila(m) {
+            const badge = m.tipo === 'INGRESO'
+                ? '<span class="badge bg-success">Ingreso</span>'
+                : '<span class="badge bg-danger">Egreso</span>';
+                
+            // Verificamos que m.categoria exista antes de usar startsWith
+            const cat = m.categoria || '';
+            
+            const categoria = cat === 'COMPRA_DIVISA' || cat === 'VENTA_DIVISA'
+                ? '<span class="badge bg-secondary">Transferencia</span>'
+                : (cat.startsWith('GANANCIA')
+                    ? '<span class="badge bg-success">Ganancia cambiaria</span>'
+                    : (cat.startsWith('PERDIDA')
+                        ? '<span class="badge bg-danger">Pérdida cambiaria</span>'
+                        : badge));
+                        
+            const signo = (cat === 'COMPRA_DIVISA' || cat === 'VENTA_DIVISA')
+                ? '↔'
+                : (m.tipo === 'INGRESO' ? '+' : '-');
+                
+            const monto = `${signo} ${ERP.format.money(m.monto, m.moneda)}${m.moneda === 'USD' ? ' <small class="text-muted">USD</small>' : ''}`;
+            
+            // Usamos m.categoria_label que sabemos que SÍ viene en el JSON
+            return `<tr>
+                <td>${ERP.format.escapeHtml(m.fecha)}</td>
+                <td>${categoria}</td>
+                <td>${ERP.format.escapeHtml(m.concepto)}</td>
+                <td><small>${ERP.format.escapeHtml(m.categoria_label || m.categoria || '')}</small></td>
+                <td class="${m.tipo === 'INGRESO' ? 'text-success' : 'text-danger'} fw-bold">${monto}</td>
+            </tr>`;
+        }
 
     function renderTabla(movimientos, pagination) {
         const filas = movimientos.map(renderFila).join('');
