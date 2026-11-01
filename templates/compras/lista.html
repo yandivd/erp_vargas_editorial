@@ -89,8 +89,10 @@ document.addEventListener('DOMContentLoaded', function () {
         </tr>`;
     }
 
-    function cargarCompras(page = 1) {
-        ERP.api.get('{% url "compras_api:lista" %}', { page: page })
+    function cargarCompras(page = 1, perPage = null) {
+        const filtros = { page: page };
+        if (perPage) filtros.per_page = perPage;
+        ERP.api.get('{% url "compras_api:lista" %}', filtros)
             .then(res => {
                 const compras = res.data.compras || [];
                 const tbody = document.getElementById('tbodyCompras');
@@ -101,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
                 if (paginacionEl) {
-                    ERP.pagination.render(paginacionEl, res.pagination, p => cargarCompras(p));
+                    ERP.pagination.render(paginacionEl, res.pagination, (p, perPage) => cargarCompras(p, perPage));
                 }
             })
             .catch(err => console.error(err));

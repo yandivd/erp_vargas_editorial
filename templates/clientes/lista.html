@@ -81,21 +81,22 @@ document.addEventListener('DOMContentLoaded', function () {
             contenedor.innerHTML = `<div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead class="table-light"><tr><th style="cursor: pointer;" class="sortable" data-orden="nombre">Nombre</th><th class="d-none d-md-table-cell">Email</th><th class="d-none d-sm-table-cell" style="cursor: pointer;" class="sortable" data-orden="pedidos">Pedidos</th><th>Saldo Pendiente</th><th class="text-end">Acciones</th></tr></thead><tbody>${filas || '<tr><td colspan="5" class="text-center text-muted py-5"><i class="bi bi-people fs-1 d-block mb-2"></i>No se encontraron clientes.</td></tr>'}</tbody></table></div>${paginacion}`;
             const paginacionEl = document.getElementById('paginacion-ajax-clientes');
             if (paginacionEl) {
-                ERP.pagination.render(paginacionEl, pagination, page => actualizarTabla(page));
+                ERP.pagination.render(paginacionEl, pagination, (page, perPage) => actualizarTabla(page, perPage));
             }
         }
 
-        function actualizarTabla(page = null) {
+        function actualizarTabla(page = null, perPage = null) {
             contenedor.style.opacity = '0.5';
             const formData = new FormData(formFiltros);
             if (page) formData.set('page', page);
+            if (perPage) formData.set('per_page', perPage);
             const params = new URLSearchParams(formData).toString();
             fetch(`{% url 'clientes_api:lista' %}?${params}`, {
                 credentials: 'same-origin'
             })
             .then(response => response.json())
             .then(data => {
-                contenedor.innerHTML = data.data.clientes.length ? renderTabla(data.data.clientes, data.data.pagination) : renderVacio();
+                contenedor.innerHTML = data.data.clientes.length ? renderTabla(data.data.clientes, data.pagination) : renderVacio();
                 contenedor.style.opacity = '1';
             })
             .catch(err => {
