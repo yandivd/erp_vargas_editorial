@@ -22,7 +22,7 @@
                 <th>Deuda Pendiente</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="tbodyProveedores">
             {% for p in proveedores %}
             <tr>
                 <td><strong>{{ p.nombre }}</strong></td>
@@ -42,4 +42,26 @@
         </tbody>
     </table>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    async function cargarProveedores() {
+        const data = await ERP.api.get('/api/proveedores/lista/', { per_page: 100 });
+        const tbody = document.getElementById('tbodyProveedores');
+        if (!tbody) return;
+        tbody.innerHTML = data.data.proveedores.map(p => `
+            <tr>
+                <td><strong>${ERP.format.escapeHtml(p.nombre)}</strong></td>
+                <td>${ERP.format.escapeHtml(p.tipo_label)}</td>
+                <td>${ERP.format.escapeHtml(p.telefono || '—')}</td>
+                <td>${p.deuda_total > 0 ? `<span class="text-danger fw-bold">${ERP.format.money(p.deuda_total)}</span>` : '<span class="text-success">Al día</span>'}</td>
+            </tr>
+        `).join('');
+    }
+
+    cargarProveedores();
+});
+</script>
 {% endblock %}

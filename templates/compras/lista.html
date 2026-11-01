@@ -8,55 +8,106 @@
 </div>
 
 <div class="card card-kpi">
-    <table class="table table-hover mb-0 align-middle">
-        <thead class="table-light">
-            <tr>
-                <th>Orden #</th>
-                <th>Fecha</th>
-                <th>Proveedor</th>
-                <th>Total</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for c in compras %}
-            <tr>
-                <td><strong>OC-{{ c.id|stringformat:"05d" }}</strong></td>
-                <td>{{ c.fecha|date:"d/m/Y" }}</td>
-                <td>{{ c.proveedor.nombre }}</td>
-                <td class="fw-bold">${{ c.total|floatformat:2 }}</td>
-                <td>
-                    {% if c.estado == 'BORRADOR' %}
-                        <span class="badge bg-warning text-dark">Pendiente de Recibir</span>
-                    {% elif c.estado == 'RECIBIDA' %}
-                        <span class="badge bg-success">Recibida</span>
-                    {% else %}
-                        <span class="badge bg-danger">Cancelada</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <a href="{% url 'compras:imprimir' c.id %}" target="_blank" class="btn btn-sm btn-outline-dark">
-                        <i class="bi bi-printer"></i> Imprimir
-                    </a>
-                    
-                    {% if c.estado == 'BORRADOR' %}
-                    <a href="{% url 'compras:recibir' c.id %}" class="btn btn-sm btn-success">
-                        <i class="bi bi-box-arrow-in-down"></i> Recibir Material
-                    </a>
-                    <form method="post" action="{% url 'compras:cancelar' c.id %}" style="display:inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Cancelar esta orden?')">
-                            <i class="bi bi-x-circle"></i>
-                        </button>
-                    </form>
-                    {% endif %}
-                </td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="6" class="text-center text-muted py-4">No hay compras registradas.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Orden #</th>
+                    <th>Fecha</th>
+                    <th>Proveedor</th>
+                    <th>Total</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tbodyCompras">
+                {% for c in compras %}
+                <tr>
+                    <td><strong>OC-{{ c.id|stringformat:"05d" }}</strong></td>
+                    <td>{{ c.fecha|date:"d/m/Y" }}</td>
+                    <td>{{ c.proveedor.nombre }}</td>
+                    <td class="fw-bold">${{ c.total|floatformat:2 }}</td>
+                    <td>
+                        {% if c.estado == 'BORRADOR' %}
+                            <span class="badge bg-warning text-dark">Pendiente de Recibir</span>
+                        {% elif c.estado == 'RECIBIDA' %}
+                            <span class="badge bg-success">Recibida</span>
+                        {% else %}
+                            <span class="badge bg-danger">Cancelada</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'compras:imprimir' c.id %}" target="_blank" class="btn btn-sm btn-outline-dark">
+                            <i class="bi bi-printer"></i> Imprimir
+                        </a>
+                        {% if c.estado == 'BORRADOR' %}
+                        <a href="{% url 'compras:recibir' c.id %}" class="btn btn-sm btn-success">
+                            <i class="bi bi-box-arrow-in-down"></i> Recibir Material
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No hay compras registradas.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div id="paginacion-compras"></div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const csrfToken = '{{ csrf_token }}';
+
+    function renderVacio() {
+        return '<tr><td colspan="6" class="text-center text-muted py-4">No hay compras registradas.</td></tr>';
+    }
+
+    function renderFila(c) {
+        let badge = '<span class="badge bg-danger">Cancelada</span>';
+        if (c.estado === 'BORRADOR') {
+            badge = '<span class="badge bg-warning text-dark">Pendiente de Recibir</span>';
+        } else if (c.estado === 'RECIBIDA') {
+            badge = '<span class="badge bg-success">Recibida</span>';
+        }
+
+        let acciones = `<a href="/compras/${c.id}/imprimir/" target="_blank" class="btn btn-sm btn-outline-dark me-1"><i class="bi bi-printer"></i> Imprimir</a>`;
+        if (c.estado === 'BORRADOR') {
+            acciones += `<a href="/compras/${c.id}/recibir/" class="btn btn-sm btn-success me-1"><i class="bi bi-box-arrow-in-down"></i> Recibir Material</a>`;
+        }
+
+        return `<tr>
+            <td><strong>${ERP.format.escapeHtml(c.codigo)}</strong></td>
+            <td>${ERP.format.escapeHtml(c.fecha)}</td>
+            <td>${ERP.format.escapeHtml(c.proveedor_nombre)}</td>
+            <td class="fw-bold">${ERP.format.money(c.total)}</td>
+            <td>${badge}</td>
+            <td>${acciones}</td>
+        </tr>`;
+    }
+
+    function cargarCompras(page = 1) {
+        ERP.api.get('{% url "compras_api:lista" %}', { page: page })
+            .then(res => {
+                const compras = res.data.compras || [];
+                const tbody = document.getElementById('tbodyCompras');
+                const paginacionEl = document.getElementById('paginacion-compras');
+
+                if (tbody) {
+                    tbody.innerHTML = compras.length ? compras.map(renderFila).join('') : renderVacio();
+                }
+
+                if (paginacionEl) {
+                    ERP.pagination.render(paginacionEl, res.pagination, p => cargarCompras(p));
+                }
+            })
+            .catch(err => console.error(err));
+    }
+
+    cargarCompras(1);
+});
+</script>
 {% endblock %}
