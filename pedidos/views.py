@@ -450,6 +450,7 @@ def calcular_costo_ajax(request):
         precio_sugerido = costeador.calcular_precio_sugerido()
         anticipo_sugerido = round(precio_sugerido / 2, 2)
 
+        resultado['paginas'] = paginas
         resultado['precio_sugerido'] = float(precio_sugerido)
         resultado['anticipo_sugerido'] = float(anticipo_sugerido)
 

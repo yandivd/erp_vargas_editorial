@@ -58,8 +58,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (!inputPaginas || !inputPrecio) return;
 
+    let precioEditadoManualmente = false;
+    let ultimaPeticion = 0;
+    let temporizador = null;
+    let controlador = null;
+
+    inputPrecio.addEventListener('input', function () {
+        precioEditadoManualmente = true;
+    });
+
     inputPaginas.addEventListener('input', function () {
         const paginas = parseInt(this.value) || 0;
+        precioEditadoManualmente = false;
+
+        clearTimeout(temporizador);
+        if (controlador) controlador.abort();
 
         if (paginas < 1) {
             aviso.style.display = 'none';
@@ -68,17 +81,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
         aviso.style.display = 'block';
 
-        fetch(`/pedidos/calcular-costo/?paginas=${paginas}&lleva_scotch=false&lleva_esquineros=false`)
-            .then(r => r.json())
-            .then(data => {
-                if (data.ok) {
-                    inputPrecio.value = data.costo.precio_sugerido;
-                }
-                aviso.style.display = 'none';
+        temporizador = setTimeout(function () {
+            const peticion = ++ultimaPeticion;
+            controlador = new AbortController();
+
+            fetch(`/pedidos/calcular-costo/?paginas=${paginas}&lleva_scotch=false&lleva_esquineros=false`, {
+                signal: controlador.signal
             })
-            .catch(() => {
-                aviso.style.display = 'none';
-            });
+                .then(r => r.json())
+                .then(data => {
+                    if (peticion !== ultimaPeticion) return;
+                    if (data.ok && !precioEditadoManualmente) {
+                        inputPrecio.value = data.costo.precio_sugerido;
+                    }
+                    aviso.style.display = 'none';
+                })
+                .catch(err => {
+                    if (err.name === 'AbortError') return;
+                    if (peticion === ultimaPeticion) aviso.style.display = 'none';
+                });
+        }, 400);
     });
 });
 </script>

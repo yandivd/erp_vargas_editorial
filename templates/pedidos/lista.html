@@ -299,6 +299,12 @@ document.addEventListener('DOMContentLoaded', function () {
     let usandoClienteNuevo = false;
     let usandoLibroNuevo = false;
     let anticipoEditado = false;
+    let precioEditadoManualmente = false;
+    let descuentoActivo = false;
+    let temporizadorPaginas = null;
+    let ultimaPeticionCosto = 0;
+    let controladorCosto = null;
+    let ultimoCosto = null;
 
     // Referencias a elementos de la barra masiva
     const barraMasiva = document.getElementById('barraAccionesMasivas');
@@ -448,49 +454,86 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==========================================
     // CÁLCULO DE COSTO (MODAL)
     // ==========================================
-    function actualizarCosto() {
-        let p = 0;
-        let esLibroNuevo = usandoLibroNuevo;
+    function actualizarGanancia() {
+        if (!ultimoCosto || !precioInput || !costoPanel) return;
+        const gan = (parseFloat(precioInput.value) || 0) - ultimoCosto.costo_total;
+        costoPanel.innerHTML = `Costo de producción: <strong>$${ultimoCosto.costo_total}</strong> — Ganancia estimada: <strong class="${gan >= 0 ? 'text-success' : 'text-danger'}">$${gan.toFixed(2)}</strong>`;
+    }
 
-        if (!esLibroNuevo && libroSelect && libroSelect.value) {
-            const opcionSeleccionada = libroSelect.options[libroSelect.selectedIndex];
-            p = opcionSeleccionada.getAttribute('data-paginas');
-            if (paginasInput) paginasInput.value = p;
-            
-            const precioBase = opcionSeleccionada.getAttribute('data-precio');
-            const anticipoBase = opcionSeleccionada.getAttribute('data-anticipo');
-            
-            if (precioInput) precioInput.value = precioBase;
-            if (anticipoInput && !anticipoEditado) {
-                anticipoInput.value = anticipoBase;
-            }
-            
-        } else if (esLibroNuevo && paginasInput && paginasInput.value) {
-            p = paginasInput.value;
+    function cargarCosto(paginas, actualizarPrecio) {
+        if (!paginas || paginas < 1) {
+            ultimoCosto = null;
+            if (costoPanel) costoPanel.innerHTML = 'Ingresa las páginas para calcular el costo.';
+            return;
         }
 
-        if (!p || p < 1) { 
-            costoPanel.innerHTML = 'Ingresa las páginas para calcular el costo.'; 
-            return; 
-        }
-        
         const llevaScotch = document.querySelector('#id_lleva_scotch').checked;
         const llevaEsquineros = document.querySelector('#id_lleva_esquineros').checked;
-        
-        fetch(`/pedidos/calcular-costo/?paginas=${p}&lleva_scotch=${llevaScotch}&lleva_esquineros=${llevaEsquineros}`)
+        const peticion = ++ultimaPeticionCosto;
+
+        if (controladorCosto) controladorCosto.abort();
+        controladorCosto = new AbortController();
+
+        fetch(`/pedidos/calcular-costo/?paginas=${paginas}&lleva_scotch=${llevaScotch}&lleva_esquineros=${llevaEsquineros}`, {
+            signal: controladorCosto.signal
+        })
             .then(r => r.json())
             .then(d => {
-                if (d.ok) {
-                    if (esLibroNuevo) {
-                        precioInput.value = d.costo.precio_sugerido;
-                        if (anticipoInput && !anticipoEditado) {
-                            anticipoInput.value = d.costo.anticipo_sugerido;
-                        }
+                if (peticion !== ultimaPeticionCosto) return;
+                if (!d.ok) return;
+
+                ultimoCosto = d.costo;
+
+                if (actualizarPrecio && !precioEditadoManualmente) {
+                    if (precioInput) precioInput.value = d.costo.precio_sugerido;
+                    if (anticipoInput && !anticipoEditado) {
+                        anticipoInput.value = d.costo.anticipo_sugerido;
                     }
-                    const gan = (parseFloat(precioInput.value) || 0) - d.costo.costo_total;
-                    costoPanel.innerHTML = `Costo de producción: <strong>$${d.costo.costo_total}</strong> — Ganancia estimada: <strong class="${gan >= 0 ? 'text-success' : 'text-danger'}">$${gan.toFixed(2)}</strong>`;
                 }
+
+                actualizarGanancia();
+            })
+            .catch(err => {
+                if (err.name !== 'AbortError') console.error(err);
             });
+    }
+
+    function actualizarCosto() {
+        if (usandoLibroNuevo) {
+            cargarCosto(paginasInput ? paginasInput.value : 0, true);
+            return;
+        }
+
+        if (libroSelect && libroSelect.value) {
+            const opcionSeleccionada = libroSelect.options[libroSelect.selectedIndex];
+            cargarCosto(opcionSeleccionada.getAttribute('data-paginas'), false);
+            return;
+        }
+
+        ultimoCosto = null;
+        if (costoPanel) costoPanel.innerHTML = 'Ingresa las páginas para calcular el costo.';
+    }
+
+    function cargarLibroSeleccionado() {
+        anticipoEditado = false;
+        precioEditadoManualmente = false;
+
+        if (descuentoActivo) {
+            resetearDescuento();
+        }
+
+        if (libroSelect && libroSelect.value) {
+            const opcionSeleccionada = libroSelect.options[libroSelect.selectedIndex];
+            const paginas = opcionSeleccionada.getAttribute('data-paginas');
+            const precioBase = opcionSeleccionada.getAttribute('data-precio');
+            const anticipoBase = opcionSeleccionada.getAttribute('data-anticipo');
+
+            if (paginasInput) paginasInput.value = paginas;
+            if (precioInput) precioInput.value = precioBase;
+            if (anticipoInput) anticipoInput.value = anticipoBase;
+        }
+
+        actualizarCosto();
     }
 
     // ==========================================
@@ -504,7 +547,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let precioOriginal = null;
     let anticipoOriginal = null;
-    let descuentoActivo = false;
 
     function cargarCodigos() {
         if (!selectCodigo) return;
@@ -528,7 +570,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const modalNuevoPedido = document.getElementById('modalNuevoPedido');
     if (modalNuevoPedido) {
-        modalNuevoPedido.addEventListener('shown.bs.modal', cargarCodigos);
+        modalNuevoPedido.addEventListener('shown.bs.modal', function () {
+            precioEditadoManualmente = false;
+            anticipoEditado = false;
+            cargarCodigos();
+        });
     }
 
     function resetearDescuento() {
@@ -636,24 +682,28 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('tab-libro-existente-btn').addEventListener('shown.bs.tab', () => usandoLibroNuevo = false);
         }
 
-        if (libroSelect) libroSelect.addEventListener('change', actualizarCosto);
-        if (paginasInput) paginasInput.addEventListener('input', actualizarCosto);
-        if (precioInput) precioInput.addEventListener('input', actualizarCosto);
-        
-        if (anticipoInput) {
-            anticipoInput.addEventListener('input', () => {
-                anticipoEditado = true;
+        if (libroSelect) libroSelect.addEventListener('change', cargarLibroSeleccionado);
+
+        if (paginasInput) {
+            paginasInput.addEventListener('input', function () {
+                if (!usandoLibroNuevo) return;
+
+                precioEditadoManualmente = false;
+
+                if (descuentoActivo) {
+                    resetearDescuento();
+                }
+
+                clearTimeout(temporizadorPaginas);
+                temporizadorPaginas = setTimeout(actualizarCosto, 400);
             });
         }
-        
-        const scotchCheck = document.querySelector('#id_lleva_scotch');
-        if (scotchCheck) scotchCheck.addEventListener('change', actualizarCosto);
-        
-        const esquinerosCheck = document.querySelector('#id_lleva_esquineros');
-        if (esquinerosCheck) esquinerosCheck.addEventListener('change', actualizarCosto);
 
         if (precioInput) {
             precioInput.addEventListener('input', function () {
+                precioEditadoManualmente = true;
+                actualizarGanancia();
+
                 if (descuentoActivo) {
                     resetearDescuento();
                     btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i>';
@@ -662,6 +712,28 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
         }
+
+        if (anticipoInput) {
+            anticipoInput.addEventListener('input', () => {
+                anticipoEditado = true;
+            });
+        }
+        
+        const scotchCheck = document.querySelector('#id_lleva_scotch');
+        if (scotchCheck) scotchCheck.addEventListener('change', function () {
+            if (usandoLibroNuevo && descuentoActivo) {
+                resetearDescuento();
+            }
+            actualizarCosto();
+        });
+        
+        const esquinerosCheck = document.querySelector('#id_lleva_esquineros');
+        if (esquinerosCheck) esquinerosCheck.addEventListener('change', function () {
+            if (usandoLibroNuevo && descuentoActivo) {
+                resetearDescuento();
+            }
+            actualizarCosto();
+        });
 
         form.addEventListener('submit', function (e) {
             e.preventDefault();
@@ -802,25 +874,6 @@ document.addEventListener('DOMContentLoaded', function () {
         templateResult: formatLibro,
         templateSelection: formatLibro,
         matcher: matchCustom
-    });
-
-    $('#id_libro').on('select2:select', function (e) {
-        anticipoEditado = false;
-        if (descuentoActivo) {
-            resetearDescuento();
-            btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i>';
-            btnAplicarDescuento.classList.remove('btn-outline-danger');
-            btnAplicarDescuento.classList.add('btn-outline-success');
-        }
-        actualizarCosto();
-    });
-
-    $('#id_libro').on('select2:clear', function (e) {
-        anticipoEditado = false;
-        if (descuentoActivo) {
-            resetearDescuento();
-        }
-        actualizarCosto();
     });
 
     // ==========================================
