@@ -170,88 +170,83 @@ document.addEventListener('DOMContentLoaded', function () {
     const formFiltros = document.getElementById('formFiltrosCaja');
     if (!contenedor) return;
 
-    function renderVacio() {
-        return '<div class="table-responsive"><table class="table table-hover mb-0"><tbody><tr><td colspan="5" class="text-center text-muted py-4">No hay movimientos registrados</td></tr></tbody></table></div>';
+    function renderFila(m) {
+        const badge = m.tipo === 'INGRESO'
+            ? '<span class="badge bg-success">Ingreso</span>'
+            : '<span class="badge bg-danger">Egreso</span>';
+            
+        const cat = m.categoria || '';
+        
+        const categoria = (cat === 'COMPRA_DIVISA' || cat === 'VENTA_DIVISA')
+            ? '<span class="badge bg-secondary">Transferencia</span>'
+            : (cat.startsWith('GANANCIA')
+                ? '<span class="badge bg-success">Ganancia cambiaria</span>'
+                : (cat.startsWith('PERDIDA')
+                    ? '<span class="badge bg-danger">Pérdida cambiaria</span>'
+                    : badge));
+                    
+        const signo = (cat === 'COMPRA_DIVISA' || cat === 'VENTA_DIVISA')
+            ? '↔'
+            : (m.tipo === 'INGRESO' ? '+' : '-');
+            
+        const monto = `${signo} ${ERP.format.money(m.monto, m.moneda)}${m.moneda === 'USD' ? ' <small class="text-muted">USD</small>' : ''}`;
+        
+        return `<tr>
+            <td>${ERP.format.escapeHtml(m.fecha)}</td>
+            <td>${categoria}</td>
+            <td>${ERP.format.escapeHtml(m.concepto)}</td>
+            <td><small>${ERP.format.escapeHtml(m.categoria_label)}</small></td>
+            <td class="${m.tipo === 'INGRESO' ? 'text-success' : 'text-danger'} fw-bold">${monto}</td>
+        </tr>`;
     }
-
-        function renderFila(m) {
-            const badge = m.tipo === 'INGRESO'
-                ? '<span class="badge bg-success">Ingreso</span>'
-                : '<span class="badge bg-danger">Egreso</span>';
-                
-            // Verificamos que m.categoria exista antes de usar startsWith
-            const cat = m.categoria || '';
-            
-            const categoria = cat === 'COMPRA_DIVISA' || cat === 'VENTA_DIVISA'
-                ? '<span class="badge bg-secondary">Transferencia</span>'
-                : (cat.startsWith('GANANCIA')
-                    ? '<span class="badge bg-success">Ganancia cambiaria</span>'
-                    : (cat.startsWith('PERDIDA')
-                        ? '<span class="badge bg-danger">Pérdida cambiaria</span>'
-                        : badge));
-                        
-            const signo = (cat === 'COMPRA_DIVISA' || cat === 'VENTA_DIVISA')
-                ? '↔'
-                : (m.tipo === 'INGRESO' ? '+' : '-');
-                
-            const monto = `${signo} ${ERP.format.money(m.monto, m.moneda)}${m.moneda === 'USD' ? ' <small class="text-muted">USD</small>' : ''}`;
-            
-            // Usamos m.categoria_label que sabemos que SÍ viene en el JSON
-            return `<tr>
-                <td>${ERP.format.escapeHtml(m.fecha)}</td>
-                <td>${categoria}</td>
-                <td>${ERP.format.escapeHtml(m.concepto)}</td>
-                <td><small>${ERP.format.escapeHtml(m.categoria_label || m.categoria || '')}</small></td>
-                <td class="${m.tipo === 'INGRESO' ? 'text-success' : 'text-danger'} fw-bold">${monto}</td>
-            </tr>`;
-        }
 
     function renderTabla(movimientos, pagination) {
         const filas = movimientos.map(renderFila).join('');
-        const start = pagination.start_index || 0;
-        const end = pagination.end_index || 0;
-        const total = pagination.total || 0;
-        const options = pagination.per_page_options || [10, 25, 50];
-        const selects = options.map(n => `<option value="${n}"${n === pagination.per_page ? ' selected' : ''}>${n}</option>`).join('');
         const paginacion = pagination.num_pages > 1 ? `<div id="paginacion-caja"></div>` : '';
-        contenedor.innerHTML = `<div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Categoría</th><th>Monto</th></tr></thead><tbody>${filas || renderVacio()}</tbody></table></div>${paginacion}`;
+        
+        contenedor.innerHTML = `<div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Categoría</th><th>Monto</th></tr></thead><tbody>${filas || '<tr><td colspan="5" class="text-center text-muted py-4">No hay movimientos registrados</td></tr>'}</tbody></table></div>${paginacion}`;
+        
         const paginacionEl = document.getElementById('paginacion-caja');
-        if (paginacionEl) {
+        if (paginacionEl && window.ERP.pagination) {
             ERP.pagination.render(paginacionEl, pagination, (page, perPage) => cargarPagina(page, perPage));
         }
     }
 
-    function cargarPagina(page = null, perPage = null) {
-        const params = new URLSearchParams();
+    async function cargarPagina(page = null, perPage = null) {
+        const params = {};
         if (formFiltros) {
             new FormData(formFiltros).forEach((value, key) => {
-                if (value) params.append(key, value);
+                if (value) params[key] = value;
             });
         }
-        if (page) params.set('page', page);
-        if (perPage) params.set('per_page', perPage);
+        if (page) params.page = page;
+        if (perPage) params.per_page = perPage;
+        
         contenedor.style.opacity = '0.5';
-        fetch(`{% url 'finanzas_api:caja' %}?${params.toString()}`, {
-            credentials: 'same-origin'
-        })
-        .then(response => response.json())
-        .then(data => {
-            contenedor.innerHTML = data.data.movimientos.length ? renderTabla(data.data.movimientos, data.pagination) : renderVacio();
-            contenedor.style.opacity = '1';
-        })
-        .catch(err => {
+        
+        try {
+            // Usamos TU propio ERP.api.get en lugar de fetch manual
+            const response = await ERP.api.get("{% url 'finanzas_api:caja' %}", params);
+            
+            // El api.js ya nos devuelve el JSON parseado y validado
+            if (response.ok && response.data && response.data.movimientos) {
+                renderTabla(response.data.movimientos, response.pagination);
+            } else {
+                console.warn("Estructura de respuesta inesperada:", response);
+                contenedor.innerHTML = '<div class="p-4 text-center text-muted">Error al cargar los datos: estructura inválida.</div>';
+            }
+        } catch (err) {
             console.error(err);
+            contenedor.innerHTML = `<div class="p-4 text-center text-danger">Error: ${err.message}</div>`;
+        } finally {
             contenedor.style.opacity = '1';
-        });
+        }
     }
 
     if (formFiltros) {
         formFiltros.addEventListener('submit', function (e) {
             e.preventDefault();
             cargarPagina(1);
-        });
-        formFiltros.querySelectorAll('select, input[type="date"]').forEach(el => {
-            el.addEventListener('change', () => cargarPagina(1));
         });
     }
 
