@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function () {
             ? '↔'
             : (m.tipo === 'INGRESO' ? '+' : '-');
         const monto = `${signo} ${ERP.format.money(m.monto, m.moneda)}${m.moneda === 'USD' ? ' <small class="text-muted">USD</small>' : ''}`;
-        return `<tr><td>${ERP.format.escapeHtml(m.fecha)}</td><td>${categoria}</td><td>${ERP.format.escapeHtml(m.concepto)}</td><td><small>${ERP.format.escapeHtml(m.categoria_label)}</small></td><td class="${m.tipo === 'INGRESO' ? 'text-success' : 'text-danger'} fw-bold">${monto}</td></tr>`;
+        return `<tr><td>${ERP.format.escapeHtml(m.fecha)}</td><td>${categoria}</td><td>${ERP.format.escapeHtml(m.concepto)}</td><td><small>${ERP.format.escapeHtml(m.categoria_display)}</small></td><td class="${m.tipo === 'INGRESO' ? 'text-success' : 'text-danger'} fw-bold">${monto}</td></tr>`;
     }
 
     function renderTabla(movimientos, pagination) {
