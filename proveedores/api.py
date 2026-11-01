@@ -1,13 +1,13 @@
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from core.api_utils import payload_paginacion, paginar, respuesta_ok
 from proveedores.models import Proveedor
 
-
 def api_proveedores(request):
+    # CORRECCIÓN AQUÍ: Usamos filter=Q(...) en lugar de filter__...
     proveedores = Proveedor.objects.annotate(
         deuda_total=Sum(
-            'servicioexterno',
-            filter__estado__in=['SOLICITADO', 'RECIBIDO'],
+            'servicioexterno__monto',
+            filter=Q(servicioexterno__estado__in=['SOLICITADO', 'RECIBIDO']),
         )
     ).order_by('nombre')
 
