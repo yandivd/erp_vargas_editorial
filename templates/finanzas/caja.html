@@ -170,25 +170,41 @@ document.addEventListener('DOMContentLoaded', function () {
     const formFiltros = document.getElementById('formFiltrosCaja');
     if (!contenedor) return;
 
-    function engancharPaginacion() {
-        const paginacion = document.getElementById('paginacion-caja');
-        if (!paginacion) return;
+    function renderVacio() {
+        return '<div class="table-responsive"><table class="table table-hover mb-0"><tbody><tr><td colspan="5" class="text-center text-muted py-4">No hay movimientos registrados</td></tr></tbody></table></div>';
+    }
 
-        paginacion.querySelectorAll('a.page-link').forEach(link => {
-            link.replaceWith(link.cloneNode(true));
-        });
+    function renderFila(m) {
+        const badge = m.tipo === 'INGRESO'
+            ? '<span class="badge bg-success">Ingreso</span>'
+            : '<span class="badge bg-danger">Egreso</span>';
+        const categoria = m.categoria === 'COMPRA_DIVISA' || m.categoria === 'VENTA_DIVISA'
+            ? '<span class="badge bg-secondary">Transferencia</span>'
+            : (m.categoria.startsWith('GANANCIA')
+                ? '<span class="badge bg-success">Ganancia cambiaria</span>'
+                : (m.categoria.startsWith('PERDIDA')
+                    ? '<span class="badge bg-danger">Pérdida cambiaria</span>'
+                    : badge));
+        const signo = (m.categoria === 'COMPRA_DIVISA' || m.categoria === 'VENTA_DIVISA')
+            ? '↔'
+            : (m.tipo === 'INGRESO' ? '+' : '-');
+        const monto = `${signo} ${ERP.format.money(m.monto, m.moneda)}${m.moneda === 'USD' ? ' <small class="text-muted">USD</small>' : ''}`;
+        return `<tr><td>${ERP.format.escapeHtml(m.fecha)}</td><td>${categoria}</td><td>${ERP.format.escapeHtml(m.concepto)}</td><td><small>${ERP.format.escapeHtml(m.categoria_label)}</small></td><td class="${m.tipo === 'INGRESO' ? 'text-success' : 'text-danger'} fw-bold">${monto}</td></tr>`;
+    }
 
-        const paginacionNueva = document.getElementById('paginacion-caja');
-        if (!paginacionNueva) return;
-
-        paginacionNueva.querySelectorAll('a.page-link').forEach(link => {
-            link.addEventListener('click', function (e) {
-                e.preventDefault();
-                const page = this.getAttribute('data-page');
-                if (!page) return;
-                cargarPagina(page);
-            });
-        });
+    function renderTabla(movimientos, pagination) {
+        const filas = movimientos.map(renderFila).join('');
+        const start = pagination.start_index || 0;
+        const end = pagination.end_index || 0;
+        const total = pagination.total || 0;
+        const options = pagination.per_page_options || [10, 25, 50];
+        const selects = options.map(n => `<option value="${n}"${n === pagination.per_page ? ' selected' : ''}>${n}</option>`).join('');
+        const paginacion = pagination.num_pages > 1 ? `<div id="paginacion-caja"></div>` : '';
+        contenedor.innerHTML = `<div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Categoría</th><th>Monto</th></tr></thead><tbody>${filas || renderVacio()}</tbody></table></div>${paginacion}`;
+        const paginacionEl = document.getElementById('paginacion-caja');
+        if (paginacionEl) {
+            ERP.pagination.render(paginacionEl, pagination, page => cargarPagina(page));
+        }
     }
 
     function cargarPagina(page) {
@@ -199,19 +215,19 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
         params.set('page', page);
-
         contenedor.style.opacity = '0.5';
-        fetch(`{% url 'finanzas:caja_ajax' %}?${params.toString()}`)
-            .then(r => r.json())
-            .then(data => {
-                contenedor.innerHTML = data.html;
-                contenedor.style.opacity = '1';
-                engancharPaginacion();
-            })
-            .catch(err => {
-                console.error(err);
-                contenedor.style.opacity = '1';
-            });
+        fetch(`{% url 'finanzas_api:caja' %}?${params.toString()}`, {
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            contenedor.innerHTML = data.data.movimientos.length ? renderTabla(data.data.movimientos, data.data.pagination) : renderVacio();
+            contenedor.style.opacity = '1';
+        })
+        .catch(err => {
+            console.error(err);
+            contenedor.style.opacity = '1';
+        });
     }
 
     if (formFiltros) {
@@ -224,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    engancharPaginacion();
+    cargarPagina(1);
 });
 </script>
 {% endblock %}

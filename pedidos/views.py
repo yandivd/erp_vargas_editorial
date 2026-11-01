@@ -1100,9 +1100,10 @@ def cerrar_lote_manual(request, pk):
 
 def api_lista_pedidos(request):
     """API para devolver pedidos en JSON (lista y paginación)."""
+    from core.api_utils import payload_paginacion, paginar, respuesta_ok
+
     pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=False).order_by('referencia_externa')
-    paginator = Paginator(pedidos_list, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
+    paginator, page_obj = paginar(request, pedidos_list, per_page=request.GET.get('per_page'))
 
     data = []
     for p in page_obj:
@@ -1124,15 +1125,8 @@ def api_lista_pedidos(request):
             'esta_atrasado': p.esta_atrasado,
         })
 
-    return JsonResponse({
-        'pedidos': data,
-        'paginacion': {
-            'total': paginator.count,
-            'pagina_actual': page_obj.number,
-            'total_paginas': paginator.num_pages,
-            'tiene_siguiente': page_obj.has_next(),
-            'tiene_anterior': page_obj.has_previous(),
-            'siguiente_pagina': page_obj.next_page_number() if page_obj.has_next() else None,
-            'anterior_pagina': page_obj.previous_page_number() if page_obj.has_previous() else None,
-        }
-    })
+    return respuesta_ok(
+        data={'pedidos': data},
+        pagination=payload_paginacion(paginator, page_obj),
+        meta={'total_pedidos': paginator.count},
+    )

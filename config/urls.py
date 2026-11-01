@@ -28,5 +28,12 @@ urlpatterns = [
     path('compras/', include('compras.urls')),
     
     # 2. API
+    path('api/core/', include('core.endpoint')),
+    path('api/clientes/', include('clientes.endpoint')),
+    path('api/finanzas/', include('finanzas.endpoint')),
+    path('api/empleados/', include('empleados.endpoint')),
+    path('api/inventario/', include('inventario.endpoint')),
+    path('api/proveedores/', include('proveedores.endpoint')),
+    path('api/compras/', include('compras.endpoint')),
     path('api/', include(router.urls)),
 ]

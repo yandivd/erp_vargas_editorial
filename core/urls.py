@@ -1,7 +1,9 @@
 from django.urls import path
-from . import views
+
+from . import api, views
+
 
 urlpatterns = [
-    path('', views.dashboard, name='dashboard'),
+    path('', api.dashboard_page, name='dashboard'),
     path('exportar-ia/', views.exportar_datos_ia, name='exportar_datos_ia'),
 ]

@@ -59,20 +59,44 @@ document.addEventListener('DOMContentLoaded', function () {
     const contenedor = document.getElementById('tabla-resultados');
     
     if (formFiltros && contenedor) {
-        // Función para actualizar la tabla
-        function actualizarTabla() {
+        function renderVacio() {
+            return '<div class="table-responsive"><table class="table table-hover mb-0 align-middle"><tbody><tr><td colspan="5" class="text-center text-muted py-5"><i class="bi bi-people fs-1 d-block mb-2"></i>No se encontraron clientes.</td></tr></tbody></table></div>';
+        }
+
+        function renderFila(c) {
+            const link = `<a href="/clientes/${c.id}/" class="text-dark fw-bold text-decoration-none">${ERP.format.escapeHtml(c.nombre)}</a>`;
+            const saldo = ERP.format.money(c.saldo_pendiente);
+            const estado = c.saldo_pendiente > 0 ? `<span class="text-danger fw-bold">${saldo}</span>` : `<span class="badge bg-success">Al día</span>`;
+            return `<tr><td>${link}<div class="d-sm-none small text-muted mt-1"><i class="bi bi-telephone"></i> ${ERP.format.escapeHtml(c.telefono)}</div></td><td class="d-none d-md-table-cell">${ERP.format.escapeHtml(c.email || '—')}</td><td class="d-none d-sm-table-cell"><span class="badge bg-secondary rounded-pill">${ERP.format.integer(c.pedidos)}</span></td><td>${estado}</td><td class="text-end"><a href="/clientes/${c.id}/" class="btn btn-sm btn-outline-primary" title="Ver Perfil"><i class="bi bi-person-lines-fill"></i></a></td></tr>`;
+        }
+
+        function renderTabla(clientes, pagination) {
+            const filas = clientes.map(renderFila).join('');
+            const start = pagination.start_index || 0;
+            const end = pagination.end_index || 0;
+            const total = pagination.total || 0;
+            const options = pagination.per_page_options || [10, 25, 50];
+            const selects = options.map(n => `<option value="${n}"${n === pagination.per_page ? ' selected' : ''}>${n}</option>`).join('');
+            const paginacion = pagination.num_pages > 1 ? `<div id="paginacion-ajax-clientes"></div>` : '';
+            contenedor.innerHTML = `<div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead class="table-light"><tr><th style="cursor: pointer;" class="sortable" data-orden="nombre">Nombre</th><th class="d-none d-md-table-cell">Email</th><th class="d-none d-sm-table-cell" style="cursor: pointer;" class="sortable" data-orden="pedidos">Pedidos</th><th>Saldo Pendiente</th><th class="text-end">Acciones</th></tr></thead><tbody>${filas || '<tr><td colspan="5" class="text-center text-muted py-5"><i class="bi bi-people fs-1 d-block mb-2"></i>No se encontraron clientes.</td></tr>'}</tbody></table></div>${paginacion}`;
+            const paginacionEl = document.getElementById('paginacion-ajax-clientes');
+            if (paginacionEl) {
+                ERP.pagination.render(paginacionEl, pagination, page => actualizarTabla(page));
+            }
+        }
+
+        function actualizarTabla(page = null) {
             contenedor.style.opacity = '0.5';
             const formData = new FormData(formFiltros);
+            if (page) formData.set('page', page);
             const params = new URLSearchParams(formData).toString();
-            
-            fetch(`?${params}`, {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            fetch(`{% url 'clientes_api:lista' %}?${params}`, {
+                credentials: 'same-origin'
             })
             .then(response => response.json())
             .then(data => {
-                contenedor.innerHTML = data.html;
+                contenedor.innerHTML = data.data.clientes.length ? renderTabla(data.data.clientes, data.data.pagination) : renderVacio();
                 contenedor.style.opacity = '1';
-                engancharPaginacion();
             })
             .catch(err => {
                 console.error(err);
@@ -80,37 +104,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        // Función para la paginación
-        function engancharPaginacion() {
-            const paginacion = document.getElementById('paginacion-ajax-clientes');
-            if (!paginacion) return;
-            
-            paginacion.querySelectorAll('a.page-link').forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const page = this.getAttribute('data-page');
-                    if (!page) return;
-                    
-                    const formData = new FormData(formFiltros);
-                    formData.set('page', page);
-                    const params = new URLSearchParams(formData).toString();
-                    
-                    contenedor.style.opacity = '0.5';
-                    fetch(`?${params}`, {
-                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                    })
-                    .then(r => r.json())
-                    .then(data => {
-                        contenedor.innerHTML = data.html;
-                        contenedor.style.opacity = '1';
-                        engancharPaginacion();
-                    });
-                });
-            });
-        }
-
-
-        // Escuchar cambios en los inputs de filtro
         let timer;
         formFiltros.querySelectorAll('input[type="text"], select').forEach(el => {
             el.addEventListener('input', () => {
@@ -119,29 +112,24 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
 
-        // Escuchar clics en las columnas para ordenar
         document.addEventListener('click', function(e) {
             const th = e.target.closest('th.sortable');
             if (!th) return;
-
             const columna = th.getAttribute('data-orden');
             const inputOrden = document.getElementById('inputOrden');
             let nuevoOrden = '';
-
             if (columna === 'nombre') {
                 nuevoOrden = (inputOrden.value === 'nombre_asc') ? 'nombre_desc' : 'nombre_asc';
             } else if (columna === 'pedidos') {
                 nuevoOrden = (inputOrden.value === 'pedidos_desc') ? 'pedidos_asc' : 'pedidos_desc';
             }
-
             if (nuevoOrden) {
                 inputOrden.value = nuevoOrden;
-                actualizarTabla(); // Recargamos la tabla con el nuevo orden
+                actualizarTabla();
             }
         });
 
-        // Conectar la paginación inicial
-        engancharPaginacion();
+        actualizarTabla();
     }
 });
 </script>

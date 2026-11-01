@@ -348,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const paginacion = document.getElementById('paginacion-pedidos');
         tbody.innerHTML = '';
 
-        if (data.pedidos.length === 0) {
+        if (data.data.pedidos.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-5">
                 <i class="bi bi-inbox fs-1 d-block mb-2"></i> No se encontraron pedidos.
             </td></tr>`;
@@ -356,7 +356,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        data.pedidos.forEach(p => {
+        data.data.pedidos.forEach(p => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><input type="checkbox" class="form-check-input check-pedido" value="${p.id}"></td>
@@ -392,13 +392,13 @@ document.addEventListener('DOMContentLoaded', function () {
             tbody.appendChild(tr);
         });
 
-        if (data.paginacion.total_paginas > 1) {
+        if (data.data.pagination.num_pages > 1) {
             paginacion.classList.remove('d-none');
             paginacion.innerHTML = `
-                <small class="text-muted">Mostrando ${data.paginacion.pagina_actual} de ${data.paginacion.total_paginas} páginas (Total: ${data.paginacion.total})</small>
+                <small class="text-muted">Mostrando ${data.data.pagination.start_index} - ${data.data.pagination.end_index} de ${data.data.pagination.total} pedidos</small>
                 <ul class="pagination pagination-sm mb-0" id="paginacion-ajax">
-                    ${data.paginacion.tiene_anterior ? `<li class="page-item"><a class="page-link" href="#" data-page="${data.paginacion.anterior_pagina}">Anterior</a></li>` : ''}
-                    ${data.paginacion.tiene_siguiente ? `<li class="page-item"><a class="page-link" href="#" data-page="${data.paginacion.siguiente_pagina}">Siguiente</a></li>` : ''}
+                    ${data.data.pagination.has_previous ? `<li class="page-item"><a class="page-link" href="#" data-page="${data.data.pagination.previous_page}">Anterior</a></li>` : ''}
+                    ${data.data.pagination.has_next ? `<li class="page-item"><a class="page-link" href="#" data-page="${data.data.pagination.next_page}">Siguiente</a></li>` : ''}
                 </ul>
             `;
             engancharPaginacion();
