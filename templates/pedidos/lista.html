@@ -392,16 +392,10 @@ document.addEventListener('DOMContentLoaded', function () {
             tbody.appendChild(tr);
         });
 
-        if (data.data.pagination.num_pages > 1) {
+        const pag = data.pagination;
+        if (pag && pag.total > 0) {
             paginacion.classList.remove('d-none');
-            paginacion.innerHTML = `
-                <small class="text-muted">Mostrando ${data.data.pagination.start_index} - ${data.data.pagination.end_index} de ${data.data.pagination.total} pedidos</small>
-                <ul class="pagination pagination-sm mb-0" id="paginacion-ajax">
-                    ${data.data.pagination.has_previous ? `<li class="page-item"><a class="page-link" href="#" data-page="${data.data.pagination.previous_page}">Anterior</a></li>` : ''}
-                    ${data.data.pagination.has_next ? `<li class="page-item"><a class="page-link" href="#" data-page="${data.data.pagination.next_page}">Siguiente</a></li>` : ''}
-                </ul>
-            `;
-            engancharPaginacion();
+            ERP.pagination.render(paginacion, pag, (page, perPage) => actualizarTabla(page, perPage));
         } else {
             paginacion.classList.add('d-none');
         }
@@ -410,12 +404,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==========================================
     // FUNCIÓN PARA ACTUALIZAR TABLA (API)
     // ==========================================
-    function actualizarTabla(page = null) {
+    function actualizarTabla(page = null, perPage = null) {
         const formFiltros = document.getElementById('formFiltros');
         if (!formFiltros) return;
         
         const formData = new FormData(formFiltros);
         if (page) formData.set('page', page);
+        if (perPage) formData.set('per_page', perPage);
         const params = new URLSearchParams(formData).toString();
 
         // Añadimos un pequeño efecto de carga
@@ -437,19 +432,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ==========================================
     // PAGINACIÓN DINÁMICA
+    // (renderizada por ERP.pagination en renderizarTabla)
     // ==========================================
-    function engancharPaginacion() {
-        const paginacion = document.getElementById('paginacion-ajax');
-        if (!paginacion) return;
-        
-        paginacion.querySelectorAll('a.page-link').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                const page = this.getAttribute('data-page');
-                if (page) actualizarTabla(page);
-            });
-        });
-    }
 
     // ==========================================
     // CÁLCULO DE COSTO (MODAL)
@@ -682,7 +666,12 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('tab-libro-existente-btn').addEventListener('shown.bs.tab', () => usandoLibroNuevo = false);
         }
 
-        if (libroSelect) libroSelect.addEventListener('change', cargarLibroSeleccionado);
+        if (libroSelect) {
+            libroSelect.addEventListener('change', cargarLibroSeleccionado);
+            if (window.jQuery) {
+                jQuery(libroSelect).on('select2:select select2:clear', cargarLibroSeleccionado);
+            }
+        }
 
         if (paginasInput) {
             paginasInput.addEventListener('input', function () {

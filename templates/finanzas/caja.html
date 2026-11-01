@@ -203,25 +203,26 @@ document.addEventListener('DOMContentLoaded', function () {
         contenedor.innerHTML = `<div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Categoría</th><th>Monto</th></tr></thead><tbody>${filas || renderVacio()}</tbody></table></div>${paginacion}`;
         const paginacionEl = document.getElementById('paginacion-caja');
         if (paginacionEl) {
-            ERP.pagination.render(paginacionEl, pagination, page => cargarPagina(page));
+            ERP.pagination.render(paginacionEl, pagination, (page, perPage) => cargarPagina(page, perPage));
         }
     }
 
-    function cargarPagina(page) {
+    function cargarPagina(page = null, perPage = null) {
         const params = new URLSearchParams();
         if (formFiltros) {
             new FormData(formFiltros).forEach((value, key) => {
                 if (value) params.append(key, value);
             });
         }
-        params.set('page', page);
+        if (page) params.set('page', page);
+        if (perPage) params.set('per_page', perPage);
         contenedor.style.opacity = '0.5';
         fetch(`{% url 'finanzas_api:caja' %}?${params.toString()}`, {
             credentials: 'same-origin'
         })
         .then(response => response.json())
         .then(data => {
-            contenedor.innerHTML = data.data.movimientos.length ? renderTabla(data.data.movimientos, data.data.pagination) : renderVacio();
+            contenedor.innerHTML = data.data.movimientos.length ? renderTabla(data.data.movimientos, data.pagination) : renderVacio();
             contenedor.style.opacity = '1';
         })
         .catch(err => {
