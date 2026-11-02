@@ -249,6 +249,9 @@
             <a href="{% url 'pedidos:lista_libros' %}" class="sidebar-link {% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'lista_libros' %}active{% endif %}">
                 <i class="bi bi-book"></i> Catálogo
             </a>
+            <a href="{% url 'pedidos:catalogo_pdf' %}" class="sidebar-link {% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'catalogo_pdf' %}active{% endif %}">
+                <i class="bi bi-file-earmark-pdf"></i> Catálogo PDF
+            </a>
             
             <a href="{% url 'clientes:lista' %}" class="sidebar-link {% if request.resolver_match.namespace == 'clientes' %}active{% endif %}">
                 <i class="bi bi-people"></i> Clientes
@@ -322,6 +325,7 @@
                 <a href="{% url 'pedidos:lista_entregas' %}" class="sidebar-link {% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'lista_entregas' %}active{% endif %}"><i class="bi bi-truck"></i> Entregas</a>
                 <a href="{% url 'pedidos:lista_entregados' %}" class="sidebar-link {% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'lista_entregados' %}active{% endif %}"><i class="bi bi-archive"></i> Historial Entregados</a>
                 <a href="{% url 'pedidos:lista_libros' %}" class="sidebar-link {% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'lista_libros' %}active{% endif %}"><i class="bi bi-book"></i> Catálogo</a>
+                <a href="{% url 'pedidos:catalogo_pdf' %}" class="sidebar-link {% if request.resolver_match.namespace == 'pedidos' and request.resolver_match.url_name == 'catalogo_pdf' %}active{% endif %}"><i class="bi bi-file-earmark-pdf"></i> Catálogo PDF</a>
                 <a href="{% url 'clientes:lista' %}" class="sidebar-link {% if request.resolver_match.namespace == 'clientes' %}active{% endif %}"><i class="bi bi-people"></i> Clientes</a>
                 <div class="menu-label">Operaciones</div>
                 <a href="{% url 'inventario:lista' %}" class="sidebar-link {% if request.resolver_match.namespace == 'inventario' %}active{% endif %}"><i class="bi bi-box-seam"></i> Inventario</a>

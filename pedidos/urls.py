@@ -9,6 +9,7 @@ urlpatterns = [
     path('calcular-costo/', views.calcular_costo_ajax, name='calcular_costo'),
     path('cambiar-estado-masivo/', views.cambiar_estado_masivo, name='cambiar_estado_masivo'),  # <-- AQUÍ, antes de <int:pk>
     path('libros/', views.lista_libros, name='lista_libros'),
+    path('libros/catalogo-pdf/', views.catalogo_pdf, name='catalogo_pdf'),
     path('libros/<int:pk>/editar/', views.editar_libro, name='editar_libro'),
     path('libros/<int:libro_id>/fabricar/', views.fabricar_para_stock, name='fabricar_stock'),
     path('libros/nuevo/', views.crear_libro, name='crear_libro'),
