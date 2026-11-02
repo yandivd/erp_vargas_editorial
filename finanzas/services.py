@@ -83,62 +83,97 @@ class ServicioFinanzas:
         return mov
     
     @staticmethod
-    def saldo_caja(moneda='CUP'):
+    def saldo_caja(moneda='CUP', excluir_categorias=None):
         """Devuelve el saldo actual de caja según la moneda."""
-        from django.db.models import Sum
-        ingresos = MovimientoCaja.objects.filter(tipo='INGRESO', moneda=moneda).aggregate(t=Sum('monto'))['t'] or 0
-        egresos = MovimientoCaja.objects.filter(tipo='EGRESO', moneda=moneda).aggregate(t=Sum('monto'))['t'] or 0
+        movimientos = MovimientoCaja.objects.filter(moneda=moneda)
+        if excluir_categorias:
+            movimientos = movimientos.exclude(categoria__in=excluir_categorias)
+
+        ingresos = movimientos.filter(tipo='INGRESO').aggregate(t=Sum('monto'))['t'] or 0
+        egresos = movimientos.filter(tipo='EGRESO').aggregate(t=Sum('monto'))['t'] or 0
         return ingresos - egresos
+
+    @staticmethod
+    def obtener_tasa_usd_cup():
+        """Devuelve CUP por 1 USD desde Parametro, con fallback al sistema."""
+        from core.models import Parametro
+        from core.services import tasa_cambio
+
+        tasa = Parametro.get('Tasa_cambio')
+        try:
+            tasa = Decimal(str(tasa)) if tasa is not None else None
+        except (TypeError, ValueError):
+            tasa = None
+
+        if tasa is None or tasa <= 0:
+            tasa, _ = tasa_cambio()
+
+        return Decimal(str(tasa))
 
     @staticmethod
     def calcular_utilidad_disponible(fondo_reserva=50000, porcentaje_seguridad=0.5):
         """
         Calcula cuánto dinero puede retirar el dueño sin comprometer la operación.
+        Incluye el saldo en USD convertido a CUP a la tasa de cambio actual.
         """
         from django.db.models import Sum
-        from pedidos.models import ServicioExterno
-        from core.models import Parametro
-        
-        # 1. Saldo actual en caja
-        saldo_caja = ServicioFinanzas.saldo_caja()
-        
-        # 2. Deudas con proveedores (Servicios externos no pagados)
-        deudas = ServicioExterno.objects.filter(estado__in=['SOLICITADO', 'RECIBIDO']).aggregate(t=Sum('monto'))['t'] or 0
-        
-        # 3. Dinero comprometido (Saldo pendiente de pedidos en producción)
+        from pedidos.models import Pedido, ServicioExterno
+
+        # 1. Saldos reales por moneda. Las transferencias COMPRA_DIVISA /
+        # VENTA_DIVISA no se suman como ingresos/gastos operativos para no
+        # duplicar el mismo dinero entre CUP y USD.
+        saldo_cup = Decimal(str(ServicioFinanzas.saldo_caja('CUP')))
+        saldo_usd = Decimal(str(ServicioFinanzas.saldo_caja('USD')))
+        tasa_usd = ServicioFinanzas.obtener_tasa_usd_cup()
+        saldo_usd_en_cup = saldo_usd * tasa_usd
+        saldo_caja = saldo_cup + saldo_usd_en_cup
+
+        # 2. Deudas con proveedores (servicios externos no pagados)
+        deudas = ServicioExterno.objects.filter(
+            estado__in=['SOLICITADO', 'RECIBIDO']
+        ).aggregate(t=Sum('monto'))['t'] or 0
+        deudas = Decimal(str(deudas))
+
+        # 3. Dinero comprometido (saldo pendiente de pedidos en producción)
         # Si tienes un anticipo, ese dinero no es tuyo aún, es para pagar materiales de ese libro.
         # Para simplificar, tomamos el 50% de los saldos de pedidos activos como dinero comprometido.
-        from pedidos.models import Pedido
-        pedidos_activos = Pedido.objects.exclude(estado__nombre__in=['Borrador', 'Entregado', 'Cancelado'])
-        costo_estimado_pedidos = pedidos_activos.count() * 2500 # Estimado promedio de costo por libro
+        pedidos_activos = Pedido.objects.exclude(
+            estado__nombre__in=['Borrador', 'Entregado', 'Cancelado']
+        )
+        costo_estimado_pedidos = Decimal(str(pedidos_activos.count() * 2500))
         comprometido = deudas + costo_estimado_pedidos
-        
-        # 4. Caja Libre = Saldo - Deudas - Costos Estimados - Fondo de Reserva
+        fondo_reserva = Decimal(str(fondo_reserva))
+
+        # 4. Caja Libre = Saldo CUP + Saldo USD convertido - Deudas - Costos Estimados - Fondo de Reserva
         caja_libre = saldo_caja - comprometido - fondo_reserva
-        
-        if caja_libre <= 0:
-            return {
-                'saldo_caja': saldo_caja,
-                'deudas': deudas,
-                'comprometido': comprometido,
-                'fondo_reserva': fondo_reserva,
-                'caja_libre': 0,
-                'retiro_sugerido': 0,
-                'mensaje': 'No hay excedente para retirar. Deja que la caja crezca.'
-            }
-            
-        # 5. Sugerimos retirar un porcentaje de la caja libre (para dejar colchón)
-        retiro_sugerido = caja_libre * Decimal(str(porcentaje_seguridad))
-        
-        return {
+
+        resultado = {
             'saldo_caja': saldo_caja,
+            'saldo_cup': saldo_cup,
+            'saldo_usd': saldo_usd,
+            'tasa_usd': tasa_usd,
+            'saldo_usd_en_cup': saldo_usd_en_cup,
             'deudas': deudas,
             'comprometido': comprometido,
             'fondo_reserva': fondo_reserva,
-            'caja_libre': caja_libre,
-            'retiro_sugerido': retiro_sugerido,
-            'mensaje': 'Puedes retirar esta cantidad de forma segura.'
+            'fecha_calculo': timezone.localtime(timezone.now()),
         }
+
+        if caja_libre <= 0:
+            resultado.update({
+                'caja_libre': Decimal('0'),
+                'retiro_sugerido': Decimal('0'),
+                'mensaje': 'No hay excedente para retirar. Deja que la caja crezca.'
+            })
+            return resultado
+
+        # 5. Sugerimos retirar un porcentaje de la caja libre (para dejar colchón)
+        resultado.update({
+            'caja_libre': caja_libre,
+            'retiro_sugerido': caja_libre * Decimal(str(porcentaje_seguridad)),
+            'mensaje': 'Puedes retirar esta cantidad de forma segura.'
+        })
+        return resultado
 
     @staticmethod
     def comprar_divisa(monto_usd, tasa_cambio):
