@@ -24,7 +24,9 @@
                 Este cálculo descuenta las deudas con proveedores, un fondo de reserva de ${{ utilidad.fondo_reserva }} y un margen de seguridad del 50%.
             </p>
             <ul class="list-inline mb-0 small text-muted">
-                <li class="list-inline-item d-block d-sm-inline">Saldo en Caja: <strong>${{ utilidad.saldo_caja|floatformat:2 }}</strong></li>
+                <li class="list-inline-item d-block d-sm-inline">Saldo total (CUP + USD): <strong>${{ utilidad.saldo_caja|floatformat:2 }}</strong></li>
+                <li class="list-inline-item d-block d-sm-inline">Saldo CUP: <strong>${{ utilidad.saldo_cup|floatformat:2 }}</strong></li>
+                <li class="list-inline-item d-block d-sm-inline">Saldo USD: <strong>${{ utilidad.saldo_usd|floatformat:2 }}</strong> × {{ utilidad.tasa_usd|floatformat:2 }} = <strong>${{ utilidad.saldo_usd_en_cup|floatformat:2 }}</strong></li>
                 <li class="list-inline-item d-block d-sm-inline">Deudas/Comprometido: <strong>-${{ utilidad.comprometido|floatformat:2 }}</strong></li>
                 <li class="list-inline-item d-block d-sm-inline">Fondo Reserva: <strong>-${{ utilidad.fondo_reserva|floatformat:2 }}</strong></li>
             </ul>
