@@ -21,7 +21,7 @@ from .models import (
     CodigoDescuento, HistorialEstado, Pedido, ServicioExterno, 
     Book, Estado, LoteServicio, Entrega
 )
-from .services import ServicioPedido, CosteadorPedido
+from .services import ServicioPedido, CosteadorPedido, ServicioCatalogo
 from clientes.models import Cliente
 from finanzas.services import ServicioFinanzas
 from finanzas.models import MovimientoCaja
@@ -497,6 +497,14 @@ def lista_libros_ajax(request):
     }, request=request)
 
     return JsonResponse({'html': html})
+
+
+def catalogo_pdf(request):
+    pdf = ServicioCatalogo.generar_pdf()
+
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = 'attachment; filename="catalogo-libros.pdf"'
+    return response
 
 
 def editar_libro(request, pk):

@@ -2,7 +2,7 @@ from decimal import Decimal
 from django.utils import timezone
 from core.models import Parametro
 from inventario.models import Material
-from .models import HistorialEstado, LoteServicio, ServicioExterno, Estado
+from .models import Book, HistorialEstado, LoteServicio, ServicioExterno, Estado
 from proveedores.models import Proveedor
 from datetime import timedelta
 from django.utils import timezone
@@ -252,3 +252,35 @@ class ServicioPedido:
             lote.save()
             return True
         return False
+
+
+# ============================================================
+# CATÁLOGO DE LIBROS (PDF)
+# ============================================================
+class ServicioCatalogo:
+    """Prepara el catálogo de libros y lo renderiza como PDF."""
+
+    @staticmethod
+    def obtener_contexto():
+        libros = list(Book.objects.all().order_by('titulo'))
+        return {
+            'libros': [
+                {
+                    'titulo': libro.titulo,
+                    'autor': libro.autor or '—',
+                    'precio_formateado': f"${libro.precio:,.2f}",
+                }
+                for libro in libros
+            ],
+            'total_libros': len(libros),
+            'fecha_generacion': timezone.localtime(timezone.now()),
+        }
+
+    @staticmethod
+    def generar_pdf():
+        from django.template.loader import render_to_string
+        from weasyprint import HTML
+
+        contexto = ServicioCatalogo.obtener_contexto()
+        html = render_to_string('pedidos/catalogo_pdf.html', contexto)
+        return HTML(string=html).write_pdf()

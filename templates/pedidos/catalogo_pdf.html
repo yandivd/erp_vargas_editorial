@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Catálogo de Libros - Vargas Editorial</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.6cm 1.4cm 1.4cm;
+            @bottom-center {
+                content: "Vargas Editorial · Catálogo · Página " counter(page) " de " counter(pages);
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 8pt;
+                color: #888;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 10.5pt;
+            color: #222;
+            margin: 0;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            border-bottom: 3px solid #1a3a5c;
+            padding-bottom: 12px;
+            margin-bottom: 22px;
+        }
+
+        .brand {
+            font-size: 20pt;
+            font-weight: bold;
+            color: #1a3a5c;
+            letter-spacing: 1px;
+        }
+
+        .subtitle {
+            font-size: 12pt;
+            color: #555;
+            margin-top: 4px;
+        }
+
+        .meta {
+            text-align: right;
+            font-size: 9pt;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .meta strong {
+            color: #1a3a5c;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+
+        thead {
+            display: table-header-group;
+        }
+
+        th {
+            background: #1a3a5c;
+            color: #fff;
+            padding: 9px 10px;
+            text-align: left;
+            font-size: 9pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        td {
+            padding: 9px 10px;
+            border-bottom: 1px solid #e0e0e0;
+            vertical-align: top;
+        }
+
+        tr {
+            page-break-inside: avoid;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f5f8fb;
+        }
+
+        .titulo {
+            font-weight: bold;
+            color: #1a3a5c;
+        }
+
+        .autor {
+            color: #444;
+        }
+
+        .col-precio,
+        .precio {
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .precio {
+            font-weight: bold;
+            color: #1a3a5c;
+        }
+
+        .empty {
+            text-align: center;
+            color: #888;
+            padding: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <div class="brand">VARGAS EDITORIAL</div>
+            <div class="subtitle">Catálogo de Libros</div>
+        </div>
+        <div class="meta">
+            <div><strong>Generado:</strong> {{ fecha_generacion|date:"d/m/Y H:i" }}</div>
+            <div><strong>Títulos:</strong> {{ total_libros }}</div>
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Título</th>
+                <th>Autor</th>
+                <th class="col-precio">Precio</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for libro in libros %}
+            <tr>
+                <td class="titulo">{{ libro.titulo }}</td>
+                <td class="autor">{{ libro.autor }}</td>
+                <td class="precio">{{ libro.precio_formateado }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3" class="empty">No hay libros registrados en el catálogo.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
