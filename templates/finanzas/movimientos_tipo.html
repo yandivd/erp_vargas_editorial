@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ tipo_label }} - ERP Libros{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <div>
+        <h2 class="mb-0 fw-bold">
+            {% if tipo == 'INGRESO' %}
+                <i class="bi bi-graph-up-arrow text-success"></i>
+            {% else %}
+                <i class="bi bi-graph-down-arrow text-danger"></i>
+            {% endif %}
+            {{ tipo_label }} operativos
+        </h2>
+        <p class="text-muted mb-0">Movimientos de {{ tipo_label|lower }} desde el {{ fecha_corte|date:"d/m/Y" }}.</p>
+    </div>
+    <div class="d-flex flex-column flex-sm-row gap-2">
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver al Dashboard
+        </a>
+        <a href="{% url 'finanzas:caja' %}" class="btn btn-outline-primary">
+            <i class="bi bi-cash-stack"></i> Ir a Caja
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    {% if not moneda_actual or moneda_actual == 'CUP' %}
+    <div class="col-12 col-md-6">
+        <div class="card card-kpi p-3 border-start {% if tipo == 'INGRESO' %}border-success{% else %}border-danger{% endif %} border-4 h-100">
+            <small class="text-muted">Total {{ tipo_label|lower }} en CUP</small>
+            <h3 class="mb-0 {% if tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">${{ totales.CUP|floatformat:2 }}</h3>
+        </div>
+    </div>
+    {% endif %}
+    {% if not moneda_actual or moneda_actual == 'USD' %}
+    <div class="col-12 col-md-6">
+        <div class="card card-kpi p-3 border-start {% if tipo == 'INGRESO' %}border-success{% else %}border-danger{% endif %} border-4 h-100">
+            <small class="text-muted">Total {{ tipo_label|lower }} en USD</small>
+            <h3 class="mb-0 {% if tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">US${{ totales.USD|floatformat:2 }}</h3>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card card-kpi p-3 mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-6 col-md-3">
+            <label class="form-label small text-muted fw-bold">Desde</label>
+            <input type="date" name="desde" class="form-control" value="{{ desde }}">
+        </div>
+        <div class="col-6 col-md-3">
+            <label class="form-label small text-muted fw-bold">Hasta</label>
+            <input type="date" name="hasta" class="form-control" value="{{ hasta }}">
+        </div>
+        <div class="col-12 col-md-3">
+            <label class="form-label small text-muted fw-bold">Moneda</label>
+            <select name="moneda" class="form-select">
+                <option value="">Todas</option>
+                {% for value, label in monedas %}
+                <option value="{{ value }}" {% if moneda_actual == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-funnel"></i> Filtrar</button>
+            <a href="{{ request.path }}" class="btn btn-outline-secondary" title="Limpiar filtros"><i class="bi bi-x-circle"></i></a>
+        </div>
+    </form>
+</div>
+
+<div class="card card-kpi">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Categoría</th>
+                    <th>Concepto</th>
+                    <th>Moneda</th>
+                    <th class="text-end">Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for mov in movimientos %}
+                <tr>
+                    <td class="text-nowrap">{{ mov.fecha|date:"d/m/Y H:i" }}</td>
+                    <td><small>{{ mov.get_categoria_display }}</small></td>
+                    <td>
+                        {{ mov.concepto|default:"—" }}
+                        {% if mov.pedido_id %}
+                            <a href="{% url 'pedidos:detalle' mov.pedido_id %}" class="small text-decoration-none">Pedido #{{ mov.pedido_id }}</a>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge bg-light text-dark border">{{ mov.moneda }}</span></td>
+                    <td class="fw-bold text-end text-nowrap {% if tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">
+                        {% if tipo == 'INGRESO' %}+{% else %}-{% endif %}{% if mov.moneda == 'USD' %}US${% else %}${% endif %}{{ mov.monto|floatformat:2 }}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        No hay {{ tipo_label|lower }} registrados para el período seleccionado.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if movimientos.has_other_pages %}
+    <div class="card-footer bg-white border-top p-3 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
+        <small class="text-muted">
+            Mostrando {{ movimientos.start_index }} - {{ movimientos.end_index }} de {{ movimientos.paginator.count }} movimientos
+        </small>
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if movimientos.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ movimientos.previous_page_number }}{% if desde %}&desde={{ desde|urlencode }}{% endif %}{% if hasta %}&hasta={{ hasta|urlencode }}{% endif %}{% if moneda_actual %}&moneda={{ moneda_actual }}{% endif %}">Anterior</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">Anterior</span></li>
+                {% endif %}
+                <li class="page-item disabled"><span class="page-link">Página {{ movimientos.number }} de {{ movimientos.paginator.num_pages }}</span></li>
+                {% if movimientos.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ movimientos.next_page_number }}{% if desde %}&desde={{ desde|urlencode }}{% endif %}{% if hasta %}&hasta={{ hasta|urlencode }}{% endif %}{% if moneda_actual %}&moneda={{ moneda_actual }}{% endif %}">Siguiente</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
