@@ -1,6 +1,6 @@
 <!-- templates/finanzas/_tabla_caja.html -->
 <div class="table-responsive">
-    <table class="table table-hover mb-0">
+    <table class="table table-hover mb-0 datatable" id="tabla-caja">
         <thead class="table-light">
             <tr>
                 <th>Fecha</th>
@@ -56,36 +56,3 @@
         </tbody>
     </table>
 </div>
-
-{% if movimientos.has_other_pages %}
-<div class="card-footer bg-white border-top p-3 d-flex justify-content-between align-items-center">
-    <small class="text-muted">
-        Mostrando {{ movimientos.start_index }} - {{ movimientos.end_index }} de {{ movimientos.paginator.count }} movimientos
-    </small>
-    <ul class="pagination pagination-sm mb-0" id="paginacion-caja">
-        {% if movimientos.has_previous %}
-            <li class="page-item"><a class="page-link" href="#" data-page="1">&laquo;</a></li>
-            <li class="page-item"><a class="page-link" href="#" data-page="{{ movimientos.previous_page_number }}">Anterior</a></li>
-        {% else %}
-            <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
-            <li class="page-item disabled"><span class="page-link">Anterior</span></li>
-        {% endif %}
-
-        {% for num in movimientos.paginator.page_range %}
-            {% if movimientos.number == num %}
-                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-            {% elif num > movimientos.number|add:'-3' and num < movimientos.number|add:'3' %}
-                <li class="page-item"><a class="page-link" href="#" data-page="{{ num }}">{{ num }}</a></li>
-            {% endif %}
-        {% endfor %}
-
-        {% if movimientos.has_next %}
-            <li class="page-item"><a class="page-link" href="#" data-page="{{ movimientos.next_page_number }}">Siguiente</a></li>
-            <li class="page-item"><a class="page-link" href="#" data-page="{{ movimientos.paginator.num_pages }}">&raquo;</a></li>
-        {% else %}
-            <li class="page-item disabled"><span class="page-link">Siguiente</span></li>
-            <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
-        {% endif %}
-    </ul>
-</div>
-{% endif %}

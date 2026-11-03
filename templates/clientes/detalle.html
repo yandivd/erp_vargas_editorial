@@ -6,8 +6,8 @@
 <!-- Cabecera responsive -->
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-2">
     <h2 class="mb-0"><i class="bi bi-person-circle"></i> {{ cliente.nombre }}</h2>
-    <a href="{% url 'clientes:lista' %}" class="btn btn-outline-secondary w-100 w-md-auto">
-        <i class="bi bi-arrow-left"></i> Volver al Directorio
+    <a href="{% url 'clientes:lista' %}" class="btn btn-secondary w-100 w-md-auto">
+        <i class="bi bi-arrow-left"></i> Volver atrás
     </a>
 </div>
 
@@ -72,7 +72,7 @@
         <h5 class="mb-0"><i class="bi bi-journal-text"></i> Historial de Pedidos</h5>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
+        <table class="table table-hover mb-0 align-middle datatable">
             <thead class="table-light">
                 <tr>
                     <th class="d-none d-sm-table-cell">#</th>
