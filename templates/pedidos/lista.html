@@ -572,12 +572,12 @@ document.addEventListener('DOMContentLoaded', function () {
             const libroId = libroSelect ? libroSelect.value : '';
 
             if (!codigo) {
-                alert('Selecciona un código de descuento.');
+                ERP.alerts.error('Selecciona un código de descuento.');
                 return;
             }
 
             if (precio <= 0) {
-                alert('El precio de venta debe ser mayor a 0.');
+                ERP.alerts.error('El precio de venta debe ser mayor a 0.');
                 return;
             }
 
@@ -612,12 +612,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         btnAplicarDescuento.classList.remove('btn-outline-success');
                         btnAplicarDescuento.classList.add('btn-outline-danger');
                     } else {
-                        alert(data.error || 'Código no válido');
+                        ERP.alerts.error(data.error || 'Código no válido');
                     }
                 })
                 .catch(err => {
                     console.error(err);
-                    alert('Error al validar el código.');
+                    ERP.alerts.error('Error al validar el código.');
                 });
         });
 
@@ -886,21 +886,23 @@ document.addEventListener('DOMContentLoaded', function () {
             const estadoId = selectNuevoEstado.value;
 
             if (ids.length === 0) {
-                alert('Selecciona al menos un pedido.');
+                ERP.alerts.error('Selecciona al menos un pedido.');
                 return;
             }
             if (!estadoId) {
-                alert('Selecciona el estado al que quieres cambiar.');
+                ERP.alerts.error('Selecciona el estado al que quieres cambiar.');
                 return;
             }
 
             const nombreEstado = selectNuevoEstado.options[selectNuevoEstado.selectedIndex].text;
-            if (!confirm(`¿Cambiar ${ids.length} pedido(s) al estado "${nombreEstado}"?`)) {
-                return;
-            }
+            ERP.alerts.confirm(`¿Cambiar ${ids.length} pedido(s) al estado "${nombreEstado}"?`, function (aceptar) {
+                if (!aceptar) {
+                    return;
+                }
 
-            btnAplicarEstado.disabled = true;
-            btnAplicarEstado.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Aplicando...';
+                btnAplicarEstado.disabled = true;
+                btnAplicarEstado.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Aplicando...';
+            });
 
             fetch('{% url "pedidos:cambiar_estado_masivo" %}', {
                 method: 'POST',
@@ -922,12 +924,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     actualizarBarraMasiva();
                     actualizarTabla();
                 } else {
-                    alert('Error: ' + (data.error || 'No se pudo cambiar el estado'));
+                    ERP.alerts.error('Error: ' + (data.error || 'No se pudo cambiar el estado'));
                 }
             })
             .catch(err => {
                 console.error(err);
-                alert('Error de conexión.');
+                ERP.alerts.error('Error de conexión.');
             })
             .finally(() => {
                 btnAplicarEstado.disabled = false;
@@ -944,7 +946,7 @@ document.addEventListener('DOMContentLoaded', function () {
         btnImprimir.addEventListener('click', function () {
             const ids = Array.from(seleccionados);
             if (ids.length === 0) {
-                alert('Selecciona al menos un pedido para imprimir.');
+                ERP.alerts.error('Selecciona al menos un pedido para imprimir.');
                 return;
             }
 
@@ -964,7 +966,7 @@ document.addEventListener('DOMContentLoaded', function () {
         btnImprimirTermico.addEventListener('click', function () {
             const ids = Array.from(seleccionados);
             if (ids.length === 0) {
-                alert('Selecciona al menos un pedido para imprimir.');
+                ERP.alerts.error('Selecciona al menos un pedido para imprimir.');
                 return;
             }
 
@@ -984,7 +986,7 @@ document.addEventListener('DOMContentLoaded', function () {
         btnImprimirCarta.addEventListener('click', function () {
             const ids = Array.from(seleccionados);
             if (ids.length === 0) {
-                alert('Selecciona al menos un pedido para imprimir.');
+                ERP.alerts.error('Selecciona al menos un pedido para imprimir.');
                 return;
             }
 

@@ -12,6 +12,7 @@ from pedidos.services import obtener_ganancia_promedio
 from clientes.models import Cliente
 from inventario.models import Material, MovimientoInventario
 from finanzas.models import MovimientoCaja
+from .services import exportar_rentabilidad_para_ia
 
 
 def dashboard(request):
@@ -568,4 +569,11 @@ def exportar_datos_ia(request):
     response = JsonResponse(data, json_dumps_params={'indent': 2, 'ensure_ascii': False})
     filename = f'data_ia_{desde_str}_{hasta_str}.json' if desde_str and hasta_str else 'data_ia_completo.json'
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def exportar_rentabilidad_ia(request):
+    data = exportar_rentabilidad_para_ia()
+    response = JsonResponse(data, json_dumps_params={'indent': 2, 'ensure_ascii': False})
+    response['Content-Disposition'] = 'attachment; filename="rentabilidad_para_ia.json"'
     return response

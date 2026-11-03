@@ -178,9 +178,9 @@
                                         <td class="d-none d-sm-table-cell"><span class="badge bg-secondary">{{ lote.get_estado_display }}</span></td>
                                         <td class="text-primary fw-bold">${{ lote.costo_total|floatformat:2 }}</td>
                                         <td class="text-end">
-                                            <form method="post" action="{% url 'inventario:abrir_lote' lote.id %}" style="display:inline;">
+                                            <form method="post" action="{% url 'inventario:abrir_lote' lote.id %}" id="formAbrirLote_{{ lote.id }}" style="display:inline;">
                                                 {% csrf_token %}
-                                                <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('¿Abrir este lote y registrar el gasto en caja?')">
+                                                <button type="button" class="btn btn-sm btn-warning" onclick="event.preventDefault(); Swal.fire({ icon: 'warning', title: 'Lote', text: '¿Abrir este lote y registrar el gasto en caja?', showCancelButton: true, confirmButtonText: 'Sí', cancelButtonText: 'No' }).then(function (resultado) { if (resultado.isConfirmed) document.getElementById('formAbrirLote_{{ lote.id }}').submit(); });">
                                                     <i class="bi bi-box-open"></i> <span class="d-none d-sm-inline">Abrir</span>
                                                 </button>
                                             </form>

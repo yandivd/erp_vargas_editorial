@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const checks = document.querySelectorAll('.check-servicio:checked');
             
             if (checks.length === 0) {
-                alert('Selecciona al menos un servicio para pagar.');
+                ERP.alerts.error('Selecciona al menos un servicio para pagar.');
                 return;
             }
 

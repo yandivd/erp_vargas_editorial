@@ -137,14 +137,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const seleccionados = document.querySelectorAll('.check-pedido:checked');
             if (seleccionados.length === 0) {
                 e.preventDefault();
-                alert('Selecciona al menos un pedido.');
+                ERP.alerts.error('Selecciona al menos un pedido.');
                 return;
             }
             const clienteIds = new Set();
             seleccionados.forEach(cb => clienteIds.add(cb.dataset.clienteId));
             if (clienteIds.size > 1) {
                 e.preventDefault();
-                alert('Todos los pedidos deben ser del mismo cliente.');
+                ERP.alerts.error('Todos los pedidos deben ser del mismo cliente.');
                 return;
             }
         });
