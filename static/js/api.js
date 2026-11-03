@@ -63,5 +63,58 @@
         return request(url, { method: 'POST', body: body || {} });
     }
 
-    ERP.api = { get, post, request, buildQuery, csrfToken };
+    function extraerLista(payload, clave) {
+        if (Array.isArray(payload)) {
+            return payload;
+        }
+        if (!payload || typeof payload !== 'object') {
+            return [];
+        }
+        if (clave && Array.isArray(payload[clave])) {
+            return payload[clave];
+        }
+        const claves = Object.keys(payload);
+        if (claves.length === 1 && Array.isArray(payload[claves[0]])) {
+            return payload[claves[0]];
+        }
+        return [];
+    }
+
+    async function getAll(url, params, opciones) {
+        const baseParams = Object.assign({}, params || {});
+        const clave = opciones && opciones.clave;
+        const first = await get(url, Object.assign({}, baseParams, { page: 1, per_page: 100 }));
+        const data = extraerLista(first.data, clave).slice();
+
+        if (!first.pagination || !first.pagination.num_pages) {
+            return {
+                data,
+                meta: first.meta,
+                pagination: null,
+                payloads: [first]
+            };
+        }
+
+        const numPages = first.pagination.num_pages;
+        const perPage = first.pagination.per_page;
+        const pendientes = [];
+
+        for (let page = 2; page <= numPages; page++) {
+            pendientes.push(get(url, Object.assign({}, baseParams, { page, per_page: perPage })));
+        }
+
+        const resultados = await Promise.all(pendientes);
+        resultados.forEach(resultado => {
+            data.push(...extraerLista(resultado.data, clave));
+        });
+
+        return {
+            data,
+            meta: first.meta,
+            pagination: first.pagination,
+            payloads: [first].concat(resultados)
+        };
+    }
+
+    ERP.api = { get, post, getAll, request, buildQuery, csrfToken };
 })();

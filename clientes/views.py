@@ -1,10 +1,7 @@
 from pyexpat.errors import messages
 from django.shortcuts import redirect, render, get_object_or_404
-from django.core.paginator import Paginator
 from django.db.models import Count
 from django.db.models import Q, Sum
-from django.http import JsonResponse
-from django.template.loader import render_to_string
 from .models import Cliente
 
 def lista_clientes(request):
@@ -39,22 +36,12 @@ def lista_clientes(request):
         elif deuda == 'al_dia':
             clientes_list = [c for c in clientes_list if c.saldo_pendiente_total == 0]
 
-    # 3. Paginación
-    paginator = Paginator(clientes_list, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
-
-    # 4. Respuesta AJAX
-    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        html = render_to_string('clientes/_tabla_clientes.html', {
-            'clientes': page_obj,
-            'total_clientes': paginator.count,
-            'orden_actual': orden,
-        }, request=request)
-        return JsonResponse({'html': html})
+    # 3. Listado completo (la tabla y DataTables manejan búsqueda y paginación)
+    clientes = list(clientes_list)
 
     return render(request, 'clientes/lista.html', {
-        'clientes': page_obj,
-        'total_clientes': paginator.count,
+        'clientes': clientes,
+        'total_clientes': len(clientes),
         'f_nombre': nombre,
         'f_telefono': telefono,
         'f_email': email,

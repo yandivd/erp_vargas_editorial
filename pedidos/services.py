@@ -1,5 +1,6 @@
 from decimal import Decimal
 from django.utils import timezone
+from django.db import transaction
 from core.models import Parametro
 from inventario.models import Material
 from .models import Book, HistorialEstado, LoteServicio, Pedido, ServicioExterno, Estado
@@ -190,7 +191,13 @@ class ServicioPedido:
             ServicioPedido.consumir_materiales(pedido, momento='ENTREGA')
 
         elif nuevo_estado.nombre == 'Entregado':
-            ServicioPedido.cobrar_saldo(pedido)
+            entrega = pedido.entregas.select_related('cliente').order_by('id').first()
+
+            with transaction.atomic():
+                if entrega and not entrega.entregado:
+                    entrega.pedidos.remove(pedido)
+
+                ServicioPedido.cobrar_saldo(pedido)
 
         return pedido
 

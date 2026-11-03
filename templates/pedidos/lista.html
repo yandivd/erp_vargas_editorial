@@ -279,7 +279,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
@@ -343,20 +342,19 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==========================================
     // RENDERIZADO DE TABLA DESDE JSON
     // ==========================================
-    function renderizarTabla(data) {
+    function renderizarTabla(pedidos) {
         const tbody = document.getElementById('tabla-pedidos-body');
-        const paginacion = document.getElementById('paginacion-pedidos');
+        ERP.dataTables.destruir('#tabla-pedidos');
         tbody.innerHTML = '';
 
-        if (data.data.pedidos.length === 0) {
+        if (pedidos.length === 0) {
             tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-5">
                 <i class="bi bi-inbox fs-1 d-block mb-2"></i> No se encontraron pedidos.
             </td></tr>`;
-            paginacion.classList.add('d-none');
             return;
         }
 
-        data.data.pedidos.forEach(p => {
+        pedidos.forEach(p => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><input type="checkbox" class="form-check-input check-pedido" value="${p.id}"></td>
@@ -391,49 +389,30 @@ document.addEventListener('DOMContentLoaded', function () {
             `;
             tbody.appendChild(tr);
         });
-
-        const pag = data.pagination;
-        if (pag && pag.total > 0) {
-            paginacion.classList.remove('d-none');
-            ERP.pagination.render(paginacion, pag, (page, perPage) => actualizarTabla(page, perPage));
-        } else {
-            paginacion.classList.add('d-none');
-        }
     }
 
     // ==========================================
     // FUNCIÓN PARA ACTUALIZAR TABLA (API)
     // ==========================================
-    function actualizarTabla(page = null, perPage = null) {
+    async function actualizarTabla() {
         const formFiltros = document.getElementById('formFiltros');
         if (!formFiltros) return;
-        
-        const formData = new FormData(formFiltros);
-        if (page) formData.set('page', page);
-        if (perPage) formData.set('per_page', perPage);
-        const params = new URLSearchParams(formData).toString();
 
-        // Añadimos un pequeño efecto de carga
+        const params = Object.fromEntries(new FormData(formFiltros).entries());
         const contenedor = document.getElementById('contenedor-tabla');
         contenedor.style.opacity = '0.5';
 
-        fetch(`{% url 'pedidos:api_lista_pedidos' %}?${params}`)
-            .then(r => r.json())
-            .then(data => {
-                renderizarTabla(data);
-                sincronizarCheckboxes();
-                contenedor.style.opacity = '1';
-            })
-            .catch(err => {
-                console.error(err);
-                contenedor.style.opacity = '1';
-            });
+        try {
+            const resultado = await ERP.api.getAll('{% url "pedidos:api_lista_pedidos" %}', params);
+            renderizarTabla(resultado.data);
+            sincronizarCheckboxes();
+            ERP.dataTables.reiniciar('#tabla-pedidos');
+        } catch (err) {
+            console.error(err);
+        } finally {
+            contenedor.style.opacity = '1';
+        }
     }
-
-    // ==========================================
-    // PAGINACIÓN DINÁMICA
-    // (renderizada por ERP.pagination en renderizarTabla)
-    // ==========================================
 
     // ==========================================
     // CÁLCULO DE COSTO (MODAL)

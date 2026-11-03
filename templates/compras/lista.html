@@ -9,7 +9,7 @@
 
 <div class="card card-kpi">
     <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
+        <table class="table table-hover mb-0 align-middle datatable" id="tabla-compras">
             <thead class="table-light">
                 <tr>
                     <th>Orden #</th>
@@ -17,7 +17,7 @@
                     <th>Proveedor</th>
                     <th>Total</th>
                     <th>Estado</th>
-                    <th>Acciones</th>
+                    <th class="no-sort">Acciones</th>
                 </tr>
             </thead>
             <tbody id="tbodyCompras">
@@ -53,63 +53,5 @@
             </tbody>
         </table>
     </div>
-    <div id="paginacion-compras"></div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const csrfToken = '{{ csrf_token }}';
-
-    function renderVacio() {
-        return '<tr><td colspan="6" class="text-center text-muted py-4">No hay compras registradas.</td></tr>';
-    }
-
-    function renderFila(c) {
-        let badge = '<span class="badge bg-danger">Cancelada</span>';
-        if (c.estado === 'BORRADOR') {
-            badge = '<span class="badge bg-warning text-dark">Pendiente de Recibir</span>';
-        } else if (c.estado === 'RECIBIDA') {
-            badge = '<span class="badge bg-success">Recibida</span>';
-        }
-
-        let acciones = `<a href="/compras/${c.id}/imprimir/" target="_blank" class="btn btn-sm btn-outline-dark me-1"><i class="bi bi-printer"></i> Imprimir</a>`;
-        if (c.estado === 'BORRADOR') {
-            acciones += `<a href="/compras/${c.id}/recibir/" class="btn btn-sm btn-success me-1"><i class="bi bi-box-arrow-in-down"></i> Recibir Material</a>`;
-        }
-
-        return `<tr>
-            <td><strong>${ERP.format.escapeHtml(c.codigo)}</strong></td>
-            <td>${ERP.format.escapeHtml(c.fecha)}</td>
-            <td>${ERP.format.escapeHtml(c.proveedor_nombre)}</td>
-            <td class="fw-bold">${ERP.format.money(c.total)}</td>
-            <td>${badge}</td>
-            <td>${acciones}</td>
-        </tr>`;
-    }
-
-    function cargarCompras(page = 1, perPage = null) {
-        const filtros = { page: page };
-        if (perPage) filtros.per_page = perPage;
-        ERP.api.get('{% url "compras_api:lista" %}', filtros)
-            .then(res => {
-                const compras = res.data.compras || [];
-                const tbody = document.getElementById('tbodyCompras');
-                const paginacionEl = document.getElementById('paginacion-compras');
-
-                if (tbody) {
-                    tbody.innerHTML = compras.length ? compras.map(renderFila).join('') : renderVacio();
-                }
-
-                if (paginacionEl) {
-                    ERP.pagination.render(paginacionEl, res.pagination, (p, perPage) => cargarCompras(p, perPage));
-                }
-            })
-            .catch(err => console.error(err));
-    }
-
-    cargarCompras(1);
-});
-</script>
 {% endblock %}
