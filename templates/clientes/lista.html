@@ -96,7 +96,11 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .then(response => response.json())
             .then(data => {
-                contenedor.innerHTML = data.data.clientes.length ? renderTabla(data.data.clientes, data.pagination) : renderVacio();
+                if (data.data.clientes.length) {
+                    renderTabla(data.data.clientes, data.pagination);
+                } else {
+                    contenedor.innerHTML = renderVacio();
+                }
                 contenedor.style.opacity = '1';
             })
             .catch(err => {
