@@ -8,9 +8,9 @@
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalActivo">
             <i class="bi bi-plus-lg"></i> Registrar Activo
         </button>
-        <form method="post" action="{% url 'finanzas:depreciar_mes' %}" style="display:inline;">
+        <form method="post" action="{% url 'finanzas:depreciar_mes' %}" id="formDepreciar" style="display:inline;">
             {% csrf_token %}
-            <button type="submit" class="btn btn-warning" onclick="return confirm('¿Registrar el desgaste de este mes para todos los activos?')">
+            <button type="button" class="btn btn-warning" onclick="event.preventDefault(); Swal.fire({ icon: 'warning', title: 'Depreciación', text: '¿Registrar el desglose de este mes para todos los activos?', showCancelButton: true, confirmButtonText: 'Sí', cancelButtonText: 'No' }).then(function (resultado) { if (resultado.isConfirmed) document.getElementById('formDepreciar').submit(); });>
                 <i class="bi bi-arrow-down-circle"></i> Depreciar Mes
             </button>
         </form>
