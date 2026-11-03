@@ -79,7 +79,7 @@
     <div class="tab-pane fade show active" id="tab-materiales" role="tabpanel">
         <div class="card card-kpi">
             <div class="table-responsive">
-                <table class="table table-hover mb-0 align-middle">
+                <table class="table table-hover mb-0 align-middle datatable" id="tabla-materiales">
                     <thead class="table-light">
                         <tr>
                             <th>Material</th>
@@ -162,7 +162,7 @@
                 <div id="collapse-{{ forloop.counter }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ forloop.counter }}" data-bs-parent="#accordionLotes">
                     <div class="accordion-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-hover mb-0 align-middle">
+                            <table class="table table-hover mb-0 align-middle datatable">
                                 <thead class="table-light">
                                     <tr>
                                         <th>Código</th>
@@ -171,16 +171,16 @@
                                         <th class="text-end">Acción</th>
                                     </tr>
                                 </thead>
-                                <tbody id="tbodyLotes">
+                                <tbody>
                                     {% for lote in grupo.list %}
                                     <tr>
                                         <td><span class="badge bg-dark rounded-pill">{{ lote.codigo }}</span></td>
                                         <td class="d-none d-sm-table-cell"><span class="badge bg-secondary">{{ lote.get_estado_display }}</span></td>
                                         <td class="text-primary fw-bold">${{ lote.costo_total|floatformat:2 }}</td>
                                         <td class="text-end">
-                                            <form method="post" action="{% url 'inventario:abrir_lote' lote.id %}" style="display:inline;">
+                                            <form method="post" action="{% url 'inventario:abrir_lote' lote.id %}" id="formAbrirLote_{{ lote.id }}" style="display:inline;">
                                                 {% csrf_token %}
-                                                <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('¿Abrir este lote y registrar el gasto en caja?')">
+                                                <button type="button" class="btn btn-sm btn-warning" onclick="event.preventDefault(); Swal.fire({ icon: 'warning', title: 'Lote', text: '¿Abrir este lote y registrar el gasto en caja?', showCancelButton: true, confirmButtonText: 'Sí', cancelButtonText: 'No' }).then(function (resultado) { if (resultado.isConfirmed) document.getElementById('formAbrirLote_{{ lote.id }}').submit(); });">
                                                     <i class="bi bi-box-open"></i> <span class="d-none d-sm-inline">Abrir</span>
                                                 </button>
                                             </form>
@@ -257,70 +257,6 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    async function cargarMateriales() {
-        const data = await ERP.api.get('/api/inventario/materiales/', { per_page: 100 });
-        const tbody = document.getElementById('tbodyMateriales');
-        if (!tbody) return;
-        tbody.innerHTML = data.data.materiales.map(m => `
-            <tr>
-                <td>
-                    <div class="d-flex align-items-center">
-                        <div class="bg-light rounded p-2 me-2 d-none d-sm-block">
-                            <i class="bi bi-box text-dark fs-5"></i>
-                        </div>
-                        <div>
-                            <strong class="d-block">${ERP.format.escapeHtml(m.nombre)}</strong>
-                        </div>
-                    </div>
-                </td>
-                <td>
-                    <h5 class="mb-0 ${m.stock_bajo ? 'text-danger' : 'text-dark'}">
-                        ${ERP.format.number(m.stock_actual)} <small class="text-muted fs-6 d-none d-sm-inline">${ERP.format.escapeHtml(m.unidad_medida)}</small>
-                    </h5>
-                </td>
-                <td class="d-none d-md-table-cell">${ERP.format.money(m.costo_promedio)}</td>
-                <td class="fw-bold text-success d-none d-lg-table-cell">${ERP.format.money(m.valor_inventario)}</td>
-                <td>
-                    ${m.stock_bajo ? '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger rounded-pill px-2 px-md-3">Bajo</span>' : '<span class="badge bg-success bg-opacity-10 text-success border border-success rounded-pill px-2 px-md-3">OK</span>'}
-                </td>
-                <td class="text-end text-nowrap">
-                    <a href="/inventario/material/${m.id}/salida/" class="btn btn-sm btn-outline-warning" title="Registrar Salida">
-                        <i class="bi bi-box-arrow-up"></i>
-                    </a>
-                    <a href="/inventario/${m.id}/" class="btn btn-sm btn-outline-primary d-none d-sm-inline-block" title="Historial">
-                        <i class="bi bi-clock-history"></i>
-                    </a>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    async function cargarLotes() {
-        const data = await ERP.api.get('/api/inventario/lotes/', { per_page: 100 });
-        const contenedor = document.getElementById('tab-lotes');
-        if (!contenedor) return;
-        // Lots are grouped by material in the template; for simplicity, render flat.
-        const tbody = contenedor.querySelector('#tbodyLotes');
-        if (!tbody) return;
-        tbody.innerHTML = data.data.lotes.map(l => `
-            <tr>
-                <td><span class="badge bg-dark rounded-pill">${ERP.format.escapeHtml(l.codigo)}</span></td>
-                <td class="d-none d-sm-table-cell"><span class="badge bg-secondary">${ERP.format.escapeHtml(l.estado)}</span></td>
-                <td class="text-primary fw-bold">${ERP.format.money(l.costo_total)}</td>
-                <td class="text-end">
-                    <form method="post" action="/inventario/lotes/${l.id}/abrir" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('¿Abrir este lote y registrar el gasto en caja?')">
-                            <i class="bi bi-box-open"></i> <span class="d-none d-sm-inline">Abrir</span>
-                        </button>
-                    </form>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    cargarMateriales();
-    cargarLotes();
-
     const form = document.getElementById('formCompra');
     if (!form) return;
 

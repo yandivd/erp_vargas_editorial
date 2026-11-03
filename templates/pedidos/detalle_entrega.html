@@ -8,6 +8,9 @@
         <p class="text-muted mb-0">{{ entrega.cliente.nombre }} — {{ entrega.cantidad_pedidos }} pedidos</p>
     </div>
     <div class="d-flex flex-column flex-sm-row gap-2">
+        <a href="{% url 'pedidos:lista_entregas' %}" class="btn btn-secondary w-100 w-sm-auto">
+            <i class="bi bi-arrow-left"></i> Volver atrás
+        </a>
         <a href="{% url 'pedidos:imprimir_entrega_carta' entrega.id %}" target="_blank" class="btn btn-outline-dark w-100 w-sm-auto">
             <i class="bi bi-receipt"></i> Ticket 5×8
         </a>
