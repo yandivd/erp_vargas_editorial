@@ -48,10 +48,10 @@
     <div class="card card-kpi p-3 mb-3">
         <h5 class="border-bottom pb-2 mb-3">Pedidos disponibles <span class="text-muted small fw-normal">(Listos para entregar)</span></h5>
         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-            <table class="table table-sm table-hover align-middle">
+            <table class="table table-sm table-hover align-middle datatable">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 40px;"><input type="checkbox" id="checkTodos" class="form-check-input"></th>
+                        <th style="width: 40px;" class="no-sort"><input type="checkbox" id="checkTodos" class="form-check-input"></th>
                         <th>Pedido</th>
                         <th class="d-none d-md-table-cell">Estado</th>
                         <th class="text-end d-none d-sm-table-cell">Saldo</th>
@@ -137,14 +137,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const seleccionados = document.querySelectorAll('.check-pedido:checked');
             if (seleccionados.length === 0) {
                 e.preventDefault();
-                alert('Selecciona al menos un pedido.');
+                ERP.alerts.error('Selecciona al menos un pedido.');
                 return;
             }
             const clienteIds = new Set();
             seleccionados.forEach(cb => clienteIds.add(cb.dataset.clienteId));
             if (clienteIds.size > 1) {
                 e.preventDefault();
-                alert('Todos los pedidos deben ser del mismo cliente.');
+                ERP.alerts.error('Todos los pedidos deben ser del mismo cliente.');
                 return;
             }
         });

@@ -173,12 +173,7 @@ def _obtener_pedidos_filtrados(request, solo_entregados=False):
 # LISTAS
 # ============================================================
 def lista(request):
-    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=False).order_by('referencia_externa')
-    paginator = Paginator(pedidos_list, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
-
     return render(request, 'pedidos/lista.html', {
-        'pedidos': page_obj,
         'estados': Estado.objects.exclude(nombre__in=['Entregado', 'Cancelado']).order_by('orden'),
         'estado_actual': request.GET.get('estado', ''),
         'busqueda': request.GET.get('q', ''),
@@ -186,7 +181,6 @@ def lista(request):
         'hasta': request.GET.get('hasta', ''),
         'pago_actual': request.GET.get('pago', ''),
         'form': NuevoPedidoForm(),
-        'total_pedidos': paginator.count,
     })
 
 
@@ -205,15 +199,13 @@ def lista_ajax(request):
 
 def lista_entregados(request):
     pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=True)
-    paginator = Paginator(pedidos_list, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'pedidos/lista_entregados.html', {
-        'pedidos': page_obj,
+        'pedidos': pedidos_list,
         'busqueda': request.GET.get('q', ''),
         'desde': request.GET.get('desde', ''),
         'hasta': request.GET.get('hasta', ''),
-        'total_pedidos': paginator.count,
+        'total_pedidos': pedidos_list.count(),
     })
 
 
@@ -470,13 +462,10 @@ def lista_libros(request):
             Q(titulo__icontains=busqueda) | Q(autor__icontains=busqueda)
         )
 
-    paginator = Paginator(libros_list, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
-
     return render(request, 'pedidos/libros_lista.html', {
-        'libros': page_obj,
+        'libros': libros_list,
         'busqueda': busqueda,
-        'total_libros': paginator.count,
+        'total_libros': libros_list.count(),
     })
 
 

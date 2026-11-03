@@ -59,11 +59,8 @@ def caja(request):
     materiales = Material.objects.filter(activo=True)
     valor_inventario = sum(m.stock_actual * m.costo_promedio for m in materiales)
     
-    paginator = Paginator(movimientos, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
-    
     context = {
-        'movimientos': page_obj,
+        'movimientos': movimientos,
         'total_ingresos': total_ingresos,
         'total_egresos': total_egresos,
         'saldo_actual': saldo_cup,
@@ -110,13 +107,10 @@ def lista_movimientos(request, tipo):
     }
     cantidad = movimientos.count()
 
-    paginator = Paginator(movimientos, 25)
-    page_obj = paginator.get_page(request.GET.get('page'))
-
     context = {
         'tipo': tipo,
         'tipo_label': 'Ingresos' if tipo == 'INGRESO' else 'Gastos',
-        'movimientos': page_obj,
+        'movimientos': movimientos,
         'totales': totales,
         'cantidad': cantidad,
         'desde': desde_str,

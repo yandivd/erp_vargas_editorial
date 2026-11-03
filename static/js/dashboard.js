@@ -49,7 +49,7 @@
 
         const exportar = byId('btnExportarIA');
         if (exportar) {
-            exportar.href = '/exportar-ia/' + ERP.api.buildQuery(f);
+            exportar.href = '/exportar/rentabilidad/' + ERP.api.buildQuery(f);
         }
 
         const query = ERP.api.buildQuery(f);
@@ -357,12 +357,12 @@
         const texto = etiqueta + '\n' + clientes.map(c => c.nombre + ': ' + (c.telefono || 'sin teléfono')).join('\n');
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(texto).then(() => {
-                window.alert('Contactos copiados al portapapeles. Puedes pegarlos en WhatsApp.');
+                ERP.alerts.success('Contactos copiados al portapapeles. Puedes pegarlos en WhatsApp.');
             }).catch(() => {
-                window.alert(texto);
+                ERP.alerts.success(texto);
             });
         } else {
-            window.alert(texto);
+            ERP.alerts.success(texto);
         }
     }
 
