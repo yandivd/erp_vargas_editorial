@@ -8,6 +8,7 @@ from django.http import JsonResponse
 import json
 
 from pedidos.models import Pedido, CodigoDescuento
+from pedidos.services import obtener_ganancia_promedio
 from clientes.models import Cliente
 from inventario.models import Material, MovimientoInventario
 from finanzas.models import MovimientoCaja
@@ -63,7 +64,7 @@ def dashboard(request):
         clientes_unicos = pedidos_qs.values('cliente').distinct().count()
 
         ventas = pedidos_todos.aggregate(t=Sum('precio_venta'))['t'] or 0
-        ganancia_promedio = (saldo_neto / total_pedidos) if total_pedidos > 0 else 0
+        ganancia_promedio = obtener_ganancia_promedio()
 
         # ==========================================
         # 2. DESGLOSE POR TIPO DE INGRESO
@@ -359,7 +360,8 @@ def dashboard(request):
         context = {
             'desde': desde_str, 'hasta': hasta_str,
             'ingresos': ingresos, 'gastos': gastos, 'saldo_neto': saldo_neto, 'margen': margen,
-            'total_pedidos': total_pedidos, 'clientes_unicos': clientes_unicos, 'ventas': ventas, 'ganancia_promedio': ganancia_promedio,
+            'total_pedidos': total_pedidos, 'clientes_unicos': clientes_unicos, 'ventas': ventas,
+            'ganancia_promedio': ganancia_promedio, 'ganancia_promedio_entregados': ganancia_promedio,
             'desglose_ingresos': desglose_ingresos_data, 'costo_unitario': costo_unitario_data, 'categorias_ingreso': desglose_ingresos_data,
             'analisis_categorias': analisis_data, 'tendencia': tendencia_data, 'proyeccion': proyeccion, 'semanal': semanal_data,
             'calor': calor_data, 'transacciones': transacciones, 'consejos': consejos,
