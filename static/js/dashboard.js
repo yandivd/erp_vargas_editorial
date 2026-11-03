@@ -51,6 +51,12 @@
         if (exportar) {
             exportar.href = '/exportar-ia/' + ERP.api.buildQuery(f);
         }
+
+        const query = ERP.api.buildQuery(f);
+        const ingresos = byId('kpiLinkIngresos');
+        const gastos = byId('kpiLinkGastos');
+        if (ingresos) ingresos.href = '/finanzas/movimientos/ingresos/' + query;
+        if (gastos) gastos.href = '/finanzas/movimientos/gastos/' + query;
     }
 
     function actualizarTasa(meta) {
