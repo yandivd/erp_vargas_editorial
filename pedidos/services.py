@@ -2,10 +2,13 @@ from decimal import Decimal
 from django.utils import timezone
 from core.models import Parametro
 from inventario.models import Material
-from .models import Book, HistorialEstado, LoteServicio, ServicioExterno, Estado
+from .models import Book, HistorialEstado, LoteServicio, Pedido, ServicioExterno, Estado
 from proveedores.models import Proveedor
-from datetime import timedelta
+from datetime import date, timedelta
 from django.utils import timezone
+
+
+FECHA_CORTE_GANANCIA_PROMEDIO = date(2026, 8, 2)
 
 
 # ============================================================
@@ -116,6 +119,34 @@ class CosteadorPedido:
         precio_final = math.ceil(precio_base / 100) * 100
 
         return Decimal(str(precio_final))
+
+
+def obtener_ganancia_promedio():
+    """
+    Promedio de ganancia (precio_venta - costo_total) de los pedidos entregados
+    desde el 02/08/2026. Usa la fecha real de entrega o, si falta, la creación.
+    """
+    from django.db.models.functions import Coalesce
+
+    pedidos = (
+        Pedido.objects.filter(estado__nombre='Entregado')
+        .annotate(fecha_referencia=Coalesce('fecha_entrega_real', 'fecha_pedido'))
+        .filter(fecha_referencia__date__gte=FECHA_CORTE_GANANCIA_PROMEDIO)
+        .select_related('libro')
+    )
+
+    ganancia_total = Decimal('0')
+    cantidad_pedidos = 0
+
+    for pedido in pedidos:
+        costo = CosteadorPedido(pedido).calcular()
+        ganancia_total += Decimal(str(pedido.precio_venta)) - Decimal(str(costo['costo_total']))
+        cantidad_pedidos += 1
+
+    if cantidad_pedidos == 0:
+        return Decimal('0')
+
+    return (ganancia_total / cantidad_pedidos).quantize(Decimal('0.01'))
 
 
 # ============================================================

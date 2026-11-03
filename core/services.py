@@ -9,6 +9,7 @@ from clientes.models import Cliente
 from finanzas.models import LoteDivisa, MovimientoCaja
 from inventario.models import Material, MovimientoInventario
 from pedidos.models import Pedido, ServicioExterno
+from pedidos.services import obtener_ganancia_promedio
 
 
 FECHA_CORTE_FINANCIERO = date(2026, 8, 2)
@@ -215,11 +216,7 @@ def dashboard_resumen(desde=None, hasta=None):
     ventas = pedidos.aggregate(t=Sum('precio_venta'))['t'] or Decimal('0')
 
     saldo_operativo_cup = Decimal(str(monedas['equivalente']['saldo_neto_cup']))
-    ganancia_promedio_cup = (
-        (saldo_operativo_cup - Decimal(str(pasivos['total']))) / total_pedidos
-        if total_pedidos
-        else Decimal('0')
-    )
+    ganancia_promedio_cup = obtener_ganancia_promedio()
     ingresos_equiv = Decimal(str(monedas['equivalente']['ingresos_cup']))
     margen = (saldo_operativo_cup / ingresos_equiv * 100) if ingresos_equiv > 0 else Decimal('0')
 
@@ -453,7 +450,7 @@ def dashboard_resumen(desde=None, hasta=None):
             'referencia_corte': REFERENCIA_CORTE_FINANCIERO,
             'tasa_cambio': float(tasa),
             'advertencia_tasa': advertencia,
-            'formula_ganancia': '(saldo_neto_operativo_equiv_cup - pasivos_activos) / pedidos_financieros',
+            'formula_ganancia': 'sum(precio_venta - costo_total) / pedidos Entregados desde 2026-08-02',
         },
         'kpis': kpis,
         'desglose_ingresos': desglose_data,
