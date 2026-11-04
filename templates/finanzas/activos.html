@@ -10,7 +10,7 @@
         </button>
         <form method="post" action="{% url 'finanzas:depreciar_mes' %}" id="formDepreciar" style="display:inline;">
             {% csrf_token %}
-            <button type="button" class="btn btn-warning" onclick="event.preventDefault(); Swal.fire({ icon: 'warning', title: 'Depreciación', text: '¿Registrar el desglose de este mes para todos los activos?', showCancelButton: true, confirmButtonText: 'Sí', cancelButtonText: 'No' }).then(function (resultado) { if (resultado.isConfirmed) document.getElementById('formDepreciar').submit(); });>
+            <button type="submit" class="btn btn-warning" data-confirm="¿Registrar el desglose de este mes para todos los activos?">
                 <i class="bi bi-arrow-down-circle"></i> Depreciar Mes
             </button>
         </form>
@@ -60,7 +60,7 @@
 <!-- Modal Registrar Activo -->
 <div class="modal fade" id="modalActivo" tabindex="-1">
     <div class="modal-dialog">
-        <form method="post" action="{% url 'finanzas:registrar_activo' %}">
+        <form method="post" action="{% url 'finanzas:registrar_activo' %}" data-confirm="¿Registrar este activo y descontar su valor de la caja?">
             {% csrf_token %}
             <div class="modal-content">
                 <div class="modal-header">

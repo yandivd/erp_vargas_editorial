@@ -180,7 +180,7 @@
                                         <td class="text-end">
                                             <form method="post" action="{% url 'inventario:abrir_lote' lote.id %}" id="formAbrirLote_{{ lote.id }}" style="display:inline;">
                                                 {% csrf_token %}
-                                                <button type="button" class="btn btn-sm btn-warning" onclick="event.preventDefault(); Swal.fire({ icon: 'warning', title: 'Lote', text: '¿Abrir este lote y registrar el gasto en caja?', showCancelButton: true, confirmButtonText: 'Sí', cancelButtonText: 'No' }).then(function (resultado) { if (resultado.isConfirmed) document.getElementById('formAbrirLote_{{ lote.id }}').submit(); });">
+                                                <button type="submit" class="btn btn-sm btn-warning" data-confirm="¿Abrir este lote y registrar el gasto en caja?">
                                                     <i class="bi bi-box-open"></i> <span class="d-none d-sm-inline">Abrir</span>
                                                 </button>
                                             </form>
@@ -213,7 +213,7 @@
                 <h5 class="modal-title"><i class="bi bi-cart-plus"></i> Registrar Compra</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form id="formCompra">
+            <form id="formCompra" method="post" data-confirm="¿Registrar esta compra y actualizar el inventario?">
                 {% csrf_token %}
                 <div class="modal-body p-4">
                     <div id="compra-errors" class="alert alert-danger d-none"></div>
