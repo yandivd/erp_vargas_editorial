@@ -124,7 +124,7 @@
                 <h5 class="modal-title"><i class="bi bi-cart-plus"></i> Registrar Nuevo Pedido</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form id="formNuevoPedido">
+            <form id="formNuevoPedido" method="post" data-confirm="¿Registrar este pedido?">
                 {% csrf_token %}
                 <div class="modal-body p-3 p-md-4">
                     <div id="modal-errors" class="alert alert-danger d-none"></div>
@@ -902,38 +902,38 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 btnAplicarEstado.disabled = true;
                 btnAplicarEstado.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Aplicando...';
-            });
 
-            fetch('{% url "pedidos:cambiar_estado_masivo" %}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: JSON.stringify({
-                    pedido_ids: ids,
-                    estado_id: parseInt(estadoId)
+                fetch('{% url "pedidos:cambiar_estado_masivo" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        pedido_ids: ids,
+                        estado_id: parseInt(estadoId)
+                    })
                 })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.ok) {
-                    seleccionados.clear();
-                    document.querySelectorAll('.check-pedido').forEach(cb => cb.checked = false);
-                    selectNuevoEstado.value = '';
-                    actualizarBarraMasiva();
-                    actualizarTabla();
-                } else {
-                    ERP.alerts.error('Error: ' + (data.error || 'No se pudo cambiar el estado'));
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                ERP.alerts.error('Error de conexión.');
-            })
-            .finally(() => {
-                btnAplicarEstado.disabled = false;
-                btnAplicarEstado.innerHTML = '<i class="bi bi-arrow-repeat"></i> Aplicar';
+                .then(r => r.json())
+                .then(data => {
+                    if (data.ok) {
+                        seleccionados.clear();
+                        document.querySelectorAll('.check-pedido').forEach(cb => cb.checked = false);
+                        selectNuevoEstado.value = '';
+                        actualizarBarraMasiva();
+                        actualizarTabla();
+                    } else {
+                        ERP.alerts.error('Error: ' + (data.error || 'No se pudo cambiar el estado'));
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    ERP.alerts.error('Error de conexión.');
+                })
+                .finally(() => {
+                    btnAplicarEstado.disabled = false;
+                    btnAplicarEstado.innerHTML = '<i class="bi bi-arrow-repeat"></i> Aplicar';
+                });
             });
         });
     }

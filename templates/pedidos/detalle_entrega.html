@@ -18,7 +18,7 @@
             <i class="bi bi-printer"></i> Imprimir Carta
         </a>
         {% if not entrega.entregado %}
-        <form method="post" class="d-grid w-100 w-sm-auto">
+        <form method="post" class="d-grid w-100 w-sm-auto" data-confirm="¿Marcar esta entrega como entregada?">
             {% csrf_token %}
             <button name="accion" value="entregar" class="btn btn-success">
                 <i class="bi bi-check-lg"></i> Marcar entregada
@@ -59,7 +59,7 @@
 <!-- Formulario de datos -->
 <div class="card card-kpi p-4 mb-4">
     <h5 class="border-bottom pb-2 mb-3">Datos de la entrega</h5>
-    <form method="post">
+    <form method="post" data-confirm="¿Guardar los datos de esta entrega?">
         {% csrf_token %}
         <div class="row g-3">
             <div class="col-12 col-md-6">

@@ -23,7 +23,7 @@
         <div class="card card-kpi p-4">
             <h4 class="fw-bold mb-3">Comprar USD</h4>
             <p class="small text-muted">Usa CUP de tu caja para comprar dólares.</p>
-            <form method="post">
+            <form method="post" data-confirm="¿Registrar la compra de USD?">
                 {% csrf_token %}
                 <input type="hidden" name="accion" value="comprar">
                 <div class="mb-3">
@@ -44,7 +44,7 @@
         <div class="card card-kpi p-4">
             <h4 class="fw-bold mb-3">Vender USD</h4>
             <p class="small text-muted">Vende tus dólares para recuperar CUP.</p>
-            <form method="post">
+            <form method="post" data-confirm="¿Registrar la venta de USD?">
                 {% csrf_token %}
                 <input type="hidden" name="accion" value="vender">
                 <div class="mb-3">
