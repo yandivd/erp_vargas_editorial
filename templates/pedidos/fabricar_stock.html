@@ -9,7 +9,7 @@
             <p>Vas a crear una orden de producción para: <strong>{{ libro.titulo }}</strong></p>
             <p class="text-muted small">Este pedido no tendrá cliente asignado. Se fabricará y quedará listo en el taller para cuando alguien lo compre.</p>
             
-            <form method="post">
+            <form method="post" data-confirm="¿Crear esta orden de producción para stock?">
                 {% csrf_token %}
                 <div class="mb-3">
                     <label class="form-label">¿Cuántas copias vas a fabricar?</label>

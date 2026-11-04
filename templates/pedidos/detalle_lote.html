@@ -15,7 +15,7 @@
         </a>
         <!-- BOTÓN PARA CERRAR EL LOTE (Solo se muestra si está ABIERTO) -->
         {% if lote.estado == 'ABIERTO' %}
-        <a href="{% url 'pedidos:cerrar_lote_manual' lote.id %}" class="btn btn-warning">
+        <a href="{% url 'pedidos:cerrar_lote_manual' lote.id %}" class="btn btn-warning" data-confirm="¿Cerrar este lote?">
             <i class="bi bi-lock"></i> Cerrar Lote
         </a>
         {% endif %}
@@ -75,12 +75,12 @@
     <form method="post" class="d-flex gap-2">
         {% csrf_token %}
         {% if lote.estado == 'ABIERTO' %}
-        <button formaction="{% url 'pedidos:cerrar_lote' lote.id %}" class="btn btn-info">
+        <button formaction="{% url 'pedidos:cerrar_lote' lote.id %}" class="btn btn-info" data-confirm="¿Cerrar este lote?">
             <i class="bi bi-lock"></i> Cerrar lote
         </button>
         {% endif %}
         {% if lote.estado == 'CERRADO' %}
-        <button formaction="{% url 'pedidos:pagar_lote' lote.id %}" class="btn btn-danger">
+        <button formaction="{% url 'pedidos:pagar_lote' lote.id %}" class="btn btn-danger" data-confirm="¿Pagar este lote y registrarlo en la caja?">
             <i class="bi bi-cash"></i> Pagar lote (${{ lote.costo_total|floatformat:2 }})
         </button>
         {% endif %}
