@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'finanzas',
     'empleados',
     'compras',
+    'agente_analista',
     'pwa',
     'rest_framework'
 ]
