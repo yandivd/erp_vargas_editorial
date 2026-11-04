@@ -283,6 +283,9 @@
             <a href="{% url 'finanzas:reportes' %}" class="sidebar-link {% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'reportes' %}active{% endif %}">
                 <i class="bi bi-graph-up-arrow"></i> Reportes
             </a>
+            <a href="{% url 'agente_analista:chat' %}" class="sidebar-link {% if request.resolver_match.namespace == 'agente_analista' %}active{% endif %}">
+                <i class="bi bi-robot"></i> Analista Financiero
+            </a>
             <a href="{% url 'finanzas:activos' %}" class="sidebar-link {% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'activos' %}active{% endif %}">
                 <i class="bi bi-hdd-stack"></i> Activos fijos
             </a>
@@ -303,7 +306,7 @@
                     <div class="text-muted" style="font-size: 0.75rem;">Administrador</div>
                 </div>
             </div>
-            <form method="post" action="{% url 'logout' %}">
+            <form method="post" action="{% url 'logout' %}" data-skip-confirm>
                 {% csrf_token %}
                 <button type="submit" class="btn btn-outline-danger w-100 btn-sm" style="font-size: 0.8rem;">
                     <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
@@ -338,6 +341,7 @@
                 <a href="{% url 'finanzas:caja' %}" class="sidebar-link {% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'caja' %}active{% endif %}"><i class="bi bi-cash-stack"></i> Caja</a>
                 <a href="{% url 'finanzas:gestionar_divisas' %}" class="sidebar-link {% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'gestionar_divisas' %}active{% endif %}"><i class="bi bi-currency-exchange"></i> Divisas (USD)</a>
                 <a href="{% url 'finanzas:reportes' %}" class="sidebar-link {% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'reportes' %}active{% endif %}"><i class="bi bi-graph-up-arrow"></i> Reportes</a>
+                <a href="{% url 'agente_analista:chat' %}" class="sidebar-link {% if request.resolver_match.namespace == 'agente_analista' %}active{% endif %}"><i class="bi bi-robot"></i> Analista Financiero</a>
                 <a href="{% url 'finanzas:activos' %}" class="sidebar-link {% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'activos' %}active{% endif %}"><i class="bi bi-hdd-stack"></i> Activos fijos</a>
                 <div class="menu-label">Sistema</div>
                 <a href="/admin/" target="_blank" class="sidebar-link"><i class="bi bi-gear"></i> Admin</a>
@@ -352,7 +356,7 @@
                         <div class="text-muted" style="font-size: 0.75rem;">Administrador</div>
                     </div>
                 </div>
-                <form method="post" action="{% url 'logout' %}">
+                <form method="post" action="{% url 'logout' %}" data-skip-confirm>
                     {% csrf_token %}
                     <button type="submit" class="btn btn-outline-danger w-100 btn-sm" style="font-size: 0.8rem;">
                         <i class="bi bi-box-arrow-right"></i> Cerrar Sesión

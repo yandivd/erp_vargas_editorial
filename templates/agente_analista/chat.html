@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Analista Financiero - Vargas Editorial{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-0 fw-bold"><i class="bi bi-robot text-primary"></i> Analista Financiero</h2>
+        <p class="text-muted mb-0">Consultas sobre rentabilidad, márgenes, costos y flujo de caja.</p>
+    </div>
+</div>
+
+<div class="card card-kpi p-3">
+    <div id="chat-mensajes" class="mb-3" aria-live="polite" style="height: 60vh; min-height: 320px; overflow-y: auto;">
+        <div class="mb-3">
+            <div class="small fw-bold text-muted mb-1">Analista</div>
+            <div class="p-2 rounded bg-white border" style="white-space: pre-wrap;">Puedes preguntarme por la rentabilidad del período, los clientes más rentables, los pedidos con pérdida o el saldo de caja en CUP o USD.</div>
+        </div>
+    </div>
+
+    <form id="chat-form">
+        {% csrf_token %}
+        <div class="input-group">
+            <input
+                id="chat-input"
+                type="text"
+                class="form-control"
+                placeholder="Escribe tu consulta financiera..."
+                autocomplete="off"
+                maxlength="2000"
+                required
+            >
+            <button id="chat-enviar" type="submit" class="btn btn-primary">
+                <i class="bi bi-send"></i> Enviar
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    'use strict';
+
+    const formulario = document.getElementById('chat-form');
+    const entrada = document.getElementById('chat-input');
+    const boton = document.getElementById('chat-enviar');
+    const contenedor = document.getElementById('chat-mensajes');
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    function agregarMensaje(rol, texto) {
+        const bloque = document.createElement('div');
+        bloque.className = 'mb-3';
+
+        const etiqueta = document.createElement('div');
+        etiqueta.className = 'small fw-bold text-muted mb-1';
+        etiqueta.textContent = rol === 'user' ? 'Tú' : 'Analista';
+
+        const cuerpo = document.createElement('div');
+        cuerpo.className = rol === 'user'
+            ? 'p-2 rounded bg-light border'
+            : 'p-2 rounded bg-white border';
+        cuerpo.style.whiteSpace = 'pre-wrap';
+        cuerpo.textContent = texto;
+
+        bloque.append(etiqueta, cuerpo);
+        contenedor.appendChild(bloque);
+        contenedor.scrollTop = contenedor.scrollHeight;
+    }
+
+    formulario.addEventListener('submit', async function (evento) {
+        evento.preventDefault();
+
+        const mensaje = entrada.value.trim();
+        if (!mensaje) {
+            return;
+        }
+
+        agregarMensaje('user', mensaje);
+        entrada.value = '';
+        boton.disabled = true;
+
+        try {
+            const respuesta = await fetch("{% url 'agente_analista:chat_api' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ mensaje: mensaje })
+            });
+
+            const datos = await respuesta.json();
+            if (!respuesta.ok || datos.error) {
+                throw new Error(datos.error || 'Error del servidor.');
+            }
+
+            agregarMensaje('assistant', datos.respuesta || 'Sin respuesta.');
+        } catch (error) {
+            agregarMensaje('assistant', 'Error: ' + error.message);
+        } finally {
+            boton.disabled = false;
+            entrada.focus();
+        }
+    });
+})();
+</script>
+{% endblock %}

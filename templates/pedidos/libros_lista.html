@@ -45,7 +45,7 @@
                 <h5 class="modal-title"><i class="bi bi-book"></i> Registrar Nuevo Libro</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form method="post" action="{% url 'pedidos:crear_libro' %}" id="formNuevoLibro">
+            <form method="post" action="{% url 'pedidos:crear_libro' %}" id="formNuevoLibro" data-confirm="¿Registrar este libro en el catálogo?">
                 {% csrf_token %}
                 <div class="modal-body p-3 p-md-4">
                     <div class="mb-3">

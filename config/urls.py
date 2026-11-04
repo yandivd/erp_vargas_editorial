@@ -18,6 +18,7 @@ urlpatterns = [
     path('', include('pwa.urls')), 
     
     # Rutas de la aplicación
+    path('agente/', include('agente_analista.urls')),
     path('', include('core.urls')),
     path('pedidos/', include('pedidos.urls')),
     path('inventario/', include('inventario.urls')),
