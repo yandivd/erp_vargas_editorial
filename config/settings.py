@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from datetime import timedelta
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde .env (si existe)
+load_dotenv()
 
 from dotenv import load_dotenv
 
@@ -58,6 +62,7 @@ INSTALLED_APPS = [
     'compras',
     'agente_analista',
     'pwa',
+
     'rest_framework',
     'corsheaders',
     'rest_framework_simplejwt.token_blacklist',

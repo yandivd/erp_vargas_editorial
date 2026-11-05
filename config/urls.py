@@ -27,7 +27,6 @@ urlpatterns = [
     path('proveedores/', include('proveedores.urls')),
     path('empleados/', include('empleados.urls')),
     path('compras/', include('compras.urls')),
-    
     # 2. API v1 (nueva, aislada de las rutas antiguas)
     path('api/v1/', include('api.v1.urls')),
 

@@ -43,6 +43,7 @@ def obtener_dashboard_data(tab, desde_str='', hasta_str=''):
 
     key = _cache_key(tab, desde_str, hasta_str)
     data = cache.get(key)
+    
     if data is None:
         if tab == 'resumen':
             data = dashboard_resumen(desde, hasta)
