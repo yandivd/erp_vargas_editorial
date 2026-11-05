@@ -1,3 +1,4 @@
+import logging
 import os
 from decimal import Decimal
 import json
@@ -21,10 +22,18 @@ from .models import (
     CodigoDescuento, HistorialEstado, Pedido, ServicioExterno, 
     Book, Estado, LoteServicio, Entrega
 )
-from .services import ServicioPedido, CosteadorPedido, ServicioCatalogo
+from .services import (
+    ServicioPedido,
+    CosteadorPedido,
+    ServicioCatalogo,
+    cobrar_saldo_anticipado as cobrar_saldo_anticipado_service,
+)
 from clientes.models import Cliente
 from finanzas.services import ServicioFinanzas
 from finanzas.models import MovimientoCaja
+
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -313,6 +322,36 @@ def registrar_anticipo(request, pk):
         ServicioFinanzas.registrar_anticipo(pedido, monto=float(monto), metodo=metodo)
         messages.success(request, f'Anticipo registrado: ${monto}')
     return redirect('pedidos:detalle', pk=pk)
+
+
+@require_POST
+def cobrar_saldo_anticipado(request, pedido_id):
+    pedido = get_object_or_404(
+        Pedido.objects.select_related('cliente', 'libro', 'estado'),
+        pk=pedido_id,
+    )
+    monto = request.POST.get('monto') or None
+    notas = request.POST.get('notas', '').strip()
+
+    try:
+        movimiento = cobrar_saldo_anticipado_service(
+            pedido,
+            monto=monto,
+            usuario=request.user,
+            notas=notas,
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    except Exception:
+        logger.exception('Error al cobrar el saldo anticipado del pedido %s', pedido_id)
+        messages.error(request, 'No se pudo registrar el cobro del saldo. Intenta de nuevo.')
+    else:
+        messages.success(
+            request,
+            f'Cobro de saldo registrado: ${movimiento.monto:.2f} {movimiento.moneda}.',
+        )
+
+    return redirect('pedidos:detalle', pk=pedido_id)
 
 
 def nuevo_pedido_modal(request):
