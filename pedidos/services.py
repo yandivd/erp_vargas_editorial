@@ -306,6 +306,8 @@ def cobrar_saldo_anticipado(pedido, monto=None, usuario=None, notas=""):
     """
     from finanzas.services import ServicioFinanzas
 
+    pedido_original = pedido
+
     with transaction.atomic():
         pedido = (
             Pedido.objects.select_for_update()
@@ -338,7 +340,8 @@ def cobrar_saldo_anticipado(pedido, monto=None, usuario=None, notas=""):
 
         cliente = pedido.cliente.nombre if pedido.cliente else 'Sin cliente'
         concepto = f'Saldo pedido #{pedido.id} - {cliente} - {pedido.libro.titulo}'[:200]
-        moneda = getattr(pedido, 'moneda', 'CUP') or 'CUP'
+        # TODO: usar pedido.moneda cuando exista
+        moneda = 'CUP'
 
         movimiento = ServicioFinanzas.registrar_saldo(
             pedido,
@@ -357,6 +360,9 @@ def cobrar_saldo_anticipado(pedido, monto=None, usuario=None, notas=""):
             usuario,
             notas,
         )
+
+    pedido_original.anticipo_recibido = pedido.anticipo_recibido
+    pedido_original.saldo_pendiente = pedido.saldo_pendiente
 
     return movimiento
 
