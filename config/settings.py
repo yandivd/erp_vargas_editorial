@@ -10,7 +10,13 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Cargar variables de entorno desde .env (si existe)
+load_dotenv()
+
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env (si existe)
@@ -56,10 +62,14 @@ INSTALLED_APPS = [
     'compras',
     'agente_analista',
     'pwa',
-    'rest_framework'
+
+    'rest_framework',
+    'corsheaders',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -183,3 +193,53 @@ PWA_APP_ICONS_APPLE = [
 
 PWA_APP_DIR = 'ltr'
 PWA_APP_LANG = 'es-ES'
+
+
+# ==========================================
+# API, JWT Y CORS (frontend Next.js en Vercel)
+# ==========================================
+
+def _env_list(nombre, default=''):
+    return [item.strip() for item in os.environ.get(nombre, default).split(',') if item.strip()]
+
+
+# Orígenes permitidos para llamadas directas desde el navegador.
+# El patrón BFF hace que Next llame a Django desde el servidor, pero se
+# mantiene CORS para PDFs, depuración y la PWA/APK.
+CORS_ALLOWED_ORIGINS = _env_list(
+    'CORS_ALLOWED_ORIGINS',
+    'http://localhost:3000,http://127.0.0.1:3000',
+)
+# Para previews de Vercel: ^https://.*\.vercel\.app$
+CORS_ALLOWED_ORIGIN_REGEXES = _env_list('CORS_ALLOWED_ORIGIN_REGEXES', '')
+CORS_ALLOW_CREDENTIALS = False
+CSRF_TRUSTED_ORIGINS = _env_list(
+    'CSRF_TRUSTED_ORIGINS',
+    ','.join(CORS_ALLOWED_ORIGINS),
+)
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'EXCEPTION_HANDLER': 'api.v1.exceptions.custom_exception_handler',
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(
+        minutes=int(os.environ.get('JWT_ACCESS_MINUTES', '15'))
+    ),
+    'REFRESH_TOKEN_LIFETIME': timedelta(
+        days=int(os.environ.get('JWT_REFRESH_DAYS', '7'))
+    ),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+}

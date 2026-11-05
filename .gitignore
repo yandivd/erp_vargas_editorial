@@ -29,4 +29,8 @@ pedidos/migrations/0012_pedido_es_historico.py
 /node_modules
 /android
 frontend/.env.local
+
+# Next.js / Node
 frontend/node_modules
+/frontend/.next
+.next/

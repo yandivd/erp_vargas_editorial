@@ -27,8 +27,10 @@ urlpatterns = [
     path('proveedores/', include('proveedores.urls')),
     path('empleados/', include('empleados.urls')),
     path('compras/', include('compras.urls')),
-    
-    # 2. API
+    # 2. API v1 (nueva, aislada de las rutas antiguas)
+    path('api/v1/', include('api.v1.urls')),
+
+    # 3. API antigua (se mantiene para la app actual)
     path('api/core/', include('core.endpoint')),
     path('api/clientes/', include('clientes.endpoint')),
     path('api/finanzas/', include('finanzas.endpoint')),
