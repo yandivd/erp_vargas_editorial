@@ -57,10 +57,8 @@ class ServicioFinanzas:
             cliente=pedido.cliente
         )
         
-        # Actualizar el pedido
-        pedido.anticipo_recibido += monto
-        pedido.saldo_pendiente -= monto
-        pedido.save() # <-- ESTO ES VITAL PARA QUE SE GUARDE
+        pedido.anticipo_recibido = (pedido.anticipo_recibido or 0) + monto
+        pedido.save()
         
         return mov
     
