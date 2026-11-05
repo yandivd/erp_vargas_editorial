@@ -37,7 +37,7 @@ class ServicioFinanzas:
         return mov
     
     @staticmethod
-    def registrar_saldo(pedido, monto=None, metodo='EFECTIVO'):
+    def registrar_saldo(pedido, monto=None, metodo='EFECTIVO', moneda=None, concepto=None):
         """Registra el pago del saldo final."""
         if monto is None:
             monto = pedido.saldo_pendiente
@@ -51,7 +51,8 @@ class ServicioFinanzas:
             categoria='SALDO_CLIENTE',
             monto=monto,
             metodo=metodo,
-            concepto=f'Saldo pedido #{pedido.id} - {pedido.libro.titulo}',
+            moneda=moneda or 'CUP',
+            concepto=concepto or f'Saldo pedido #{pedido.id} - {pedido.libro.titulo}',
             pedido=pedido,
             cliente=pedido.cliente
         )
