@@ -10,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from core.api import obtener_dashboard_data
 from finanzas.services import ServicioFinanzas
 from pedidos.api import PedidoSerializer
 from pedidos.models import Estado, Pedido
@@ -41,6 +42,25 @@ def me(request):
         'is_superuser': user.is_superuser,
         'groups': list(user.groups.values_list('name', flat=True)),
     })
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def dashboard(request, tab='resumen'):
+    try:
+        data = obtener_dashboard_data(
+            tab,
+            request.GET.get('desde', ''),
+            request.GET.get('hasta', ''),
+        )
+    except ValueError as error:
+        return Response(
+            {'ok': False, 'error': str(error)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response({'ok': True, 'data': data})
 
 
 class PedidoViewSetV1(viewsets.ReadOnlyModelViewSet):

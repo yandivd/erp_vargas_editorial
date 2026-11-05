@@ -1,69 +1,92 @@
-import Image from "next/image";
+import { AlertTriangle } from "lucide-react";
+import ClientesTab from "@/components/dashboard/ClientesTab";
+import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import ProduccionTab from "@/components/dashboard/ProduccionTab";
+import ResumenTab from "@/components/dashboard/ResumenTab";
+import { apiFetch } from "@/lib/api";
+import {
+  isDashboardTab,
+  type DashboardClientes,
+  type DashboardData,
+  type DashboardProduccion,
+  type DashboardResumen,
+  type DashboardTab,
+} from "@/lib/dashboard";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+type PageProps = {
+  searchParams: Promise<{
+    tab?: string;
+    desde?: string;
+    hasta?: string;
+  }>;
+};
+
+export default async function DashboardPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const tab: DashboardTab = isDashboardTab(params.tab) ? params.tab : "resumen";
+  const desde = params.desde ?? "";
+  const hasta = params.hasta ?? "";
+
+  const query = new URLSearchParams();
+  if (desde) {
+    query.set("desde", desde);
+  }
+  if (hasta) {
+    query.set("hasta", hasta);
+  }
+
+  const queryString = query.toString();
+  let data: DashboardData | null = null;
+  let error: string | null = null;
+
+  try {
+    data = await apiFetch<DashboardData>(
+      `dashboard/${tab}/${queryString ? `?${queryString}` : ""}`,
+    );
+  } catch (requestError) {
+    error =
+      requestError instanceof Error
+        ? requestError.message
+        : "No se pudieron cargar los datos del dashboard.";
+  }
+
+  const meta =
+    data && "meta" in data
+      ? (data as DashboardResumen).meta
+      : undefined;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div>
+      <DashboardHeader
+        tab={tab}
+        desde={desde}
+        hasta={hasta}
+        meta={meta}
+      />
+
+      {error ? (
+        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+          <div>
+            <strong>No se pudo cargar el dashboard.</strong>
+            <div>{error}</div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      ) : null}
+
+      {data && tab === "resumen" ? (
+        <ResumenTab data={data as DashboardResumen} />
+      ) : null}
+
+      {data && tab === "produccion" ? (
+        <ProduccionTab data={data as DashboardProduccion} />
+      ) : null}
+
+      {data && tab === "clientes" ? (
+        <ClientesTab data={data as DashboardClientes} />
+      ) : null}
     </div>
   );
 }

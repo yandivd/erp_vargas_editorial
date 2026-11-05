@@ -32,13 +32,10 @@ def _cache_key(tab, desde, hasta):
     )
 
 
-def dashboard_api(request):
-    tab = request.GET.get('tab', 'resumen')
+def obtener_dashboard_data(tab, desde_str='', hasta_str=''):
     if tab not in ('resumen', 'produccion', 'clientes'):
-        return JsonResponse({'ok': False, 'error': 'Tab no válida'}, status=400)
+        raise ValueError('Tab no válida')
 
-    desde_str = request.GET.get('desde', '')    
-    hasta_str = request.GET.get('hasta', '')
     desde = parse_fecha(desde_str)
     hasta = parse_fecha(hasta_str)
     if desde and hasta and desde > hasta:
@@ -62,6 +59,20 @@ def dashboard_api(request):
             'referencia_corte': REFERENCIA_CORTE_FINANCIERO,
         })
         cache.set(key, data, DASHBOARD_CACHE_TTL)
+
+    return data
+
+
+def dashboard_api(request):
+    tab = request.GET.get('tab', 'resumen')
+    try:
+        data = obtener_dashboard_data(
+            tab,
+            request.GET.get('desde', ''),
+            request.GET.get('hasta', ''),
+        )
+    except ValueError as error:
+        return JsonResponse({'ok': False, 'error': str(error)}, status=400)
 
     return JsonResponse(
         {'ok': True, 'data': data},
