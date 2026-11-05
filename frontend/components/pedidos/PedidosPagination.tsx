@@ -23,9 +23,7 @@ function hrefForPage(
   if (estado) {
     params.set("estado", estado);
   }
-  if (enTaller) {
-    params.set("en_taller", "true");
-  }
+  params.set("en_taller", enTaller ? "true" : "false");
   if (page > 1) {
     params.set("page", String(page));
   }

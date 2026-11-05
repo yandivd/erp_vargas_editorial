@@ -12,6 +12,8 @@ from . import views
 app_name = 'api_v1'
 
 router = DefaultRouter()
+router.register(r'clientes', views.ClienteViewSetV1, basename='clientes')
+router.register(r'libros', views.LibroViewSetV1, basename='libros')
 router.register(r'pedidos', views.PedidoViewSetV1, basename='pedidos')
 
 urlpatterns = [

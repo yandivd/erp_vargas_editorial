@@ -1,5 +1,6 @@
 import { AlertTriangle, ClipboardList, SearchX } from "lucide-react";
 import Link from "next/link";
+import NuevoPedidoModal from "@/components/pedidos/NuevoPedidoModal";
 import PedidosFilters from "@/components/pedidos/PedidosFilters";
 import PedidosPagination from "@/components/pedidos/PedidosPagination";
 import PedidosTable from "@/components/pedidos/PedidosTable";
@@ -29,7 +30,7 @@ export default async function PedidosPage({ searchParams }: PageProps) {
   const search = (params.search ?? "").trim();
   const estado = (params.estado ?? "").trim();
   const enTaller =
-    params.en_taller === "true" || params.en_taller === "1";
+    params.en_taller !== "false" && params.en_taller !== "0";
   const parsedPage = Number(params.page ?? "1");
   const page =
     Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -147,12 +148,15 @@ function PageHeader({
             : "Órdenes del taller, anticipos y estado de producción."}
         </p>
       </div>
-      {typeof count === "number" ? (
-        <div className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-muted">
-          <span className="font-bold text-ink">{count}</span>{" "}
-          {enTaller ? "en taller" : `resultado${count === 1 ? "" : "s"}`}
-        </div>
-      ) : null}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        {typeof count === "number" ? (
+          <div className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-muted">
+            <span className="font-bold text-ink">{count}</span>{" "}
+            {enTaller ? "en taller" : `resultado${count === 1 ? "" : "s"}`}
+          </div>
+        ) : null}
+        <NuevoPedidoModal />
+      </div>
     </div>
   );
 }
@@ -172,7 +176,10 @@ function ViewTabs({
   const tallerParams = new URLSearchParams(params);
   tallerParams.set("en_taller", "true");
   const tallerQuery = tallerParams.toString();
-  const todosQuery = params.toString();
+
+  const todosParams = new URLSearchParams(params);
+  todosParams.set("en_taller", "false");
+  const todosQuery = todosParams.toString();
 
   const baseClass =
     "inline-flex items-center rounded-lg px-4 py-2 text-sm font-semibold transition";
@@ -189,7 +196,7 @@ function ViewTabs({
         En Taller
       </Link>
       <Link
-        href={todosQuery ? `/pedidos?${todosQuery}` : "/pedidos"}
+        href={`/pedidos?${todosQuery}`}
         className={`${baseClass} ${enTaller ? inactiveClass : activeClass}`}
         aria-current={enTaller ? undefined : "page"}
       >

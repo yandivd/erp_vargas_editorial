@@ -22,6 +22,7 @@ import {
   thClass,
 } from "@/components/dashboard/ui";
 import { apiFetch } from "@/lib/api";
+import { calcularCostoPorUnidad, type ParametrosCosto } from "@/lib/costos";
 import { formatDate, formatDateTime, money } from "@/lib/format";
 import {
   estadoStyle,
@@ -72,6 +73,18 @@ export default async function PedidoDetailPage({ params }: PageProps) {
     (total, servicio) => total + Number(servicio.monto),
     0,
   );
+
+  const costoProduccion =
+    pedido.costo_produccion != null
+      ? Number(pedido.costo_produccion)
+      : (await calcularCostoProduccion(pedido));
+  const gananciaBruta =
+    costoProduccion === null
+      ? Number(pedido.ganancia_bruta)
+      : Number(pedido.precio_venta) - costoProduccion;
+  const gananciaClassName =
+    gananciaBruta >= 0 ? "text-emerald-600" : "text-red-600";
+  const gananciaTone = gananciaBruta >= 0 ? "emerald" : "red";
 
   return (
     <div>
@@ -142,9 +155,10 @@ export default async function PedidoDetailPage({ params }: PageProps) {
         />
         <KpiCard
           label="Ganancia bruta"
-          value={money(pedido.ganancia_bruta)}
-          sub={`Servicios externos: ${money(totalServicios)}`}
-          tone="violet"
+          value={money(gananciaBruta)}
+          sub={`Costo producción: ${money(costoProduccion ?? 0)} · Servicios externos: ${money(totalServicios)}`}
+          tone={gananciaTone}
+          valueClassName={gananciaClassName}
         />
       </div>
 
@@ -252,7 +266,15 @@ export default async function PedidoDetailPage({ params }: PageProps) {
               label="Saldo pendiente"
               value={money(pedido.saldo_pendiente)}
             />
-            <Info label="Ganancia bruta" value={money(pedido.ganancia_bruta)} />
+            <Info
+              label="Costo de producción"
+              value={money(costoProduccion ?? 0)}
+            />
+            <Info
+              label="Ganancia bruta"
+              value={money(gananciaBruta)}
+              valueClassName={gananciaClassName}
+            />
           </dl>
         </SectionCard>
       </div>
@@ -386,19 +408,53 @@ function Info({
   label,
   value,
   className = "",
+  valueClassName = "",
 }: {
   label: string;
   value: string;
   className?: string;
+  valueClassName?: string;
 }) {
   return (
     <div className={className}>
       <dt className="text-[0.7rem] font-bold uppercase tracking-wide text-muted">
         {label}
       </dt>
-      <dd className="mt-1 text-sm font-medium text-ink">{value}</dd>
+      <dd className={`mt-1 text-sm font-medium text-ink ${valueClassName}`}>
+        {value}
+      </dd>
     </div>
   );
+}
+
+async function calcularCostoProduccion(
+  pedido: PedidoDetail,
+): Promise<number | null> {
+  try {
+    const [{ parametros }, paginas] = await Promise.all([
+      apiFetch<{ parametros: ParametrosCosto }>(
+        "pedidos/parametros-costo/",
+      ),
+      pedido.libro_paginas
+        ? Promise.resolve(Number(pedido.libro_paginas))
+        : apiFetch<{ paginas: number }>(`libros/${pedido.libro_id}/`).then(
+            (libro) => Number(libro.paginas),
+          ),
+    ]);
+
+    if (!Number.isFinite(paginas) || paginas <= 0) {
+      return null;
+    }
+
+    return calcularCostoPorUnidad(
+      paginas,
+      pedido.lleva_scotch,
+      pedido.lleva_esquineros,
+      parametros,
+    ).costo_total;
+  } catch {
+    return null;
+  }
 }
 
 function Tag({ active, label }: { active: boolean; label: string }) {

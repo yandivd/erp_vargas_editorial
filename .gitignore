@@ -31,3 +31,4 @@ pedidos/migrations/0012_pedido_es_historico.py
 frontend/.env.local
 frontend/node_modules
 /frontend/.next
+.next/

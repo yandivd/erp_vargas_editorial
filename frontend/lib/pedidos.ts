@@ -70,8 +70,10 @@ export type PedidoDetail = PedidoListItem & {
   horas_invertidas: string | null;
   cliente_telefono: string;
   cliente_direccion: string;
+  libro_paginas?: number;
   dias_para_entrega: number | null;
   esta_atrasado: boolean;
+  costo_produccion?: string | null;
   ganancia_bruta: string;
   anticipos: AnticipoPedido[];
   servicios_externos: ServicioExternoPedido[];

@@ -1,5 +1,9 @@
+from decimal import Decimal
+
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Count, Sum, F, IntegerField
+from django.db.models.functions import Cast
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import (
     action,
@@ -12,16 +16,22 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from clientes.models import Cliente
 from core.api import obtener_dashboard_data
+from core.models import Parametro
 from finanzas.services import ServicioFinanzas
-from pedidos.models import Estado, Pedido
-from pedidos.services import ServicioPedido
+from inventario.models import Material
+from pedidos.models import Book, CodigoDescuento, Estado, Pedido
+from pedidos.services import CosteadorPedido, ServicioPedido
 
 from .serializers import (
     ESTADOS_NO_TALLER,
     CambiarEstadoMasivoSerializer,
     CambiarEstadoSerializer,
+    ClienteListV1Serializer,
     EstadoV1Serializer,
+    LibroListV1Serializer,
+    PedidoCreateSerializer,
     PedidoDetailV1Serializer,
     PedidoListV1Serializer,
     RegistrarAnticipoSerializer,
@@ -39,6 +49,17 @@ def _rol_usuario(user):
 
 def _es_verdadero(value):
     return value.strip().lower() in ('1', 'true', 'yes', 'si', 'sí')
+
+
+def _siguiente_referencia():
+    ultima = (
+        Pedido.objects.filter(referencia_externa__regex=r'^\d+$')
+        .annotate(ref_num=Cast('referencia_externa', output_field=IntegerField()))
+        .order_by('-ref_num')
+        .values_list('ref_num', flat=True)
+        .first()
+    )
+    return (ultima + 1) if ultima else 1
 
 
 @api_view(['GET'])
@@ -98,7 +119,7 @@ class PedidoPagination(PageNumberPagination):
         })
 
 
-class PedidoViewSetV1(viewsets.ReadOnlyModelViewSet):
+class PedidoViewSetV1(viewsets.ModelViewSet):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     pagination_class = PedidoPagination
@@ -138,7 +159,95 @@ class PedidoViewSetV1(viewsets.ReadOnlyModelViewSet):
             else:
                 queryset = queryset.filter(estado__nombre=estado)
 
-        return queryset
+        return queryset.order_by(
+            F('referencia_externa').asc(nulls_last=True),
+            'id',
+        )
+
+    def create(self, request, *args, **kwargs):
+        serializer = PedidoCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        with transaction.atomic():
+            cliente = None
+            if data.get('cliente_id'):
+                cliente = Cliente.objects.get(pk=data['cliente_id'])
+            else:
+                cliente = Cliente.objects.create(
+                    nombre=data.get('cliente_nombre') or '',
+                    telefono=data.get('cliente_telefono') or '',
+                    direccion=data.get('cliente_direccion') or '',
+                )
+
+            libro = None
+            if data.get('libro_id'):
+                libro = Book.objects.get(pk=data['libro_id'])
+            else:
+                libro = Book.objects.create(
+                    titulo=data.get('libro_titulo') or '',
+                    autor=data.get('libro_autor') or '',
+                    paginas=int(data.get('libro_paginas') or 0),
+                    precio=Decimal(str(data.get('precio_venta') or 0)),
+                )
+
+            cod_obj = None
+            descuento = Decimal(str(data.get('descuento_aplicado') or 0))
+            codigo_str = str(data.get('codigo_descuento') or '').strip().upper()
+            if codigo_str:
+                cod_obj = CodigoDescuento.objects.get(codigo__iexact=codigo_str)
+                if not cod_obj.vigente:
+                    return Response(
+                        {'ok': False, 'error': 'El código está expirado o inactivo.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if not cod_obj.aplica_a_libro(libro):
+                    return Response(
+                        {'ok': False, 'error': 'El código no aplica a este libro.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            siguiente_ref = _siguiente_referencia()
+            estado_inicial = Estado.objects.get(nombre='Pendiente a impresión')
+            anticipo = Decimal(str(data.get('anticipo_requerido') or 0))
+            pedido = Pedido.objects.create(
+                cliente=cliente,
+                libro=libro,
+                cantidad=int(data.get('cantidad') or 1),
+                lleva_scotch=bool(data.get('lleva_scotch')),
+                lleva_esquineros=bool(data.get('lleva_esquineros')),
+                precio_venta=Decimal(str(data.get('precio_venta') or 0)),
+                descuento_aplicado=descuento,
+                codigo_descuento=cod_obj,
+                anticipo_requerido=anticipo,
+                estado=estado_inicial,
+                notas=data.get('notas') or '',
+                referencia_externa=siguiente_ref,
+            )
+            pedido.calcular_fecha_entrega()
+
+            if cod_obj:
+                cod_obj.usos_actuales += 1
+                cod_obj.save(update_fields=['usos_actuales'])
+
+            if anticipo > 0:
+                ServicioFinanzas.registrar_anticipo(
+                    pedido,
+                    monto=anticipo,
+                    metodo='EFECTIVO',
+                )
+
+        pedido = (
+            Pedido.objects.select_related('cliente', 'libro', 'estado')
+            .get(pk=pedido.pk)
+        )
+        return Response(
+            {
+                'ok': True,
+                'data': {'pedido': PedidoDetailV1Serializer(pedido).data},
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -154,6 +263,158 @@ class PedidoViewSetV1(viewsets.ReadOnlyModelViewSet):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         return Response({'ok': True, 'data': serializer.data})
+
+    @action(detail=False, methods=['get'], url_path='parametros-costo')
+    def parametros_costo(self, request):
+        material_esquineros = Material.objects.filter(
+            nombre__iexact='esquineros'
+        ).first()
+        parametros = {
+            'paginas_por_hoja': int(Parametro.get('paginas_por_hoja', 4)),
+            'precio_papel_paquete': float(Parametro.get('precio_papel_paquete', 1800)),
+            'hojas_por_paquete': float(Parametro.get('hojas_por_paquete', 500)),
+            'precio_tinta_litro': float(Parametro.get('precio_tinta_litro', 17500)),
+            'rinde_tinta_paginas': float(Parametro.get('rinde_tinta_paginas', 35000)),
+            'precio_pegamento': float(Parametro.get('precio_pegamento', 3500)),
+            'rinde_pegamento_lomos': float(Parametro.get('rinde_pegamento_lomos', 70)),
+            'esquineros_por_libro': float(Parametro.get('esquineros_por_libro', 4)),
+            'costo_esquineros_material': (
+                float(material_esquineros.costo_promedio)
+                if material_esquineros
+                else 0
+            ),
+            'precio_scotch': float(Parametro.get('precio_scotch', 1000)),
+            'rinde_scotch_libros': float(Parametro.get('rinde_scotch_libros', 30)),
+            'precio_portada': float(Parametro.get('precio_portada', 1000)),
+            'paginas_para_grueso': float(Parametro.get('paginas_para_grueso', 300)),
+            'precio_encuadernacion': float(Parametro.get('precio_encuadernacion', 500)),
+            'precio_encuadernacion_grueso': float(Parametro.get('precio_encuadernacion_grueso', 500)),
+            'electricidad_mensual': float(Parametro.get('electricidad_mensual', 1000)),
+            'libros_por_mes_estimado': float(Parametro.get('libros_por_mes_estimado', 30)),
+            'precio_diseno': float(Parametro.get('precio_diseno', 500)),
+            'paginas_min': float(Parametro.get('paginas_min', 100)),
+            'paginas_max': float(Parametro.get('paginas_max', 1000)),
+            'margen_min': float(Parametro.get('margen_min', 0.8)),
+            'margen_max': float(Parametro.get('margen_max', 2.0)),
+        }
+        return Response({'ok': True, 'data': {'parametros': parametros}})
+
+    @action(detail=False, methods=['get'], url_path='calcular-costo')
+    def calcular_costo(self, request):
+        try:
+            paginas = int(request.query_params.get('paginas') or 0)
+            lleva_scotch = _es_verdadero(request.query_params.get('lleva_scotch') or '')
+            lleva_esquineros = _es_verdadero(
+                request.query_params.get('lleva_esquineros') or ''
+            )
+
+            if paginas <= 0:
+                return Response(
+                    {'ok': False, 'error': 'Páginas inválidas'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            libro_temp = Book(paginas=paginas)
+            pedido_temp = Pedido(
+                libro=libro_temp,
+                lleva_scotch=lleva_scotch,
+                lleva_esquineros=lleva_esquineros,
+                cantidad=1,
+                precio_venta=0,
+            )
+            costeador = CosteadorPedido(pedido_temp)
+            resultado = costeador.calcular()
+            precio_sugerido = costeador.calcular_precio_sugerido()
+            anticipo_sugerido = round(precio_sugerido / 2, 2)
+
+            resultado['paginas'] = paginas
+            resultado['precio_sugerido'] = float(precio_sugerido)
+            resultado['anticipo_sugerido'] = float(anticipo_sugerido)
+
+            return Response({'ok': True, 'data': {'costo': resultado}})
+        except Exception as error:
+            return Response(
+                {'ok': False, 'error': str(error)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @action(detail=False, methods=['get'], url_path='codigos-vigentes')
+    def codigos_vigentes(self, request):
+        hoy = timezone.now().date()
+        codigos = CodigoDescuento.objects.filter(
+            activo=True,
+        ).filter(
+            Q(fecha_inicio__isnull=True) | Q(fecha_inicio__lte=hoy),
+        ).filter(
+            Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=hoy),
+        ).filter(
+            Q(usos_maximos__isnull=True) | Q(usos_actuales__lt=F('usos_maximos')),
+        ).order_by('codigo')
+
+        data = [
+            {
+                'id': codigo.id,
+                'codigo': codigo.codigo,
+                'descripcion': codigo.descripcion,
+                'porcentaje': float(codigo.porcentaje),
+                'categoria': codigo.categoria,
+            }
+            for codigo in codigos
+        ]
+        return Response({'ok': True, 'data': {'codigos': data}})
+
+    @action(detail=False, methods=['get'], url_path='validar-descuento')
+    def validar_descuento(self, request):
+        codigo = str(request.query_params.get('codigo') or '').strip().upper()
+        precio = Decimal(str(request.query_params.get('precio') or 0))
+        libro_id = request.query_params.get('libro_id')
+
+        if not codigo:
+            return Response(
+                {'ok': False, 'error': 'Ingresa un código'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            codigo_descuento = CodigoDescuento.objects.get(codigo__iexact=codigo)
+        except CodigoDescuento.DoesNotExist:
+            return Response(
+                {'ok': False, 'error': 'Código no válido'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not codigo_descuento.vigente:
+            return Response(
+                {'ok': False, 'error': 'Código expirado o inactivo'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        libro = None
+        if libro_id:
+            try:
+                libro = Book.objects.get(id=libro_id)
+            except Book.DoesNotExist:
+                return Response(
+                    {'ok': False, 'error': 'El libro no existe'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if libro and not codigo_descuento.aplica_a_libro(libro):
+                return Response(
+                    {'ok': False, 'error': 'El código no aplica a este libro'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        descuento = precio * (codigo_descuento.porcentaje / Decimal('100'))
+        precio_final = precio - descuento
+        return Response({
+            'ok': True,
+            'data': {
+                'porcentaje': float(codigo_descuento.porcentaje),
+                'descuento': float(descuento),
+                'precio_final': float(precio_final),
+                'descripcion': codigo_descuento.descripcion,
+            },
+        })
 
     @action(detail=False, methods=['get'], url_path='estados')
     def estados(self, request):
@@ -265,3 +526,39 @@ class PedidoViewSetV1(viewsets.ReadOnlyModelViewSet):
                 'movimiento_id': movimiento.id if movimiento else None,
             },
         }, status=status.HTTP_201_CREATED)
+
+
+
+
+
+
+class ClienteViewSetV1(viewsets.ReadOnlyModelViewSet):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    queryset = Cliente.objects.all().order_by('nombre')
+    serializer_class = ClienteListV1Serializer
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        search = request.query_params.get('search', '').strip()
+        if search:
+            queryset = queryset.filter(nombre__icontains=search)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({'ok': True, 'data': serializer.data})
+
+
+class LibroViewSetV1(viewsets.ReadOnlyModelViewSet):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    queryset = Book.objects.all().order_by('titulo')
+    serializer_class = LibroListV1Serializer
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        search = request.query_params.get('search', '').strip()
+        if search:
+            queryset = queryset.filter(
+                Q(titulo__icontains=search) | Q(autor__icontains=search)
+            )
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({'ok': True, 'data': serializer.data})

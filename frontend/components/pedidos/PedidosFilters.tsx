@@ -43,9 +43,7 @@ export default function PedidosFilters({
     if (nextEstado) {
       params.set("estado", nextEstado);
     }
-    if (enTaller) {
-      params.set("en_taller", "true");
-    }
+    params.set("en_taller", enTaller ? "true" : "false");
 
     const query = params.toString();
     startTransition(() => {
