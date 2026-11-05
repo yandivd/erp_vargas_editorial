@@ -7,7 +7,7 @@
     <a href="{% url 'compras:lista' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
 </div>
 
-<form method="post">
+<form method="post" data-confirm="¿Registrar esta compra y actualizar el inventario?">
     {% csrf_token %}
     <div class="card card-kpi p-4 mb-3">
         <div class="row g-3">

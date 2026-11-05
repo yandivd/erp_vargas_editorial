@@ -12,7 +12,7 @@
     <h4 class="mb-4">{{ material.nombre }}</h4>
     <p class="text-muted">Stock actual: <strong>{{ material.stock_actual|floatformat:2 }} {{ material.unidad_medida }}</strong></p>
     
-    <form method="post">
+    <form method="post" data-confirm="¿Registrar esta salida de material?">
         {% csrf_token %}
         <div class="row g-3">
             <div class="col-md-4">

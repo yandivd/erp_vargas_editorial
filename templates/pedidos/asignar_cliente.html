@@ -14,7 +14,7 @@
         Vas a vender <strong>{{ pedido.libro.titulo }}</strong> por un total de <strong>${{ pedido.precio_venta|floatformat:2 }}</strong>.
     </p>
 
-    <form method="post">
+    <form method="post" data-confirm="¿Registrar la venta y asignar el cliente?">
         {% csrf_token %}
         <div class="mb-3">
             <label class="form-label fw-bold">Cliente (Opcional)</label>

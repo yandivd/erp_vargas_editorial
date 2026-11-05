@@ -1,23 +1,13 @@
 <!-- templates/clientes/_tabla_clientes.html -->
 <div class="table-responsive">
-    <table class="table table-hover mb-0 align-middle">
+    <table class="table table-hover mb-0 align-middle datatable" id="tabla-clientes">
         <thead class="table-light">
             <tr>
-                <th style="cursor: pointer;" class="sortable" data-orden="nombre">
-                    Nombre 
-                    {% if orden_actual == 'nombre_asc' %}<i class="bi bi-sort-alpha-down text-primary"></i>
-                    {% elif orden_actual == 'nombre_desc' %}<i class="bi bi-sort-alpha-up text-primary"></i>
-                    {% else %}<i class="bi bi-arrow-down-up text-muted opacity-50"></i>{% endif %}
-                </th>
+                <th>Nombre</th>
                 <th class="d-none d-md-table-cell">Email</th>
-                <th class="d-none d-sm-table-cell" style="cursor: pointer;" class="sortable" data-orden="pedidos">
-                    Pedidos
-                    {% if orden_actual == 'pedidos_desc' %}<i class="bi bi-sort-numeric-down text-primary"></i>
-                    {% elif orden_actual == 'pedidos_asc' %}<i class="bi bi-sort-numeric-up text-primary"></i>
-                    {% else %}<i class="bi bi-arrow-down-up text-muted opacity-50"></i>{% endif %}
-                </th>
+                <th class="d-none d-sm-table-cell">Pedidos</th>
                 <th>Saldo Pendiente</th>
-                <th class="text-end">Acciones</th>
+                <th class="text-end no-sort">Acciones</th>
             </tr>
         </thead>
         <tbody>
@@ -67,25 +57,3 @@
         </tbody>
     </table>
 </div>
-
-<!-- PAGINACIÓN -->
-{% if clientes.has_other_pages %}
-<div class="card-footer bg-white border-top p-3 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2">
-    <small class="text-muted text-center text-sm-start">
-        Mostrando {{ clientes.start_index }} - {{ clientes.end_index }} de {{ total_clientes }} clientes
-    </small>
-    <ul class="pagination pagination-sm mb-0" id="paginacion-ajax-clientes">
-        {% if clientes.has_previous %}
-            <li class="page-item"><a class="page-link" href="#" data-page="1">&laquo;</a></li>
-            <li class="page-item"><a class="page-link" href="#" data-page="{{ clientes.previous_page_number }}">Anterior</a></li>
-        {% endif %}
-        
-        <li class="page-item active"><span class="page-link">{{ clientes.number }}</span></li>
-        
-        {% if clientes.has_next %}
-            <li class="page-item"><a class="page-link" href="#" data-page="{{ clientes.next_page_number }}">Siguiente</a></li>
-            <li class="page-item"><a class="page-link" href="#" data-page="{{ clientes.paginator.num_pages }}">&raquo;</a></li>
-        {% endif %}
-    </ul>
-</div>
-{% endif %}

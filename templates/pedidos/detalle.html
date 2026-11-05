@@ -9,8 +9,8 @@
         Pedido #{{ pedido.referencia_externa }} 
         <small class="text-muted fs-6 d-block d-md-inline">— {{ pedido.libro.titulo }}</small>
     </h2>
-    <a href="{% url 'pedidos:lista' %}" class="btn btn-outline-secondary w-100 w-md-auto">
-        <i class="bi bi-arrow-left"></i> Volver
+    <a href="{% url 'pedidos:lista' %}" class="btn btn-secondary w-100 w-md-auto">
+        <i class="bi bi-arrow-left"></i> Volver atrás
     </a>
 </div>
 
@@ -36,7 +36,7 @@
                 </div>
                 <div class="col-12 mt-2">
                     {% if not pedido.lleva_esquineros %}
-                        <form method="post" action="{% url 'pedidos:agregar_esquineros' pedido.id %}" class="d-inline">
+                        <form method="post" action="{% url 'pedidos:agregar_esquineros' pedido.id %}" class="d-inline" data-confirm="¿Agregar esquineros a este pedido y recalcular el precio?">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-sm btn-outline-warning w-100 w-sm-auto">
                                 <i class="bi bi-plus-circle"></i> Agregar esquineros
@@ -147,7 +147,7 @@
         <!-- Cambiar Estado -->
         <div class="card card-kpi p-3 mb-3 border-primary border-2">
             <h5 class="border-bottom pb-2 mb-3">Avanzar Producción</h5>
-            <form method="post" action="{% url 'pedidos:cambiar_estado' pedido.id %}">
+            <form method="post" action="{% url 'pedidos:cambiar_estado' pedido.id %}" data-confirm="¿Cambiar el estado de este pedido?">
                 {% csrf_token %}
                 <select name="estado" class="form-select mb-2">
                     {% for e in estados %}

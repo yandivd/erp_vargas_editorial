@@ -1,9 +1,9 @@
 <!-- pedidos/_tabla_pedidos.html -->
 <div class="table-responsive">
-    <table class="table table-hover mb-0 align-middle" id="tabla-pedidos">
+    <table class="table table-hover mb-0 align-middle datatable" id="tabla-pedidos">
         <thead class="table-light">
             <tr>
-                <th style="width: 30px;">
+                <th style="width: 30px;" class="no-sort">
                     <input type="checkbox" id="checkTodos" class="form-check-input">
                 </th>
                 <th>Ref</th>
@@ -12,7 +12,7 @@
                 <th class="d-none d-sm-table-cell">Precio</th>
                 <th>Saldo</th>
                 <th>Estado</th>
-                <th class="text-end">Acciones</th>
+                <th class="text-end no-sort">Acciones</th>
             </tr>
         </thead>
         <tbody id="tabla-pedidos-body">
@@ -20,6 +20,3 @@
         </tbody>
     </table>
 </div>
-
-<!-- Paginación (también generada por JS) -->
-<div id="paginacion-pedidos" class="card-footer bg-white border-top p-3 d-none"></div>
