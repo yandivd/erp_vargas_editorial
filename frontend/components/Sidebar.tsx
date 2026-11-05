@@ -57,7 +57,7 @@ const sections: NavSection[] = [
   {
     items: [
       { href: "/", label: "Dashboard", icon: LayoutGrid },
-      { href: "/pedidos", label: "Pedidos (Taller)", icon: BookOpen },
+      { href: "/pedidos?en_taller=true", label: "Pedidos (Taller)", icon: BookOpen },
       { href: "/pedidos/tienda", label: "Tienda", icon: Store },
       { href: "/pedidos/entregas", label: "Entregas", icon: Truck },
       { href: "/pedidos/entregados", label: "Historial Entregados", icon: Archive },
@@ -91,11 +91,13 @@ const sections: NavSection[] = [
 ];
 
 function isActive(pathname: string, href: string): boolean {
-  if (href === "/") {
+  const hrefPath = href.split(/[?#]/, 1)[0];
+
+  if (hrefPath === "/") {
     return pathname === "/";
   }
 
-  return pathname === href || pathname.startsWith(`${href}/`);
+  return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
 }
 
 function NavLinks({

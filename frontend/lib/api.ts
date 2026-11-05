@@ -1,7 +1,18 @@
+export type ApiPagination = {
+  count: number;
+  page: number;
+  num_pages: number;
+  per_page: number;
+  start_index: number;
+  end_index: number;
+  has_next: boolean;
+  has_previous: boolean;
+};
+
 export type ApiSuccess<T> = {
   ok: true;
   data: T;
-  pagination?: unknown;
+  pagination?: ApiPagination | null;
   meta?: unknown;
 };
 
@@ -94,10 +105,10 @@ function getErrorMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
-export async function apiFetch<T>(
+export async function apiFetchEnvelope<T>(
   path: string,
   init: RequestInit = {},
-): Promise<T> {
+): Promise<ApiSuccess<T>> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
 
@@ -131,7 +142,7 @@ export async function apiFetch<T>(
   }
 
   if (response.status === 204) {
-    return undefined as T;
+    return { ok: true, data: undefined as T };
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -159,5 +170,13 @@ export async function apiFetch<T>(
     throw new ApiError(payload.error, response.status, payload);
   }
 
-  return payload.data as T;
+  return payload as ApiSuccess<T>;
+}
+
+export async function apiFetch<T>(
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  const payload = await apiFetchEnvelope<T>(path, init);
+  return payload.data;
 }
