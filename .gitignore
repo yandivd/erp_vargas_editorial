@@ -28,3 +28,6 @@ finanzas/migrations/0012_alter_movimientocaja_categoria.py
 pedidos/migrations/0012_pedido_es_historico.py
 /node_modules
 /android
+/frontend/.next
+/frontend/node_modules
+frontend/.env.local
