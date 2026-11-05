@@ -9,7 +9,7 @@
         <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#modalAjuste">
             <i class="bi bi-exclamation-triangle"></i> Registrar Merma
         </button>
-        <a href="{% url 'inventario:lista' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Volver</a>
+        <a href="{% url 'inventario:lista' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Volver atrás</a>
     </div>
 </div>
 
@@ -36,7 +36,7 @@
 
 <div class="card card-kpi">
     <div class="table-responsive">
-        <table class="table table-hover mb-0">
+        <table class="table table-hover mb-0 datatable">
             <thead class="table-light">
                 <tr>
                     <th>Fecha</th>
@@ -87,7 +87,7 @@
 <!-- Modal Ajuste / Merma -->
 <div class="modal fade" id="modalAjuste" tabindex="-1">
     <div class="modal-dialog">
-        <form method="post" action="{% url 'inventario:ajuste' material.id %}">
+        <form method="post" action="{% url 'inventario:ajuste' material.id %}" data-confirm="¿Registrar esta merma y descontar el stock?">
             {% csrf_token %}
             <div class="modal-content">
                 <div class="modal-header bg-warning text-dark">

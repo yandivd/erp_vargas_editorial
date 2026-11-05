@@ -9,6 +9,7 @@ from clientes.models import Cliente
 from finanzas.models import LoteDivisa, MovimientoCaja
 from inventario.models import Material, MovimientoInventario
 from pedidos.models import Pedido, ServicioExterno
+from pedidos.services import CosteadorPedido, obtener_ganancia_promedio
 
 
 FECHA_CORTE_FINANCIERO = date(2026, 8, 2)
@@ -215,11 +216,7 @@ def dashboard_resumen(desde=None, hasta=None):
     ventas = pedidos.aggregate(t=Sum('precio_venta'))['t'] or Decimal('0')
 
     saldo_operativo_cup = Decimal(str(monedas['equivalente']['saldo_neto_cup']))
-    ganancia_promedio_cup = (
-        (saldo_operativo_cup - Decimal(str(pasivos['total']))) / total_pedidos
-        if total_pedidos
-        else Decimal('0')
-    )
+    ganancia_promedio_cup = obtener_ganancia_promedio()
     ingresos_equiv = Decimal(str(monedas['equivalente']['ingresos_cup']))
     margen = (saldo_operativo_cup / ingresos_equiv * 100) if ingresos_equiv > 0 else Decimal('0')
 
@@ -453,7 +450,7 @@ def dashboard_resumen(desde=None, hasta=None):
             'referencia_corte': REFERENCIA_CORTE_FINANCIERO,
             'tasa_cambio': float(tasa),
             'advertencia_tasa': advertencia,
-            'formula_ganancia': '(saldo_neto_operativo_equiv_cup - pasivos_activos) / pedidos_financieros',
+            'formula_ganancia': 'sum(precio_venta - costo_total) / pedidos Entregados desde 2026-08-02',
         },
         'kpis': kpis,
         'desglose_ingresos': desglose_data,
@@ -671,4 +668,84 @@ def dashboard_clientes(desde=None, hasta=None):
         },
         'clientes_vip_lista': vip_lista,
         'clientes_riesgo_lista': riesgo_lista,
+    }
+
+
+def exportar_rentabilidad_para_ia():
+    desde = FECHA_CORTE_FINANCIERO
+    movimientos = movimientos_financieros(desde, None, None)
+    ingresos_movimientos = movimientos.filter(tipo='INGRESO').exclude(Q_NO_INGRESO_OPERATIVO)
+    pedidos = (
+        Pedido.objects.filter(cliente__isnull=False, fecha_pedido__date__gte=desde)
+        .exclude(estado__nombre__in=['Cancelado', 'Borrador'])
+        .select_related('cliente', 'libro', 'estado')
+        .order_by('fecha_pedido')
+    )
+
+    rentabilidad = []
+    clientes_agrupados = {}
+
+    for pedido in pedidos:
+        ingreso = Decimal(str(pedido.precio_venta)) - Decimal(str(pedido.descuento_aplicado or 0))
+        costo = Decimal(str(CosteadorPedido(pedido).calcular()['costo_total']))
+        ganancia = ingreso - costo
+        cliente_nombre = pedido.cliente.nombre if pedido.cliente else ''
+
+        rentabilidad.append({
+            'pedido_id': pedido.id,
+            'cliente': cliente_nombre,
+            'estado': pedido.estado.nombre,
+            'fecha_pedido': pedido.fecha_pedido.date().isoformat() if pedido.fecha_pedido else '',
+            'ingreso': float(ingreso),
+            'costo': float(costo),
+            'ganancia': float(ganancia),
+        })
+
+        if cliente_nombre:
+            cliente_data = clientes_agrupados.setdefault(
+                cliente_nombre,
+                {
+                    'cliente': cliente_nombre,
+                    'total_pedidos': 0,
+                    'ingreso_total': 0.0,
+                    'ganancia_total': 0.0,
+                },
+            )
+            cliente_data['total_pedidos'] += 1
+            cliente_data['ingreso_total'] += float(ingreso)
+            cliente_data['ganancia_total'] += float(ganancia)
+
+    clientes = [clientes_agrupados[cliente] for cliente in sorted(clientes_agrupados)]
+    ingresos_caja = [
+        {
+            'movimiento_id': movimiento.id,
+            'fecha': movimiento.fecha.date().isoformat() if movimiento.fecha else '',
+            'tipo': movimiento.tipo,
+            'categoria': movimiento.get_categoria_display() if hasattr(movimiento, 'get_categoria_display') else movimiento.categoria,
+            'monto': float(movimiento.monto),
+            'moneda': movimiento.moneda,
+            'pedido_id': movimiento.pedido_id,
+            'cliente_id': movimiento.cliente_id,
+            'cliente': movimiento.cliente.nombre if movimiento.cliente else '',
+            'concepto': movimiento.concepto,
+        }
+        for movimiento in ingresos_movimientos.select_related('pedido', 'cliente').order_by('-fecha')[:200]
+    ]
+
+    return {
+        'meta': {
+            'endpoint': '/exportar/rentabilidad/',
+            'fecha_corte': FECHA_CORTE_FINANCIERO.isoformat(),
+            'periodo': {'desde': FECHA_CORTE_FINANCIERO.isoformat(), 'hasta': None},
+            'formato': 'json-para_ia',
+        },
+        'rentabilidad': rentabilidad,
+        'resumen': {
+            'total_pedidos': len(rentabilidad),
+            'ingreso_total': float(sum(item['ingreso'] for item in rentabilidad)),
+            'costo_total': float(sum(item['costo'] for item in rentabilidad)),
+            'ganancia_total': float(sum(item['ganancia'] for item in rentabilidad)),
+        },
+        'clientes': clientes,
+        'ingresos_caja': ingresos_caja,
     }

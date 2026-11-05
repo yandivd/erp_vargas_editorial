@@ -1,6 +1,7 @@
 import os
 
 from django.db import transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib import messages
 from django.db.models import Sum, Q
@@ -9,6 +10,13 @@ from datetime import datetime
 from decimal import Decimal
 
 from config import settings
+from core.services import (
+    FECHA_CORTE_FINANCIERO,
+    Q_NO_EGRESO_OPERATIVO,
+    Q_NO_INGRESO_OPERATIVO,
+    movimientos_financieros,
+    parse_fecha,
+)
 from .models import MovimientoCaja, GastoOperativo, CierreCaja, LoteDivisa, DetalleVentaDivisa
 from .services import ServicioFinanzas
 
@@ -51,11 +59,8 @@ def caja(request):
     materiales = Material.objects.filter(activo=True)
     valor_inventario = sum(m.stock_actual * m.costo_promedio for m in materiales)
     
-    paginator = Paginator(movimientos, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
-    
     context = {
-        'movimientos': page_obj,
+        'movimientos': movimientos,
         'total_ingresos': total_ingresos,
         'total_egresos': total_egresos,
         'saldo_actual': saldo_cup,
@@ -67,6 +72,54 @@ def caja(request):
         'valor_inventario': valor_inventario,
     }
     return render(request, 'finanzas/caja.html', context)
+
+
+def lista_movimientos(request, tipo):
+    """Lista los ingresos o gastos operativos del dashboard, con filtros."""
+    tipo = (tipo or '').upper()
+    if tipo not in ('INGRESO', 'EGRESO'):
+        raise Http404('Tipo de movimiento no válido')
+
+    desde_str = request.GET.get('desde', '')
+    hasta_str = request.GET.get('hasta', '')
+    desde = parse_fecha(desde_str)
+    hasta = parse_fecha(hasta_str)
+    if desde and hasta and desde > hasta:
+        desde, hasta = hasta, desde
+        desde_str, hasta_str = hasta_str, desde_str
+
+    movimientos = movimientos_financieros(desde, hasta).filter(tipo=tipo)
+    if tipo == 'INGRESO':
+        movimientos = movimientos.exclude(Q_NO_INGRESO_OPERATIVO)
+    else:
+        movimientos = movimientos.exclude(Q_NO_EGRESO_OPERATIVO)
+
+    moneda = request.GET.get('moneda', '')
+    if moneda in ('CUP', 'USD'):
+        movimientos = movimientos.filter(moneda=moneda)
+    else:
+        moneda = ''
+
+    movimientos = movimientos.select_related('pedido', 'proveedor', 'cliente').order_by('-fecha')
+    totales = {
+        moneda_codigo: movimientos.filter(moneda=moneda_codigo).aggregate(t=Sum('monto'))['t'] or 0
+        for moneda_codigo, _ in MovimientoCaja.MONEDA_CHOICES
+    }
+    cantidad = movimientos.count()
+
+    context = {
+        'tipo': tipo,
+        'tipo_label': 'Ingresos' if tipo == 'INGRESO' else 'Gastos',
+        'movimientos': movimientos,
+        'totales': totales,
+        'cantidad': cantidad,
+        'desde': desde_str,
+        'hasta': hasta_str,
+        'moneda_actual': moneda,
+        'fecha_corte': FECHA_CORTE_FINANCIERO,
+        'monedas': MovimientoCaja.MONEDA_CHOICES,
+    }
+    return render(request, 'finanzas/movimientos_tipo.html', context)
 
 
 def registrar_gasto(request):
