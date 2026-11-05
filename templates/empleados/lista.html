@@ -45,7 +45,7 @@
         <div class="card card-kpi p-3 h-100">
             <h5 class="border-bottom pb-2 mb-3">Plantilla de Empleados</h5>
             <div class="table-responsive" id="contenedorEmpleados">
-                <table class="table table-hover align-middle mb-0">
+                <table class="table table-hover align-middle mb-0 datatable">
                     <thead class="table-light">
                         <tr>
                             <th>Nombre</th>
@@ -75,7 +75,7 @@
         <div class="card card-kpi p-3 h-100">
             <h5 class="border-bottom pb-2 mb-3">Historial de Pagos Recientes</h5>
             <div class="table-responsive" id="contenedorPagos">
-                <table class="table table-sm table-hover align-middle mb-0">
+                <table class="table table-sm table-hover align-middle mb-0 datatable" id="tabla-pagos">
                     <thead class="table-light">
                         <tr>
                             <th>Fecha</th>
@@ -115,7 +115,7 @@
 <!-- Modal Nuevo Empleado -->
 <div class="modal fade" id="modalEmpleado" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <form method="post" action="{% url 'empleados:registrar' %}">
+        <form method="post" action="{% url 'empleados:registrar' %}" data-confirm="¿Registrar este empleado?">
             {% csrf_token %}
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-primary text-white">
@@ -158,7 +158,7 @@
 <!-- Modal Pagar Salario -->
 <div class="modal fade" id="modalPago" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <form method="post" action="{% url 'empleados:pagar' %}">
+        <form method="post" action="{% url 'empleados:pagar' %}" data-confirm="¿Registrar este pago y descontarlo de la caja?">
             {% csrf_token %}
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-success text-white">
@@ -208,46 +208,4 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    async function cargarEmpleados() {
-        const data = await ERP.api.get('/api/empleados/empleados/', { per_page: 50 });
-        const tbody = document.getElementById('tbodyEmpleados');
-        if (!tbody) return;
-        tbody.innerHTML = data.data.empleados.map(e => `
-            <tr>
-                <td>
-                    <strong>${ERP.format.escapeHtml(e.nombre)}</strong><br>
-                    <small class="text-muted">${ERP.format.escapeHtml(e.cargo_label)}</small>
-                </td>
-                <td class="text-end fw-bold d-none d-sm-table-cell">${ERP.format.money(e.salario_base)}</td>
-            </tr>
-        `).join('');
-    }
 
-    async function cargarPagos() {
-        const data = await ERP.api.get('/api/empleados/pagos/', { per_page: 50 });
-        const tbody = document.getElementById('tbodyPagos');
-        if (!tbody) return;
-        tbody.innerHTML = data.data.pagos.map(p => `
-            <tr>
-                <td><small>${ERP.format.escapeHtml(p.fecha)}</small></td>
-                <td>
-                    ${ERP.format.escapeHtml(p.empleado_nombre)}
-                    <br><small class="text-muted d-md-none">${ERP.format.escapeHtml(p.tipo_label)} · ${ERP.format.escapeHtml(p.mes_correspondiente)}</small>
-                </td>
-                <td class="d-none d-md-table-cell">
-                    <span class="badge bg-secondary">${ERP.format.escapeHtml(p.tipo_label)}</span>
-                    <br><small class="text-muted">${ERP.format.escapeHtml(p.mes_correspondiente)}</small>
-                </td>
-                <td class="text-end text-danger fw-bold">-${ERP.format.money(p.monto_pagado)}</td>
-            </tr>
-        `).join('');
-    }
-
-    cargarEmpleados();
-    cargarPagos();
-});
-</script>
-{% endblock %}

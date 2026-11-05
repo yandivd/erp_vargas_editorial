@@ -29,6 +29,7 @@ urlpatterns = [
     path('<int:pk>/cambiar-estado/', views.cambiar_estado, name='cambiar_estado'),
     path('<int:pk>/confirmar/', views.confirmar_pedido, name='confirmar'),
     path('<int:pk>/anticipo/', views.registrar_anticipo, name='registrar_anticipo'),
+    path('<int:pedido_id>/cobrar-saldo/', views.cobrar_saldo_anticipado, name='cobrar_saldo_anticipado'),
     path('<int:pk>/imprimir-pedido/', views.imprimir_pedido, name='imprimir_pedido'),
     path('<int:pk>/imprimir-servicio/', views.imprimir_orden_servicio, name='imprimir_servicio'),
     path('<int:pk>/asignar-cliente/', views.asignar_cliente_y_cobrar, name='asignar_cliente'),

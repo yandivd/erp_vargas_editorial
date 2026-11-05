@@ -1,3 +1,4 @@
+import logging
 import os
 from decimal import Decimal
 import json
@@ -21,10 +22,18 @@ from .models import (
     CodigoDescuento, HistorialEstado, Pedido, ServicioExterno, 
     Book, Estado, LoteServicio, Entrega
 )
-from .services import ServicioPedido, CosteadorPedido, ServicioCatalogo
+from .services import (
+    ServicioPedido,
+    CosteadorPedido,
+    ServicioCatalogo,
+    cobrar_saldo_anticipado as cobrar_saldo_anticipado_service,
+)
 from clientes.models import Cliente
 from finanzas.services import ServicioFinanzas
 from finanzas.models import MovimientoCaja
+
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -173,12 +182,7 @@ def _obtener_pedidos_filtrados(request, solo_entregados=False):
 # LISTAS
 # ============================================================
 def lista(request):
-    pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=False).order_by('referencia_externa')
-    paginator = Paginator(pedidos_list, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
-
     return render(request, 'pedidos/lista.html', {
-        'pedidos': page_obj,
         'estados': Estado.objects.exclude(nombre__in=['Entregado', 'Cancelado']).order_by('orden'),
         'estado_actual': request.GET.get('estado', ''),
         'busqueda': request.GET.get('q', ''),
@@ -186,7 +190,6 @@ def lista(request):
         'hasta': request.GET.get('hasta', ''),
         'pago_actual': request.GET.get('pago', ''),
         'form': NuevoPedidoForm(),
-        'total_pedidos': paginator.count,
     })
 
 
@@ -205,15 +208,13 @@ def lista_ajax(request):
 
 def lista_entregados(request):
     pedidos_list = _obtener_pedidos_filtrados(request, solo_entregados=True)
-    paginator = Paginator(pedidos_list, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
 
     return render(request, 'pedidos/lista_entregados.html', {
-        'pedidos': page_obj,
+        'pedidos': pedidos_list,
         'busqueda': request.GET.get('q', ''),
         'desde': request.GET.get('desde', ''),
         'hasta': request.GET.get('hasta', ''),
-        'total_pedidos': paginator.count,
+        'total_pedidos': pedidos_list.count(),
     })
 
 
@@ -321,6 +322,36 @@ def registrar_anticipo(request, pk):
         ServicioFinanzas.registrar_anticipo(pedido, monto=float(monto), metodo=metodo)
         messages.success(request, f'Anticipo registrado: ${monto}')
     return redirect('pedidos:detalle', pk=pk)
+
+
+@require_POST
+def cobrar_saldo_anticipado(request, pedido_id):
+    pedido = get_object_or_404(
+        Pedido.objects.select_related('cliente', 'libro', 'estado'),
+        pk=pedido_id,
+    )
+    monto = request.POST.get('monto') or None
+    notas = request.POST.get('notas', '').strip()
+
+    try:
+        movimiento = cobrar_saldo_anticipado_service(
+            pedido,
+            monto=monto,
+            usuario=request.user,
+            notas=notas,
+        )
+    except ValueError as exc:
+        messages.error(request, str(exc))
+    except Exception:
+        logger.exception('Error al cobrar el saldo anticipado del pedido %s', pedido_id)
+        messages.error(request, 'No se pudo registrar el cobro del saldo. Intenta de nuevo.')
+    else:
+        messages.success(
+            request,
+            f'Cobro de saldo registrado: ${movimiento.monto:.2f} {movimiento.moneda}.',
+        )
+
+    return redirect('pedidos:detalle', pk=pedido_id)
 
 
 def nuevo_pedido_modal(request):
@@ -470,13 +501,10 @@ def lista_libros(request):
             Q(titulo__icontains=busqueda) | Q(autor__icontains=busqueda)
         )
 
-    paginator = Paginator(libros_list, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
-
     return render(request, 'pedidos/libros_lista.html', {
-        'libros': page_obj,
+        'libros': libros_list,
         'busqueda': busqueda,
-        'total_libros': paginator.count,
+        'total_libros': libros_list.count(),
     })
 
 

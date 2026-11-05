@@ -1,11 +1,19 @@
-from decimal import Decimal
+import logging
+from decimal import Decimal, InvalidOperation
+
 from django.utils import timezone
+from django.db import transaction
 from core.models import Parametro
 from inventario.models import Material
-from .models import Book, HistorialEstado, LoteServicio, ServicioExterno, Estado
+from .models import Book, HistorialEstado, LoteServicio, Pedido, ServicioExterno, Estado
 from proveedores.models import Proveedor
-from datetime import timedelta
+from datetime import date, timedelta
 from django.utils import timezone
+
+
+FECHA_CORTE_GANANCIA_PROMEDIO = date(2026, 8, 2)
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -118,6 +126,34 @@ class CosteadorPedido:
         return Decimal(str(precio_final))
 
 
+def obtener_ganancia_promedio():
+    """
+    Promedio de ganancia (precio_venta - costo_total) de los pedidos entregados
+    desde el 02/08/2026. Usa la fecha real de entrega o, si falta, la creación.
+    """
+    from django.db.models.functions import Coalesce
+
+    pedidos = (
+        Pedido.objects.filter(estado__nombre='Entregado')
+        .annotate(fecha_referencia=Coalesce('fecha_entrega_real', 'fecha_pedido'))
+        .filter(fecha_referencia__date__gte=FECHA_CORTE_GANANCIA_PROMEDIO)
+        .select_related('libro')
+    )
+
+    ganancia_total = Decimal('0')
+    cantidad_pedidos = 0
+
+    for pedido in pedidos:
+        costo = CosteadorPedido(pedido).calcular()
+        ganancia_total += Decimal(str(pedido.precio_venta)) - Decimal(str(costo['costo_total']))
+        cantidad_pedidos += 1
+
+    if cantidad_pedidos == 0:
+        return Decimal('0')
+
+    return (ganancia_total / cantidad_pedidos).quantize(Decimal('0.01'))
+
+
 # ============================================================
 # SERVICIO DE PEDIDOS
 # ============================================================
@@ -159,7 +195,13 @@ class ServicioPedido:
             ServicioPedido.consumir_materiales(pedido, momento='ENTREGA')
 
         elif nuevo_estado.nombre == 'Entregado':
-            ServicioPedido.cobrar_saldo(pedido)
+            entrega = pedido.entregas.select_related('cliente').order_by('id').first()
+
+            with transaction.atomic():
+                if entrega and not entrega.entregado:
+                    entrega.pedidos.remove(pedido)
+
+                ServicioPedido.cobrar_saldo(pedido)
 
         return pedido
 
@@ -252,6 +294,77 @@ class ServicioPedido:
             lote.save()
             return True
         return False
+
+
+def cobrar_saldo_anticipado(pedido, monto=None, usuario=None, notas=""):
+    """
+    Registra el cobro del saldo pendiente de un pedido antes de que esté entregado.
+    - pedido: instancia de Pedido
+    - monto: si es None, cobra todo el saldo_pendiente. Si se pasa, debe ser <= saldo_pendiente.
+    - Devuelve el MovimientoCaja creado.
+    - Lanza ValueError si el pedido ya está pagado, está entregado, es histórico, o el monto es inválido.
+    """
+    from finanzas.services import ServicioFinanzas
+
+    pedido_original = pedido
+
+    with transaction.atomic():
+        pedido = (
+            Pedido.objects.select_for_update()
+            .select_related('cliente', 'libro', 'estado')
+            .get(pk=pedido.pk)
+        )
+
+        if pedido.es_historico:
+            raise ValueError('No se puede cobrar el saldo de un pedido histórico.')
+
+        if pedido.estado and pedido.estado.nombre == 'Entregado':
+            raise ValueError('No se puede cobrar el saldo de un pedido entregado.')
+
+        saldo = Decimal(str(pedido.saldo_pendiente or 0)).quantize(Decimal('0.01'))
+        if saldo <= 0:
+            raise ValueError('Este pedido ya está pagado en su totalidad')
+
+        if monto is None:
+            monto_cobro = saldo
+        else:
+            try:
+                monto_cobro = Decimal(str(monto)).quantize(Decimal('0.01'))
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                raise ValueError('El monto a cobrar no es válido.') from exc
+
+            if monto_cobro <= 0:
+                raise ValueError('El monto a cobrar debe ser mayor que cero.')
+            if monto_cobro > saldo:
+                raise ValueError('El monto a cobrar no puede superar el saldo pendiente.')
+
+        cliente = pedido.cliente.nombre if pedido.cliente else 'Sin cliente'
+        concepto = f'Saldo pedido #{pedido.id} - {cliente} - {pedido.libro.titulo}'[:200]
+        # TODO: usar pedido.moneda cuando exista
+        moneda = 'CUP'
+
+        movimiento = ServicioFinanzas.registrar_saldo(
+            pedido,
+            monto=monto_cobro,
+            moneda=moneda,
+            concepto=concepto,
+        )
+        if movimiento is None:
+            raise ValueError('No se pudo registrar el cobro del saldo.')
+
+        logger.info(
+            'Cobro anticipado de saldo registrado: pedido=%s monto=%s moneda=%s usuario=%s notas=%s',
+            pedido.id,
+            monto_cobro,
+            moneda,
+            usuario,
+            notas,
+        )
+
+    pedido_original.anticipo_recibido = pedido.anticipo_recibido
+    pedido_original.saldo_pendiente = pedido.saldo_pendiente
+
+    return movimiento
 
 
 # ============================================================

@@ -21,7 +21,7 @@
             <strong>Acciones para los seleccionados</strong>
         </div>
         <div class="d-flex gap-2">
-            <button type="submit" formaction="{% url 'proveedores:recibir_lote' %}" class="btn btn-warning fw-bold">
+            <button type="submit" formaction="{% url 'proveedores:recibir_lote' %}" class="btn btn-warning fw-bold" data-confirm="¿Marcar los servicios seleccionados como recibidos?">
                 <i class="bi bi-box-arrow-in-down"></i> Marcar como Recibidos
             </button>
             <button type="button" id="btnPagarSeleccionados" class="btn btn-success fw-bold">
@@ -32,10 +32,10 @@
 
     <div class="card card-kpi">
         <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
+            <table class="table table-hover mb-0 align-middle datatable">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 40px;" class="text-center">
+                        <th style="width: 40px;" class="text-center no-sort">
                             <input class="form-check-input" type="checkbox" id="checkTodos" onclick="toggleTodos(this)">
                         </th>
                         <th>Pedido</th>
@@ -43,7 +43,7 @@
                         <th>Servicio</th>
                         <th>Monto</th>
                         <th>Estado</th>
-                        <th class="text-end">Acciones</th>
+                        <th class="text-end no-sort">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -104,7 +104,7 @@
     {% if s.estado != 'PAGADO' %}
     <div class="modal fade" id="modalMonto-{{ s.id }}" tabindex="-1">
         <div class="modal-dialog modal-sm modal-dialog-centered">
-            <form method="post" action="{% url 'proveedores:editar_monto_servicio' s.id %}">
+            <form method="post" action="{% url 'proveedores:editar_monto_servicio' s.id %}" data-confirm="¿Guardar el nuevo monto de este servicio?">
                 {% csrf_token %}
                 <div class="modal-content border-0 shadow-lg">
                     <div class="modal-header bg-dark text-white py-2">
@@ -192,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const checks = document.querySelectorAll('.check-servicio:checked');
             
             if (checks.length === 0) {
-                alert('Selecciona al menos un servicio para pagar.');
+                ERP.alerts.error('Selecciona al menos un servicio para pagar.');
                 return;
             }
 
