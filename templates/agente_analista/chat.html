@@ -77,9 +77,13 @@
             return;
         }
 
+        entrada.disabled = true;
+        boton.disabled = true;
+        entrada.style.cursor = 'wait';
+        contenedor.setAttribute('aria-busy', 'true');
+
         agregarMensaje('user', mensaje);
         entrada.value = '';
-        boton.disabled = true;
 
         try {
             const respuesta = await fetch("{% url 'agente_analista:chat_api' %}", {
@@ -100,7 +104,10 @@
         } catch (error) {
             agregarMensaje('assistant', 'Error: ' + error.message);
         } finally {
+            entrada.disabled = false;
             boton.disabled = false;
+            entrada.style.cursor = '';
+            contenedor.setAttribute('aria-busy', 'false');
             entrada.focus();
         }
     });
