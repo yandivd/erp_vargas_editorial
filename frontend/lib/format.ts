@@ -32,6 +32,18 @@ export function formatDate(value: string | null | undefined): string {
   return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : value;
 }
 
+export function formatDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return "";
+  }
+
+  const text = String(value);
+  const date = formatDate(text);
+  const time = text.split("T")[1]?.slice(0, 5);
+
+  return time ? `${date} ${time}` : date;
+}
+
 export function periodLabel(meta?: DashboardMeta): string {
   const desde = formatDate(meta?.desde);
   const hasta = formatDate(meta?.hasta);
