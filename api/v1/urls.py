@@ -25,4 +25,5 @@ urlpatterns = [
     path('dashboard/resumen/', views.dashboard, {'tab': 'resumen'}, name='dashboard_resumen'),
     path('dashboard/produccion/', views.dashboard, {'tab': 'produccion'}, name='dashboard_produccion'),
     path('dashboard/clientes/', views.dashboard, {'tab': 'clientes'}, name='dashboard_clientes'),
+    path('catalogo/', views.catalogo, name='catalogo'),
 ] + router.urls

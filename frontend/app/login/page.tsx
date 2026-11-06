@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { Eye, EyeOff, Loader2, Lock, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
@@ -171,6 +172,15 @@ export default function LoginPage() {
               "Entrar"
             )}
           </button>
+
+          <div className="mt-4 text-center">
+            <Link
+              href="/catalogo"
+              className="text-sm font-medium text-brand transition hover:text-brand-dark"
+            >
+              Ver catálogo público
+            </Link>
+          </div>
           </form>
         </div>
       </section>

@@ -809,7 +809,7 @@ def orden_lote_pdf(request, pk):
     lote = get_object_or_404(LoteServicio, pk=pk)
     servicios = lote.servicios.select_related('pedido__libro', 'pedido__cliente').order_by('pedido_id')
 
-    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo1.jpg')
     sello_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'sello_pagado.png')
 
     html_string = render_to_string('pedidos/orden_lote_pdf.html', {
@@ -827,7 +827,7 @@ def orden_lote_pdf(request, pk):
 
 
 def imprimir_comprobante_termico(request, pk):
-    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo1.jpg')
     pedido = get_object_or_404(Pedido, pk=pk)
     return render(request, 'pedidos/imprimir_comprobante_termico.html', {
         'pedido': pedido,
@@ -836,7 +836,7 @@ def imprimir_comprobante_termico(request, pk):
 
 
 def imprimir_comprobantes_termico(request):
-    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo1.jpg')
     ids = request.GET.getlist('ids')
     if not ids:
         messages.error(request, 'No seleccionaste pedidos para imprimir.')

@@ -12,7 +12,7 @@ from rest_framework.decorators import (
     permission_classes,
 )
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
@@ -101,6 +101,31 @@ def dashboard(request, tab='resumen'):
             {'ok': False, 'error': str(error)},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+    return Response({'ok': True, 'data': data})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def catalogo(request):
+    libros = Book.objects.all().order_by('titulo')
+    busqueda = request.query_params.get('q', '').strip()
+    if busqueda:
+        libros = libros.filter(
+            Q(titulo__icontains=busqueda) | Q(autor__icontains=busqueda)
+        )
+
+    data = [
+        {
+            'id': libro.id,
+            'titulo': libro.titulo,
+            'autor': libro.autor or '',
+            'descripcion': libro.descripcion or '',
+            'paginas': libro.paginas,
+            'precio': str(libro.precio),
+        }
+        for libro in libros
+    ]
 
     return Response({'ok': True, 'data': data})
 

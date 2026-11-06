@@ -554,7 +554,7 @@ def arqueo_caja_pdf(request, pk):
             total_efectivo += subtotal
 
     # Ruta absoluta del logo para WeasyPrint
-    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo1.jpg')
 
     html_string = render_to_string('finanzas/arqueo_caja_pdf.html', {
         'cierre': cierre,
