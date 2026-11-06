@@ -483,3 +483,22 @@ class PedidoDetailV1Serializer(PedidoListV1Serializer):
             | Q(tipo='EGRESO', categoria='VUELTO_CLIENTE')
         ).order_by('fecha', 'id')
         return AnticipoV1Serializer(movimientos, many=True).data
+
+from pedidos.models import Pedido
+
+class TiendaPedidoSerializer(serializers.ModelSerializer):
+    libro_titulo = serializers.CharField(source='libro.titulo', read_only=True)
+    libro_autor = serializers.CharField(source='libro.autor', read_only=True)
+    estado_nombre = serializers.CharField(source='estado.nombre', read_only=True)
+
+    class Meta:
+        model = Pedido
+        fields = [
+            'id', 
+            'libro_titulo', 
+            'libro_autor', 
+            'precio_venta', 
+            'cantidad', 
+            'estado_nombre', 
+            'referencia_externa'
+        ]

@@ -58,7 +58,7 @@ const sections: NavSection[] = [
     items: [
       { href: "/", label: "Dashboard", icon: LayoutGrid },
       { href: "/pedidos?en_taller=true", label: "Pedidos (Taller)", icon: BookOpen },
-      { href: "/pedidos/tienda", label: "Tienda", icon: Store },
+      { href: "/tienda", label: "Tienda", icon: Store },
       { href: "/pedidos/entregas", label: "Entregas", icon: Truck },
       { href: "/pedidos/entregados", label: "Historial Entregados", icon: Archive },
       { href: "/pedidos/catalogo", label: "Catálogo", icon: Book },

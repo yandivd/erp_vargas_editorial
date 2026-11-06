@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal, InvalidOperation, ROUND_FLOOR
-
+from clientes.models import Cliente
 from django.utils import timezone
 from django.db import transaction
 from core.models import Parametro
@@ -162,6 +162,61 @@ class ServicioPedido:
     @staticmethod
     def _estado(nombre):
         return Estado.objects.get(nombre=nombre)
+
+    @staticmethod
+    def vender_stock(
+        pedido,
+        monto_cup=0,
+        monto_usd=0,
+        tasa_aplicada=None,
+        metodo='EFECTIVO',
+        usuario='',
+        notas='',
+        cliente_id=None,
+    ):
+        from finanzas.services import ServicioFinanzas
+
+        with transaction.atomic():
+            pedido_bloqueado = (
+                Pedido.objects.select_for_update()
+                .select_related('libro', 'cliente', 'estado')
+                .get(pk=pedido.pk)
+            )
+
+            if pedido_bloqueado.estado is None or pedido_bloqueado.estado.nombre != 'En Stock':
+                raise ValueError('El pedido no está disponible para venta en tienda.')
+
+            if pedido_bloqueado.cliente_id is not None:
+                raise ValueError('El pedido de tienda ya tiene cliente asignado.')
+
+            if cliente_id:
+                cliente = Cliente.objects.get(pk=cliente_id)
+            else:
+                cliente = Cliente.objects.filter(nombre='Cliente en Tienda').first()
+                if cliente is None:
+                    cliente = Cliente.objects.create(nombre='Cliente en Tienda')
+
+            pedido_bloqueado.cliente = cliente
+
+            resultado = ServicioFinanzas.registrar_pago_mixto(
+                pedido=pedido_bloqueado,
+                monto_cup=monto_cup,
+                monto_usd=monto_usd,
+                tasa_aplicada=tasa_aplicada,
+                metodo=metodo,
+                categoria='VENTA_DIRECTA',
+                concepto=f'Venta en tienda - pedido #{pedido_bloqueado.id} - {pedido_bloqueado.libro.titulo}',
+                permitir_vuelto=True,
+            )
+
+            pedido = ServicioPedido.cambiar_estado(
+                pedido_bloqueado,
+                'Entregado',
+                usuario=usuario,
+                notas=notas or 'Venta en tienda',
+            )
+
+        return resultado
 
     @staticmethod
     def cambiar_estado(pedido, nombre_nuevo_estado, usuario='', notas=''):

@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.db.models import Q, Count, Sum, F, IntegerField
 from django.db.models.functions import Cast
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import (
@@ -35,6 +36,7 @@ from .serializers import (
     PedidoDetailV1Serializer,
     PedidoListV1Serializer,
     RegistrarAnticipoSerializer,
+    TiendaPedidoSerializer,
 )
 
 
@@ -128,6 +130,75 @@ def catalogo(request):
     ]
 
     return Response({'ok': True, 'data': data})
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def tienda(request):
+    pedidos = (
+        Pedido.objects.filter(
+            estado__nombre='En Stock',
+            cliente__isnull=True,
+        )
+        .select_related('cliente', 'libro', 'estado')
+        .order_by('-fecha_pedido')
+    )
+    data = TiendaPedidoSerializer(pedidos, many=True, context={'request': request}).data
+    return Response({'ok': True, 'data': data})
+
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def tienda_vender(request, pk):
+    pedido = get_object_or_404(Pedido, pk=pk)
+    monto_cup = Decimal(str(request.data.get('monto_cup') or 0))
+    monto_usd = Decimal(str(request.data.get('monto_usd') or 0))
+    tasa_aplicada = request.data.get('tasa_aplicada')
+    metodo = request.data.get('metodo') or 'EFECTIVO'
+    cliente_id = request.data.get('cliente_id')
+
+    resultado = ServicioPedido.vender_stock(
+        pedido,
+        monto_cup=monto_cup,
+        monto_usd=monto_usd,
+        tasa_aplicada=tasa_aplicada,
+        metodo=metodo,
+        usuario=request.user.username,
+        notas=request.data.get('notas') or 'Venta en tienda',
+        cliente_id=cliente_id,
+    )
+
+    return Response({
+        'ok': True,
+        'data': {
+            'pedido': PedidoDetailV1Serializer(pedido).data,
+            # Convertimos el objeto MovimientoCaja a un diccionario
+            'movimiento': {
+                'id': resultado['movimiento'].id,
+                'monto': float(resultado['movimiento'].monto),
+                'moneda': resultado['movimiento'].moneda,
+                'concepto': resultado['movimiento'].concepto,
+            },
+            # Hacemos lo mismo con la lista de movimientos (si existe)
+            'movimientos': [
+                {
+                    'id': mov.id,
+                    'monto': float(mov.monto),
+                    'moneda': mov.moneda,
+                    'concepto': mov.concepto,
+                }
+                for mov in resultado['movimientos']
+            ],
+            'monto_cup': float(resultado['monto_cup']),
+            'monto_usd': float(resultado['monto_usd']),
+            'total_cup': float(resultado['total_cup']),
+            'aplicado_cup': float(resultado['aplicado_cup']),
+            'vuelto_cup': float(resultado['vuelto_cup']),
+            'tasa': float(resultado['tasa']) if resultado['tasa'] is not None else None,
+        },
+    }, status=status.HTTP_201_CREATED)
 
 
 class PedidoPagination(PageNumberPagination):
