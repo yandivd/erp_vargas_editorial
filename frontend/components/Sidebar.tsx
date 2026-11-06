@@ -121,7 +121,7 @@ function NavLinks({
             const active = isActive(pathname, item.href);
             const external = /^https?:\/\//.test(item.href);
             const classes = [
-              "flex items-center border-l-[3px] px-6 py-3 text-[0.95rem] font-medium no-underline transition-all",
+              "flex items-center border-l-[3px] px-6 py-3 text-[0.95rem] font-medium no-underline transition-all duration-200 hover:-translate-y-1 hover:shadow-md",
               active
                 ? "border-brand bg-blue-50 font-semibold text-brand"
                 : "border-transparent text-muted hover:border-brand hover:bg-blue-50 hover:text-brand",
