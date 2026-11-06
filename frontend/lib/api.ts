@@ -177,6 +177,20 @@ export async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const payload = await apiFetchEnvelope<T>(path, init);
+  // 1. Copiamos los headers que vengan en init
+  const headers = new Headers(init.headers);
+  
+  // 2. Añadimos el secreto de bypass de Vercel
+  // (Asegúrate de crear esta variable en Vercel sin el prefijo NEXT_PUBLIC_)
+  if (process.env.VERCEL_BYPASS_SECRET) {
+    headers.set("x-vercel-protection-bypass", process.env.VERCEL_BYPASS_SECRET);
+  }
+
+  // 3. Pasamos los headers modificados a la petición original
+  const payload = await apiFetchEnvelope<T>(path, {
+    ...init,
+    headers: headers,
+  });
+  
   return payload.data;
 }
