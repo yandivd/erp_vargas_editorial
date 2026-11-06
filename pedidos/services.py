@@ -1,5 +1,5 @@
 import logging
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_FLOOR
 
 from django.utils import timezone
 from django.db import transaction
@@ -296,13 +296,23 @@ class ServicioPedido:
         return False
 
 
-def cobrar_saldo_anticipado(pedido, monto=None, usuario=None, notas=""):
+def cobrar_saldo_anticipado(
+    pedido,
+    monto=None,
+    usuario=None,
+    notas="",
+    moneda_pago='CUP',
+    tasa_cambio_aplicada=None,
+):
     """
     Registra el cobro del saldo pendiente de un pedido antes de que esté entregado.
     - pedido: instancia de Pedido
-    - monto: si es None, cobra todo el saldo_pendiente. Si se pasa, debe ser <= saldo_pendiente.
+    - monto: si es None, cobra todo el saldo_pendiente (o el mayor entero en USD).
+    - moneda_pago: CUP o USD.
+    - tasa_cambio_aplicada: obligatoria para pagos en USD; si falta se usa la actual.
     - Devuelve el MovimientoCaja creado.
-    - Lanza ValueError si el pedido ya está pagado, está entregado, es histórico, o el monto es inválido.
+    - Lanza ValueError si el pedido ya está pagado, está entregado, es histórico,
+      o el monto es inválido.
     """
     from finanzas.services import ServicioFinanzas
 
@@ -325,38 +335,63 @@ def cobrar_saldo_anticipado(pedido, monto=None, usuario=None, notas=""):
         if saldo <= 0:
             raise ValueError('Este pedido ya está pagado en su totalidad')
 
+        moneda = (moneda_pago or 'CUP').upper()
+
         if monto is None:
-            monto_cobro = saldo
+            if moneda == 'USD':
+                tasa = (
+                    Decimal(str(tasa_cambio_aplicada))
+                    if tasa_cambio_aplicada not in (None, '')
+                    else ServicioFinanzas.obtener_tasa_usd_cup()
+                )
+                if tasa <= 0:
+                    raise ValueError('La tasa de cambio debe ser mayor que cero.')
+                monto_cobro = (saldo / tasa).to_integral_value(
+                    rounding=ROUND_FLOOR
+                )
+                if monto_cobro <= 0:
+                    raise ValueError(
+                        'El saldo pendiente es menor a 1 USD; cobra el resto en CUP.'
+                    )
+            else:
+                monto_cobro = saldo
         else:
             try:
-                monto_cobro = Decimal(str(monto)).quantize(Decimal('0.01'))
+                monto_cobro = Decimal(str(monto))
             except (InvalidOperation, TypeError, ValueError) as exc:
                 raise ValueError('El monto a cobrar no es válido.') from exc
 
-            if monto_cobro <= 0:
-                raise ValueError('El monto a cobrar debe ser mayor que cero.')
-            if monto_cobro > saldo:
-                raise ValueError('El monto a cobrar no puede superar el saldo pendiente.')
+        monto_cobro, monto_cup, moneda, tasa = ServicioFinanzas.normalizar_pago(
+            monto_cobro,
+            moneda_pago=moneda,
+            tasa_cambio_aplicada=tasa_cambio_aplicada,
+        )
+
+        if monto_cup > saldo:
+            raise ValueError('El monto a cobrar no puede superar el saldo pendiente.')
 
         cliente = pedido.cliente.nombre if pedido.cliente else 'Sin cliente'
-        concepto = f'Saldo pedido #{pedido.id} - {cliente} - {pedido.libro.titulo}'[:200]
-        # TODO: usar pedido.moneda cuando exista
-        moneda = 'CUP'
+        concepto = f'Saldo pedido #{pedido.id} - {cliente} - {pedido.libro.titulo}'
+        if moneda == 'USD':
+            concepto = f'{concepto} @ {tasa.normalize():f} CUP/USD'
+        concepto = concepto[:200]
 
         movimiento = ServicioFinanzas.registrar_saldo(
             pedido,
             monto=monto_cobro,
             moneda=moneda,
+            tasa_cambio_aplicada=tasa,
             concepto=concepto,
         )
         if movimiento is None:
             raise ValueError('No se pudo registrar el cobro del saldo.')
 
         logger.info(
-            'Cobro anticipado de saldo registrado: pedido=%s monto=%s moneda=%s usuario=%s notas=%s',
+            'Cobro anticipado de saldo registrado: pedido=%s monto=%s moneda=%s tasa=%s usuario=%s notas=%s',
             pedido.id,
             monto_cobro,
             moneda,
+            tasa,
             usuario,
             notas,
         )

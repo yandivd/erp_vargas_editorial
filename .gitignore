@@ -31,3 +31,4 @@ pedidos/migrations/0012_pedido_es_historico.py
 /frontend/.next
 /frontend/node_modules
 frontend/.env.local
+*.tsbuildinfo

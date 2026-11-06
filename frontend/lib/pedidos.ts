@@ -33,6 +33,7 @@ export type PedidoListItem = {
 
 export type AnticipoPedido = {
   id: number;
+  tipo: string;
   monto: string;
   moneda: string;
   metodo: string;

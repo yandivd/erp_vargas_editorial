@@ -104,7 +104,12 @@
         const meta = data.meta || {};
 
         setText('kpiIngresosCup', fmt.money(k.ingresos_cup));
-        setText('kpiIngresosUsd', 'USD: ' + fmt.money(k.ingresos_usd, 'USD'));
+        setText(
+            'kpiIngresosUsd',
+            'Bruto: ' + fmt.money(k.ingresos_brutos_cup) +
+            ' · Vuelto: ' + fmt.money(k.vuelto_clientes_cup) +
+            ' · USD: ' + fmt.money(k.ingresos_usd, 'USD')
+        );
         setText('kpiGastosCup', fmt.money(k.gastos_cup));
         setText('kpiGastosUsd', 'USD: ' + fmt.money(k.gastos_usd, 'USD'));
         setText('kpiSaldoCup', fmt.money(k.saldo_neto_cup));

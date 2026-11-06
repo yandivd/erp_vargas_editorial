@@ -319,8 +319,20 @@ def registrar_anticipo(request, pk):
     if request.method == 'POST':
         monto = request.POST.get('monto')
         metodo = request.POST.get('metodo', 'EFECTIVO')
-        ServicioFinanzas.registrar_anticipo(pedido, monto=float(monto), metodo=metodo)
-        messages.success(request, f'Anticipo registrado: ${monto}')
+        moneda_pago = request.POST.get('moneda_pago', 'CUP')
+        tasa_cambio_aplicada = request.POST.get('tasa_cambio_aplicada') or None
+        try:
+            ServicioFinanzas.registrar_anticipo(
+                pedido,
+                monto=monto,
+                metodo=metodo,
+                moneda_pago=moneda_pago,
+                tasa_cambio_aplicada=tasa_cambio_aplicada,
+            )
+        except ValueError as error:
+            messages.error(request, str(error))
+        else:
+            messages.success(request, f'Anticipo registrado: {monto} {moneda_pago}')
     return redirect('pedidos:detalle', pk=pk)
 
 
@@ -332,6 +344,8 @@ def cobrar_saldo_anticipado(request, pedido_id):
     )
     monto = request.POST.get('monto') or None
     notas = request.POST.get('notas', '').strip()
+    moneda_pago = request.POST.get('moneda_pago', 'CUP')
+    tasa_cambio_aplicada = request.POST.get('tasa_cambio_aplicada') or None
 
     try:
         movimiento = cobrar_saldo_anticipado_service(
@@ -339,6 +353,8 @@ def cobrar_saldo_anticipado(request, pedido_id):
             monto=monto,
             usuario=request.user,
             notas=notas,
+            moneda_pago=moneda_pago,
+            tasa_cambio_aplicada=tasa_cambio_aplicada,
         )
     except ValueError as exc:
         messages.error(request, str(exc))

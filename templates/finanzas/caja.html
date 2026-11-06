@@ -38,14 +38,16 @@
     <!-- 3 KPIs -->
     <div class="col-12 col-md-4">
         <div class="card card-kpi p-3 border-start border-success border-4 h-100">
-            <small class="text-muted">Ingresos Totales</small>
+            <small class="text-muted">Ingresos Netos</small>
             <h3 class="mb-0 text-success">${{ total_ingresos|floatformat:2 }}</h3>
+            <small class="text-muted">Bruto: ${{ total_ingresos_brutos|floatformat:2 }} · Vuelto: ${{ vuelto_clientes|floatformat:2 }}</small>
         </div>
     </div>
     <div class="col-12 col-md-4">
         <div class="card card-kpi p-3 border-start border-danger border-4 h-100">
-            <small class="text-muted">Egresos Totales</small>
+            <small class="text-muted">Egresos Operativos</small>
             <h3 class="mb-0 text-danger">${{ total_egresos|floatformat:2 }}</h3>
+            <small class="text-muted">No incluye vueltos a clientes</small>
         </div>
     </div>
     <div class="col-12 col-md-4">

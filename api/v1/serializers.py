@@ -1,9 +1,11 @@
 from decimal import Decimal
 
+from django.db.models import Q
 from rest_framework import serializers
 
 from clientes.models import Cliente
 from finanzas.models import MovimientoCaja
+from finanzas.services import ServicioFinanzas
 from pedidos.models import Book, CodigoDescuento, Estado, Pedido, ServicioExterno
 from pedidos.services import CosteadorPedido
 
@@ -22,12 +24,61 @@ def estado_es_taller(estado):
 class CambiarEstadoSerializer(serializers.Serializer):
     estado = serializers.CharField(max_length=50)
     notas = serializers.CharField(required=False, allow_blank=True)
+    metodo = serializers.ChoiceField(
+        choices=MovimientoCaja.METODO_CHOICES,
+        default='EFECTIVO',
+        required=False,
+    )
+    monto_cup = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        default=Decimal('0'),
+        required=False,
+    )
+    monto_usd = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        default=Decimal('0'),
+        required=False,
+    )
+    tasa_aplicada = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        min_value=Decimal('0.0001'),
+        required=False,
+        allow_null=True,
+    )
 
     def validate_estado(self, value):
         value = value.strip()
         if not Estado.objects.filter(nombre=value).exists():
             raise serializers.ValidationError('El estado indicado no existe.')
         return value
+
+    def validate(self, attrs):
+        monto_cup = attrs.get('monto_cup') or Decimal('0')
+        monto_usd = attrs.get('monto_usd') or Decimal('0')
+
+        if monto_cup > 0 or monto_usd > 0:
+            try:
+                monto_cup, monto_usd, _, tasa = (
+                    ServicioFinanzas.normalizar_pago_mixto(
+                        monto_cup=monto_cup,
+                        monto_usd=monto_usd,
+                        tasa_aplicada=attrs.get('tasa_aplicada'),
+                    )
+                )
+            except ValueError as error:
+                raise serializers.ValidationError(str(error)) from error
+        else:
+            tasa = None
+
+        attrs['monto_cup'] = monto_cup
+        attrs['monto_usd'] = monto_usd
+        attrs['tasa_aplicada'] = tasa
+        return attrs
 
 
 class CambiarEstadoMasivoSerializer(serializers.Serializer):
@@ -51,12 +102,86 @@ class RegistrarAnticipoSerializer(serializers.Serializer):
         max_digits=10,
         decimal_places=2,
         min_value=Decimal('0.01'),
+        required=False,
+        allow_null=True,
     )
     metodo = serializers.ChoiceField(
         choices=MovimientoCaja.METODO_CHOICES,
         default='EFECTIVO',
         required=False,
     )
+    moneda_pago = serializers.ChoiceField(
+        choices=MovimientoCaja.MONEDA_CHOICES,
+        default='CUP',
+        required=False,
+    )
+    tasa_cambio_aplicada = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        min_value=Decimal('0.0001'),
+        required=False,
+        allow_null=True,
+    )
+    monto_cup = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        default=Decimal('0'),
+        required=False,
+    )
+    monto_usd = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        default=Decimal('0'),
+        required=False,
+    )
+    tasa_aplicada = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        min_value=Decimal('0.0001'),
+        required=False,
+        allow_null=True,
+    )
+
+    def validate(self, attrs):
+        monto_cup = attrs.get('monto_cup') or Decimal('0')
+        monto_usd = attrs.get('monto_usd') or Decimal('0')
+        tasa = attrs.get('tasa_aplicada')
+        monto = attrs.get('monto')
+
+        if monto_cup <= 0 and monto_usd <= 0:
+            if monto is None:
+                raise serializers.ValidationError(
+                    'Indica al menos un monto en CUP o USD.'
+                )
+
+            moneda = attrs.get('moneda_pago') or 'CUP'
+            if moneda == 'USD':
+                monto_usd = monto
+                if tasa is None:
+                    tasa = attrs.get('tasa_cambio_aplicada')
+            else:
+                monto_cup = monto
+                tasa = None
+
+        try:
+            monto_cup, monto_usd, _, tasa = (
+                ServicioFinanzas.normalizar_pago_mixto(
+                    monto_cup=monto_cup,
+                    monto_usd=monto_usd,
+                    tasa_aplicada=tasa,
+                )
+            )
+        except ValueError as error:
+            raise serializers.ValidationError(str(error)) from error
+
+        attrs['monto_cup'] = monto_cup
+        attrs['monto_usd'] = monto_usd
+        attrs['tasa_aplicada'] = tasa
+        attrs['moneda_pago'] = 'USD' if monto_usd > 0 else 'CUP'
+        attrs['tasa_cambio_aplicada'] = tasa
+        return attrs
 
 
 class ClienteListV1Serializer(serializers.ModelSerializer):
@@ -84,7 +209,32 @@ class PedidoCreateSerializer(serializers.Serializer):
     lleva_scotch = serializers.BooleanField(default=False)
     lleva_esquineros = serializers.BooleanField(default=False)
     precio_venta = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
-    anticipo_requerido = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0)
+    anticipo_requerido = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        default=0,
+        min_value=Decimal('0'),
+    )
+    monto_anticipo = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        min_value=Decimal('0'),
+    )
+    moneda_anticipo = serializers.ChoiceField(
+        choices=MovimientoCaja.MONEDA_CHOICES,
+        default='CUP',
+        required=False,
+    )
+    tasa_cambio = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        required=False,
+        allow_null=True,
+        min_value=Decimal('0.0001'),
+    )
     notas = serializers.CharField(required=False, allow_blank=True)
     codigo_descuento = serializers.CharField(required=False, allow_blank=True)
     descuento_aplicado = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0)
@@ -96,6 +246,40 @@ class PedidoCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError('Debes seleccionar un libro o crear uno nuevo.')
         if not attrs.get('libro_id') and not attrs.get('libro_paginas'):
             raise serializers.ValidationError('Si creas un libro nuevo, debes indicar las páginas.')
+
+        monto_anticipo = attrs.get('monto_anticipo')
+        if monto_anticipo is None:
+            monto_anticipo = attrs.get('anticipo_requerido') or Decimal('0')
+        moneda_anticipo = attrs.get('moneda_anticipo') or 'CUP'
+        tasa_cambio = attrs.get('tasa_cambio')
+
+        if monto_anticipo < 0:
+            raise serializers.ValidationError({
+                'monto_anticipo': 'El anticipo no puede ser negativo.',
+            })
+
+        if monto_anticipo > 0:
+            try:
+                monto_anticipo, anticipo_cup, moneda_anticipo, tasa_cambio = (
+                    ServicioFinanzas.normalizar_pago(
+                        monto_anticipo,
+                        moneda_pago=moneda_anticipo,
+                        tasa_cambio_aplicada=tasa_cambio,
+                    )
+                )
+            except ValueError as error:
+                raise serializers.ValidationError({
+                    'monto_anticipo': str(error),
+                }) from error
+
+        else:
+            anticipo_cup = Decimal('0')
+            tasa_cambio = None
+
+        attrs['monto_anticipo'] = monto_anticipo
+        attrs['moneda_anticipo'] = moneda_anticipo
+        attrs['tasa_cambio'] = tasa_cambio
+        attrs['anticipo_requerido'] = anticipo_cup
         return attrs
 
 
@@ -130,6 +314,7 @@ class AnticipoV1Serializer(serializers.ModelSerializer):
         model = MovimientoCaja
         fields = (
             'id',
+            'tipo',
             'monto',
             'moneda',
             'metodo',
@@ -293,6 +478,8 @@ class PedidoDetailV1Serializer(PedidoListV1Serializer):
     def get_anticipos(self, obj):
         movimientos = MovimientoCaja.objects.filter(
             pedido=obj,
-            tipo='INGRESO',
-        ).order_by('fecha')
+        ).filter(
+            Q(tipo='INGRESO')
+            | Q(tipo='EGRESO', categoria='VUELTO_CLIENTE')
+        ).order_by('fecha', 'id')
         return AnticipoV1Serializer(movimientos, many=True).data

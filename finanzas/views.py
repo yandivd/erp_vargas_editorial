@@ -11,6 +11,7 @@ from decimal import Decimal
 
 from config import settings
 from core.services import (
+    CATEGORIA_VUELTO_CLIENTE,
     FECHA_CORTE_FINANCIERO,
     Q_NO_EGRESO_OPERATIVO,
     Q_NO_INGRESO_OPERATIVO,
@@ -38,21 +39,25 @@ def caja(request):
     if categoria:
         movimientos = movimientos.filter(categoria=categoria)
         
-    CATEGORIAS_TRANSFERENCIA = ['COMPRA_DIVISA', 'VENTA_DIVISA']
-
-    total_ingresos = MovimientoCaja.objects.filter(
+    total_ingresos_brutos = MovimientoCaja.objects.filter(
         tipo='INGRESO'
     ).exclude(
-        categoria__in=CATEGORIAS_TRANSFERENCIA
+        Q_NO_INGRESO_OPERATIVO
     ).aggregate(t=Sum('monto'))['t'] or 0
+
+    vuelto_clientes = MovimientoCaja.objects.filter(
+        tipo='EGRESO',
+        categoria=CATEGORIA_VUELTO_CLIENTE,
+    ).aggregate(t=Sum('monto'))['t'] or 0
+
+    total_ingresos = total_ingresos_brutos - vuelto_clientes
 
     total_egresos = MovimientoCaja.objects.filter(
         tipo='EGRESO'
     ).exclude(
-        categoria__in=CATEGORIAS_TRANSFERENCIA
+        Q_NO_EGRESO_OPERATIVO
     ).aggregate(t=Sum('monto'))['t'] or 0
-    
-    saldo_actual = total_ingresos - total_egresos
+
     saldo_cup = ServicioFinanzas.saldo_caja('CUP')
     saldo_usd = ServicioFinanzas.saldo_caja('USD')
     
@@ -62,6 +67,8 @@ def caja(request):
     context = {
         'movimientos': movimientos,
         'total_ingresos': total_ingresos,
+        'total_ingresos_brutos': total_ingresos_brutos,
+        'vuelto_clientes': vuelto_clientes,
         'total_egresos': total_egresos,
         'saldo_actual': saldo_cup,
         'saldo_usd': saldo_usd,
@@ -88,11 +95,16 @@ def lista_movimientos(request, tipo):
         desde, hasta = hasta, desde
         desde_str, hasta_str = hasta_str, desde_str
 
-    movimientos = movimientos_financieros(desde, hasta).filter(tipo=tipo)
+    movimientos = movimientos_financieros(desde, hasta)
     if tipo == 'INGRESO':
-        movimientos = movimientos.exclude(Q_NO_INGRESO_OPERATIVO)
+        movimientos = movimientos.filter(
+            (Q(tipo='INGRESO') & ~Q_NO_INGRESO_OPERATIVO)
+            | Q(tipo='EGRESO', categoria=CATEGORIA_VUELTO_CLIENTE)
+        )
     else:
-        movimientos = movimientos.exclude(Q_NO_EGRESO_OPERATIVO)
+        movimientos = movimientos.filter(tipo='EGRESO').exclude(
+            Q_NO_EGRESO_OPERATIVO
+        )
 
     moneda = request.GET.get('moneda', '')
     if moneda in ('CUP', 'USD'):
@@ -101,15 +113,20 @@ def lista_movimientos(request, tipo):
         moneda = ''
 
     movimientos = movimientos.select_related('pedido', 'proveedor', 'cliente').order_by('-fecha')
-    totales = {
-        moneda_codigo: movimientos.filter(moneda=moneda_codigo).aggregate(t=Sum('monto'))['t'] or 0
-        for moneda_codigo, _ in MovimientoCaja.MONEDA_CHOICES
-    }
+    totales = {}
+    for moneda_codigo, _ in MovimientoCaja.MONEDA_CHOICES:
+        agregados = movimientos.filter(moneda=moneda_codigo).aggregate(
+            ingresos=Sum('monto', filter=Q(tipo='INGRESO')),
+            vueltos=Sum('monto', filter=Q(tipo='EGRESO')),
+        )
+        totales[moneda_codigo] = (
+            (agregados['ingresos'] or 0) - (agregados['vueltos'] or 0)
+        )
     cantidad = movimientos.count()
 
     context = {
         'tipo': tipo,
-        'tipo_label': 'Ingresos' if tipo == 'INGRESO' else 'Gastos',
+        'tipo_label': 'Ingresos netos' if tipo == 'INGRESO' else 'Gastos',
         'movimientos': movimientos,
         'totales': totales,
         'cantidad': cantidad,
@@ -266,10 +283,17 @@ def reporte_mensual(request):
     # ==========================================
     movimientos = MovimientoCaja.objects.filter(fecha__date__gte=desde, fecha__date__lte=hasta)
     
-    ingresos_totales = movimientos.filter(tipo='INGRESO').exclude(
-        categoria__in=['SALDO_INICIAL', 'APERTURA', 'COMPRA_DIVISA', 'VENTA_DIVISA']
+    ingresos_brutos = movimientos.filter(tipo='INGRESO').exclude(
+        Q_NO_INGRESO_OPERATIVO
     ).aggregate(t=Sum('monto'))['t'] or 0
-    egresos_totales = movimientos.filter(tipo='EGRESO').aggregate(t=Sum('monto'))['t'] or 0
+    vuelto_clientes = movimientos.filter(
+        tipo='EGRESO',
+        categoria=CATEGORIA_VUELTO_CLIENTE,
+    ).aggregate(t=Sum('monto'))['t'] or 0
+    ingresos_totales = ingresos_brutos - vuelto_clientes
+    egresos_totales = movimientos.filter(tipo='EGRESO').exclude(
+        Q_NO_EGRESO_OPERATIVO
+    ).aggregate(t=Sum('monto'))['t'] or 0
     saldo_periodo = ingresos_totales - egresos_totales
 
     # ==========================================
@@ -347,6 +371,8 @@ def reporte_mensual(request):
         'desde': desde_str,
         'hasta': hasta_str,
         'ingresos_totales': ingresos_totales,
+        'ingresos_brutos': ingresos_brutos,
+        'vuelto_clientes': vuelto_clientes,
         'egresos_totales': egresos_totales,
         'saldo_periodo': saldo_periodo,
         'total_ventas': total_ventas,

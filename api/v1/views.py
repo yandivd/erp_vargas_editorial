@@ -51,6 +51,14 @@ def _es_verdadero(value):
     return value.strip().lower() in ('1', 'true', 'yes', 'si', 'sí')
 
 
+def _primer_error_serializer(errors):
+    for value in errors.values():
+        if isinstance(value, (list, tuple)) and value:
+            return str(value[0])
+        return str(value)
+    return 'Datos inválidos.'
+
+
 def _siguiente_referencia():
     ultima = (
         Pedido.objects.filter(referencia_externa__regex=r'^\d+$')
@@ -210,6 +218,9 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
             siguiente_ref = _siguiente_referencia()
             estado_inicial = Estado.objects.get(nombre='Pendiente a impresión')
             anticipo = Decimal(str(data.get('anticipo_requerido') or 0))
+            monto_anticipo = Decimal(str(data.get('monto_anticipo') or 0))
+            moneda_anticipo = data.get('moneda_anticipo') or 'CUP'
+            tasa_anticipo = data.get('tasa_cambio')
             pedido = Pedido.objects.create(
                 cliente=cliente,
                 libro=libro,
@@ -230,11 +241,23 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                 cod_obj.usos_actuales += 1
                 cod_obj.save(update_fields=['usos_actuales'])
 
-            if anticipo > 0:
-                ServicioFinanzas.registrar_anticipo(
+            if monto_anticipo > 0:
+                ServicioFinanzas.registrar_pago_mixto(
                     pedido,
-                    monto=anticipo,
+                    monto_cup=(
+                        Decimal('0')
+                        if moneda_anticipo == 'USD'
+                        else monto_anticipo
+                    ),
+                    monto_usd=(
+                        monto_anticipo
+                        if moneda_anticipo == 'USD'
+                        else Decimal('0')
+                    ),
+                    tasa_aplicada=tasa_anticipo,
                     metodo='EFECTIVO',
+                    categoria='ANTICIPO_CLIENTE',
+                    permitir_vuelto=True,
                 )
 
         pedido = (
@@ -428,11 +451,32 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
     def cambiar_estado(self, request, pk=None):
         pedido = self.get_object()
         serializer = CambiarEstadoSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+
+        if not serializer.is_valid():
+            return Response(
+                {'ok': False, 'error': _primer_error_serializer(serializer.errors)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         datos = serializer.validated_data
 
         try:
             with transaction.atomic():
+                if datos['estado'] == 'Entregado':
+                    monto_cup = datos.get('monto_cup') or Decimal('0')
+                    monto_usd = datos.get('monto_usd') or Decimal('0')
+                    if monto_cup > 0 or monto_usd > 0:
+                        ServicioFinanzas.registrar_pago_mixto(
+                            pedido,
+                            monto_cup=monto_cup,
+                            monto_usd=monto_usd,
+                            tasa_aplicada=datos.get('tasa_aplicada'),
+                            metodo=datos.get('metodo') or 'EFECTIVO',
+                            categoria='SALDO_CLIENTE',
+                            permitir_vuelto=True,
+                            exigir_saldo_exacto=True,
+                        )
+
                 ServicioPedido.cambiar_estado(
                     pedido,
                     datos['estado'],
@@ -442,6 +486,11 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
         except Estado.DoesNotExist:
             return Response(
                 {'ok': False, 'error': 'El estado indicado no existe.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except ValueError as error:
+            return Response(
+                {'ok': False, 'error': str(error)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -504,26 +553,57 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
             },
         })
 
+    @action(detail=False, methods=['get'], url_path='tasa-cambio')
+    def tasa_cambio_actual(self, request):
+        tasa = ServicioFinanzas.obtener_tasa_usd_cup()
+        return Response({
+            'ok': True,
+            'data': {
+                'tasa_cambio': float(tasa),
+                'moneda_base': 'CUP',
+                'moneda_extranjera': 'USD',
+            },
+        })
+
     @action(detail=True, methods=['post'], url_path='registrar-anticipo')
     def registrar_anticipo(self, request, pk=None):
         pedido = self.get_object()
         serializer = RegistrarAnticipoSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        datos = serializer.validated_data
 
-        with transaction.atomic():
-            movimiento = ServicioFinanzas.registrar_anticipo(
-                pedido,
-                monto=datos['monto'],
-                metodo=datos['metodo'],
+        if not serializer.is_valid():
+            return Response(
+                {'ok': False, 'error': _primer_error_serializer(serializer.errors)},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
+        datos = serializer.validated_data
+
+        try:
+            with transaction.atomic():
+                resultado = ServicioFinanzas.registrar_pago_mixto(
+                    pedido,
+                    monto_cup=datos.get('monto_cup') or Decimal('0'),
+                    monto_usd=datos.get('monto_usd') or Decimal('0'),
+                    tasa_aplicada=datos.get('tasa_aplicada'),
+                    metodo=datos.get('metodo') or 'EFECTIVO',
+                    categoria='ANTICIPO_CLIENTE',
+                    permitir_vuelto=True,
+                )
+        except ValueError as error:
+            return Response(
+                {'ok': False, 'error': str(error)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        movimiento = resultado['movimiento']
         pedido.refresh_from_db()
         return Response({
             'ok': True,
             'data': {
                 'pedido': self.get_serializer(pedido).data,
                 'movimiento_id': movimiento.id if movimiento else None,
+                'total_cup': float(resultado['total_cup']),
+                'vuelto_cup': float(resultado['vuelto_cup']),
             },
         }, status=status.HTTP_201_CREATED)
 

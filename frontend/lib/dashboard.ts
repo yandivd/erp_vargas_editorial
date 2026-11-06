@@ -11,14 +11,20 @@ export type DashboardMeta = {
 };
 
 export type ResumenKpis = {
+  ingresos_brutos_cup: number;
+  vuelto_clientes_cup: number;
   ingresos_cup: number;
   gastos_cup: number;
   saldo_neto_cup: number;
   flujo_neto_cup: number;
+  ingresos_brutos_usd: number;
+  vuelto_clientes_usd: number;
   ingresos_usd: number;
   gastos_usd: number;
   saldo_neto_usd: number;
   flujo_neto_usd: number;
+  ingresos_brutos_equiv_cup: number;
+  vuelto_clientes_equiv_cup: number;
   ingresos_equiv_cup: number;
   gastos_equiv_cup: number;
   saldo_neto_equiv_cup: number;
@@ -54,6 +60,8 @@ export type CostoUnitario = {
 
 export type TendenciaMes = {
   mes: string;
+  ingresos_brutos: number;
+  vuelto_clientes: number;
   ingresos: number;
   gastos: number;
 };
@@ -66,6 +74,8 @@ export type ProyeccionMes = {
 
 export type SemanaMovimiento = {
   semana: string;
+  ingresos_brutos: number;
+  vuelto_clientes: number;
   ingresos: number;
   gastos: number;
 };

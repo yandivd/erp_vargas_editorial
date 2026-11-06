@@ -13,7 +13,7 @@
             {% endif %}
             {{ tipo_label }} operativos
         </h2>
-        <p class="text-muted mb-0">Movimientos de {{ tipo_label|lower }} desde el {{ fecha_corte|date:"d/m/Y" }}.</p>
+        <p class="text-muted mb-0">Movimientos de {{ tipo_label|lower }} desde el {{ fecha_corte|date:"d/m/Y" }}.{% if tipo == 'INGRESO' %} Los vueltos aparecen como egresos y se descuentan del total.{% endif %}</p>
     </div>
     <div class="d-flex flex-column flex-sm-row gap-2">
         <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
@@ -94,8 +94,8 @@
                         {% endif %}
                     </td>
                     <td><span class="badge bg-light text-dark border">{{ mov.moneda }}</span></td>
-                    <td class="fw-bold text-end text-nowrap {% if tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">
-                        {% if tipo == 'INGRESO' %}+{% else %}-{% endif %}{% if mov.moneda == 'USD' %}US${% else %}${% endif %}{{ mov.monto|floatformat:2 }}
+                    <td class="fw-bold text-end text-nowrap {% if mov.tipo == 'INGRESO' %}text-success{% else %}text-danger{% endif %}">
+                        {% if mov.tipo == 'INGRESO' %}+{% else %}-{% endif %}{% if mov.moneda == 'USD' %}US${% else %}${% endif %}{{ mov.monto|floatformat:2 }}
                     </td>
                 </tr>
                 {% empty %}

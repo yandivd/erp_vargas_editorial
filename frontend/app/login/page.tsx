@@ -1,6 +1,7 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import Image from "next/image";
+import { Eye, EyeOff, Loader2, Lock, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
@@ -15,6 +16,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,19 +51,33 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-1 items-center justify-center bg-slate-100 px-4 py-12 dark:bg-slate-950">
-      <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-        <div className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-            Vargas ERP
-          </p>
-          <h1 className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
-            Iniciar sesión
-          </h1>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-            Accede con tu usuario del sistema.
+    <main className="flex min-h-screen w-full flex-col bg-slate-100 md:flex-row">
+      <section className="hidden min-h-screen items-center justify-center bg-slate-900 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 px-8 py-12 text-white md:flex md:w-2/5">
+        <div className="max-w-sm text-center">
+          <Image
+            src="/img/logo1.jpg"
+            alt="Vargas Editorial"
+            width={260}
+            height={120}
+            priority
+            className="h-auto max-h-40 w-full object-contain"
+          />
+          <h1 className="mt-6 text-3xl font-extrabold">Vargas Editorial</h1>
+          <p className="mt-4 text-sm text-slate-300">
+            Gestión editorial y encuadernación.
           </p>
         </div>
+      </section>
+
+      <section className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4 py-12 md:w-3/5">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
+          <div className="mb-8 text-center md:text-left">
+            <p className="text-sm font-semibold uppercase tracking-widest text-blue-600">
+              Vargas ERP
+            </p>
+            <h1 className="mt-2 text-2xl font-bold text-slate-900">Iniciar sesión</h1>
+            <p className="mt-2 text-sm text-slate-600">Accede con tu usuario del sistema.</p>
+          </div>
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div>
@@ -71,17 +87,23 @@ export default function LoginPage() {
             >
               Usuario
             </label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              autoComplete="username"
-              required
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              disabled={loading}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-900/20 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-400 dark:focus:ring-slate-400/20 dark:disabled:bg-slate-800"
-            />
+            <div className="relative">
+              <UserRound
+                className="absolute left-3 top-2.5 h-4 w-4 text-slate-400"
+                aria-hidden="true"
+              />
+              <input
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
+                required
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                disabled={loading}
+                className="w-full rounded-lg border border-line bg-white pl-10 pr-3 py-2 text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-400 dark:focus:ring-slate-400/20 dark:disabled:bg-slate-800"
+              />
+            </div>
           </div>
 
           <div>
@@ -91,17 +113,35 @@ export default function LoginPage() {
             >
               Contraseña
             </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              disabled={loading}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-900/20 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-400 dark:focus:ring-slate-400/20 dark:disabled:bg-slate-800"
-            />
+            <div className="relative">
+              <Lock
+                className="absolute left-3 top-2.5 h-4 w-4 text-slate-400"
+                aria-hidden="true"
+              />
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                disabled={loading}
+                className="w-full rounded-lg border border-line bg-white pl-10 pr-12 py-2 text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-slate-400 dark:focus:ring-slate-400/20 dark:disabled:bg-slate-800"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((previous) => !previous)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-600 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Eye className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
 
           {error ? (
@@ -117,7 +157,7 @@ export default function LoginPage() {
             type="submit"
             disabled={loading}
             aria-busy={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200 dark:focus-visible:ring-white dark:focus-visible:ring-offset-slate-900 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
             {loading ? (
               <>
@@ -131,7 +171,8 @@ export default function LoginPage() {
               "Entrar"
             )}
           </button>
-        </form>
+          </form>
+        </div>
       </section>
     </main>
   );

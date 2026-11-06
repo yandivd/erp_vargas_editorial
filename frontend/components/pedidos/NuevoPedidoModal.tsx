@@ -27,7 +27,7 @@ import {
   type CostoCalculado,
   type ParametrosCosto,
 } from "@/lib/costos";
-import { money } from "@/lib/format";
+import { integer, money, number } from "@/lib/format";
 
 type Cliente = {
   id: number;
@@ -66,6 +66,7 @@ type PedidoCreado = {
 
 type ModoCliente = "existente" | "nuevo";
 type ModoLibro = "existente" | "nuevo";
+type MonedaAnticipo = "CUP" | "USD";
 
 function mensajeError(error: unknown): string {
   return error instanceof Error ? error.message : "Error desconocido.";
@@ -99,6 +100,9 @@ export default function NuevoPedidoModal() {
   const [llevaEsquineros, setLlevaEsquineros] = useState(false);
   const [precioVenta, setPrecioVenta] = useState("0");
   const [anticipoRequerido, setAnticipoRequerido] = useState("0");
+  const [monedaAnticipo, setMonedaAnticipo] = useState<MonedaAnticipo>("CUP");
+  const [tasaCambio, setTasaCambio] = useState<number | null>(null);
+  const [tasaError, setTasaError] = useState<string | null>(null);
   const [notas, setNotas] = useState("");
 
   const [codigoDescuento, setCodigoDescuento] = useState("");
@@ -161,7 +165,25 @@ export default function NuevoPedidoModal() {
     [codigoOptions, codigoDescuento],
   );
 
+  const cargarTasaCambio = useCallback(async () => {
+    try {
+      const data = await apiFetch<{ tasa_cambio: number }>(
+        "pedidos/tasa-cambio/",
+      );
+      const valor = Number(data.tasa_cambio);
+      if (!Number.isFinite(valor) || valor <= 0) {
+        throw new Error("La tasa de cambio recibida no es válida.");
+      }
+      setTasaCambio(valor);
+      setTasaError(null);
+    } catch (error) {
+      setTasaCambio(null);
+      setTasaError(mensajeError(error));
+    }
+  }, []);
+
   const cargarCatalogos = useCallback(async () => {
+    void cargarTasaCambio();
     try {
       const [clientesResult, librosResult, codigosResult, parametrosResult] =
         await Promise.all([
@@ -182,7 +204,7 @@ export default function NuevoPedidoModal() {
     } catch (error) {
       setCatalogosError(mensajeError(error));
     }
-  }, []);
+  }, [cargarTasaCambio]);
 
   useEffect(() => {
     let cancelado = false;
@@ -257,12 +279,28 @@ export default function NuevoPedidoModal() {
 
   const cantidadNum = Math.max(1, Number(cantidad) || 1);
   const precio = Number(precioVenta || 0);
+  const esAnticipoUsd = monedaAnticipo === "USD";
+  const tasaValida =
+    tasaCambio !== null && Number.isFinite(tasaCambio) && tasaCambio > 0;
   const anticipo = Number(anticipoRequerido || 0);
-  const saldo = precio - anticipo;
+  const anticipoEnCup = redondear2(
+    esAnticipoUsd ? anticipo * (tasaCambio ?? 0) : anticipo,
+  );
+  const saldo = redondear2(Math.max(0, precio - anticipoEnCup));
+  const vuelto = redondear2(Math.max(0, anticipoEnCup - precio));
+  const precioEnUsd = tasaValida ? precio / (tasaCambio ?? 1) : 0;
   const costoTotalPedido = costo
     ? redondear2(costo.costo_total * cantidadNum)
     : 0;
   const ganancia = redondear2(precio - costoTotalPedido);
+
+  function anticipoSugeridoEnMoneda(montoCup: number): string {
+    if (monedaAnticipo === "USD") {
+      const tasa = tasaCambio ?? 0;
+      return tasa > 0 ? String(Math.floor(montoCup / tasa)) : "0";
+    }
+    return String(redondear2(montoCup));
+  }
 
   function calcularActual(
     paginasActuales: number,
@@ -314,6 +352,7 @@ export default function NuevoPedidoModal() {
     setLlevaEsquineros(false);
     setPrecioVenta("0");
     setAnticipoRequerido("0");
+    setMonedaAnticipo("CUP");
     setNotas("");
     setCodigoDescuento("");
     setDescuentoAplicado("0");
@@ -368,7 +407,7 @@ export default function NuevoPedidoModal() {
 
     if (libro) {
       setPrecioVenta(String(libro.precio));
-      setAnticipoRequerido(String(Number(libro.precio) / 2));
+      setAnticipoRequerido(anticipoSugeridoEnMoneda(Number(libro.precio) / 2));
       setPrecioEditadoManualmente(false);
       setAnticipoEditado(false);
     } else {
@@ -388,7 +427,7 @@ export default function NuevoPedidoModal() {
 
     if (libro) {
       setPrecioVenta(String(libro.precio));
-      setAnticipoRequerido(String(Number(libro.precio) / 2));
+      setAnticipoRequerido(anticipoSugeridoEnMoneda(Number(libro.precio) / 2));
       setPrecioEditadoManualmente(false);
       setAnticipoEditado(false);
     } else {
@@ -412,7 +451,7 @@ export default function NuevoPedidoModal() {
     );
     if (calculo) {
       setPrecioVenta(String(calculo.precio_sugerido));
-      setAnticipoRequerido(String(calculo.anticipo_sugerido));
+      setAnticipoRequerido(anticipoSugeridoEnMoneda(calculo.anticipo_sugerido));
     }
   }
 
@@ -430,7 +469,7 @@ export default function NuevoPedidoModal() {
     );
     if (calculo) {
       setPrecioVenta(String(calculo.precio_sugerido));
-      setAnticipoRequerido(String(calculo.anticipo_sugerido));
+      setAnticipoRequerido(anticipoSugeridoEnMoneda(calculo.anticipo_sugerido));
     }
   }
 
@@ -451,7 +490,7 @@ export default function NuevoPedidoModal() {
           setPrecioVenta(String(calculo.precio_sugerido));
         }
         if (!anticipoEditado) {
-          setAnticipoRequerido(String(calculo.anticipo_sugerido));
+          setAnticipoRequerido(anticipoSugeridoEnMoneda(calculo.anticipo_sugerido));
         }
       }
     }
@@ -474,7 +513,7 @@ export default function NuevoPedidoModal() {
           setPrecioVenta(String(calculo.precio_sugerido));
         }
         if (!anticipoEditado) {
-          setAnticipoRequerido(String(calculo.anticipo_sugerido));
+          setAnticipoRequerido(anticipoSugeridoEnMoneda(calculo.anticipo_sugerido));
         }
       }
     }
@@ -486,8 +525,36 @@ export default function NuevoPedidoModal() {
   }
 
   function handleAnticipoChange(value: string) {
+    if (esAnticipoUsd && value !== "" && !/^\d+$/.test(value)) {
+      return;
+    }
     setAnticipoRequerido(value);
     setAnticipoEditado(true);
+  }
+
+  function handleMonedaAnticipoChange(next: MonedaAnticipo) {
+    if (next === monedaAnticipo) {
+      return;
+    }
+
+    const actual = Number(anticipoRequerido || 0);
+
+    if (next === "USD") {
+      const tasa = tasaCambio ?? 0;
+      if (tasa > 0) {
+        setAnticipoRequerido(String(Math.floor(actual / tasa)));
+      } else {
+        setAnticipoRequerido("0");
+        void cargarTasaCambio();
+      }
+      setMonedaAnticipo("USD");
+      return;
+    }
+
+    setAnticipoRequerido(
+      String(redondear2(actual * (tasaCambio ?? 0))),
+    );
+    setMonedaAnticipo("CUP");
   }
 
   async function aplicarDescuento() {
@@ -522,7 +589,9 @@ export default function NuevoPedidoModal() {
       setPrecioOriginal(precioVenta);
       setAnticipoOriginal(anticipoRequerido);
       setPrecioVenta(String(descuento.precio_final));
-      setAnticipoRequerido(String(redondear2(descuento.precio_final / 2)));
+      setAnticipoRequerido(
+        anticipoSugeridoEnMoneda(descuento.precio_final / 2),
+      );
       setPrecioEditadoManualmente(true);
       setAnticipoEditado(true);
       setDescuentoInfo(
@@ -564,6 +633,18 @@ export default function NuevoPedidoModal() {
       setSubmitError("El precio de venta debe ser mayor a 0.");
       return;
     }
+    if (!Number.isFinite(anticipo) || anticipo < 0) {
+      setSubmitError("El anticipo debe ser un monto válido.");
+      return;
+    }
+    if (esAnticipoUsd && !Number.isInteger(anticipo)) {
+      setSubmitError("El anticipo en USD debe ser un monto entero.");
+      return;
+    }
+    if (esAnticipoUsd && anticipo > 0 && !tasaValida) {
+      setSubmitError("No hay una tasa de cambio válida para el anticipo en USD.");
+      return;
+    }
 
     setSaving(true);
     setSubmitError(null);
@@ -589,7 +670,10 @@ export default function NuevoPedidoModal() {
           lleva_scotch: llevaScotch,
           lleva_esquineros: llevaEsquineros,
           precio_venta: Number(precioVenta),
-          anticipo_requerido: Number(anticipoRequerido || 0),
+          anticipo_requerido: anticipoEnCup,
+          monto_anticipo: anticipo,
+          moneda_anticipo: monedaAnticipo,
+          tasa_cambio: esAnticipoUsd ? tasaCambio : null,
           notas: notas.trim(),
           codigo_descuento: descuentoActivo ? codigoDescuento : "",
           descuento_aplicado: descuentoActivo
@@ -949,7 +1033,7 @@ export default function NuevoPedidoModal() {
                         htmlFor="precio-venta"
                         className="mb-1.5 block text-sm font-semibold text-ink"
                       >
-                        Precio venta *
+                        Precio venta (CUP) *
                       </label>
                       <input
                         id="precio-venta"
@@ -962,27 +1046,83 @@ export default function NuevoPedidoModal() {
                         }
                         className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
                       />
+                      {tasaValida && precio > 0 ? (
+                        <p className="mt-1 text-xs text-muted">
+                          Precio de venta equivale a: ${number(precioEnUsd)} USD
+                        </p>
+                      ) : tasaError ? (
+                        <p className="mt-1 text-xs text-amber-700">
+                          No se pudo cargar la tasa de cambio.
+                        </p>
+                      ) : null}
                     </div>
                     <div>
-                      <label
-                        htmlFor="anticipo-requerido"
-                        className="mb-1.5 block text-sm font-semibold text-ink"
-                      >
-                        Anticipo
-                      </label>
+                      <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <label
+                          htmlFor="anticipo-requerido"
+                          className="block text-sm font-semibold text-ink"
+                        >
+                          Anticipo
+                        </label>
+                        <div className="inline-flex rounded-md border border-line bg-white p-0.5">
+                          {(["CUP", "USD"] as const).map((moneda) => (
+                            <button
+                              key={moneda}
+                              type="button"
+                              onClick={() =>
+                                handleMonedaAnticipoChange(moneda)
+                              }
+                              aria-pressed={monedaAnticipo === moneda}
+                              className={`rounded px-2 py-0.5 text-xs font-bold transition ${
+                                monedaAnticipo === moneda
+                                  ? "bg-brand text-white"
+                                  : "text-muted hover:text-ink"
+                              }`}
+                            >
+                              {moneda}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <input
                         id="anticipo-requerido"
                         type="number"
                         min={0}
-                        step="0.01"
+                        step={esAnticipoUsd ? 1 : 0.01}
+                        inputMode={esAnticipoUsd ? "numeric" : "decimal"}
                         value={anticipoRequerido}
                         onChange={(event) =>
                           handleAnticipoChange(event.target.value)
                         }
                         className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
                       />
+                      {esAnticipoUsd ? (
+                        <p className="mt-1 text-xs text-muted">
+                          {tasaValida ? (
+                            <>
+                              Equivalente: {money(anticipoEnCup)} CUP (Tasa:{" "}
+                              {Number.isInteger(tasaCambio ?? 0)
+                                ? integer(tasaCambio ?? 0)
+                                : number(tasaCambio ?? 0)}
+                              )
+                            </>
+                          ) : tasaError ? (
+                            <span className="text-amber-700">
+                              No se pudo cargar la tasa de cambio.
+                            </span>
+                          ) : (
+                            "Cargando tasa de cambio..."
+                          )}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
+
+                  {vuelto > 0 ? (
+                    <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+                      Vuelto a entregar: {money(vuelto)} CUP
+                    </p>
+                  ) : null}
 
                   <div className="grid grid-cols-1 gap-2 text-sm text-muted sm:grid-cols-2">
                     <div>
@@ -1019,13 +1159,19 @@ export default function NuevoPedidoModal() {
                     </div>
                     <div>
                       <span className="font-semibold text-ink">
-                        Anticipo sugerido:
+                        Anticipo sugerido (CUP):
                       </span>{" "}
                       {costo ? money(costo.anticipo_sugerido) : "—"}
                     </div>
                     <div>
                       <span className="font-semibold text-ink">
-                        Saldo pendiente:
+                        Total pagado (CUP):
+                      </span>{" "}
+                      {money(anticipoEnCup)}
+                    </div>
+                    <div>
+                      <span className="font-semibold text-ink">
+                        Saldo pendiente (CUP):
                       </span>{" "}
                       {money(saldo)}
                     </div>

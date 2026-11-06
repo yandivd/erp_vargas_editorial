@@ -11,8 +11,10 @@ const integerFormat = new Intl.NumberFormat("es-CU", {
 
 export function money(value: number | string | null | undefined, currency?: string): string {
   const number = Number(value ?? 0);
-  const prefix = currency === "USD" ? "US$" : "$";
-  return `${prefix}${numberFormat.format(number)}`;
+  const isUsd = currency === "USD";
+  const prefix = isUsd ? "US$" : "$";
+  const formatter = isUsd ? integerFormat : numberFormat;
+  return `${prefix}${formatter.format(number)}`;
 }
 
 export function number(value: number | string | null | undefined): string {

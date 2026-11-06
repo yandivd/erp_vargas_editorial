@@ -36,11 +36,16 @@ type PageProps = {
   params: Promise<{ id: string }>;
 };
 
+type TasaCambioResponse = {
+  tasa_cambio: number;
+};
+
 export default async function PedidoDetailPage({ params }: PageProps) {
   const { id } = await params;
 
-  const [estados, result] = await Promise.all([
+  const [estados, tasaResult, result] = await Promise.all([
     apiFetch<EstadoPedido[]>("pedidos/estados/").catch(() => []),
+    apiFetch<TasaCambioResponse>("pedidos/tasa-cambio/").catch(() => null),
     apiFetch<PedidoDetail>(`pedidos/${encodeURIComponent(id)}/`)
       .then((pedido) => ({ ok: true as const, pedido }))
       .catch((error: unknown) => ({
@@ -69,6 +74,11 @@ export default async function PedidoDetailPage({ params }: PageProps) {
 
   const pedido = result.pedido;
   const saldo = Number(pedido.saldo_pendiente);
+  const tasaCambio = Number(tasaResult?.tasa_cambio ?? 0);
+  const saldoUsd =
+    saldo > 0 && Number.isFinite(tasaCambio) && tasaCambio > 0
+      ? Math.ceil(saldo / tasaCambio)
+      : null;
   const totalServicios = pedido.servicios_externos.reduce(
     (total, servicio) => total + Number(servicio.monto),
     0,
@@ -120,6 +130,7 @@ export default async function PedidoDetailPage({ params }: PageProps) {
           pedidoId={pedido.id}
           estadoActual={pedido.estado_id}
           estados={estados}
+          saldoPendiente={Number(pedido.saldo_pendiente)}
         />
       </div>
 
@@ -149,7 +160,13 @@ export default async function PedidoDetailPage({ params }: PageProps) {
         <KpiCard
           label="Saldo pendiente"
           value={money(pedido.saldo_pendiente)}
-          sub={saldo > 0 ? "Pendiente de cobro" : "Pedido pagado"}
+          sub={
+            saldo > 0
+              ? saldoUsd !== null
+                ? `Pendiente de cobro · Equivalente: ${money(saldoUsd, "USD")}`
+                : "Pendiente de cobro"
+              : "Pedido pagado"
+          }
           tone={saldo > 0 ? "amber" : "emerald"}
           valueClassName={saldo > 0 ? "text-amber-600" : "text-emerald-600"}
         />
@@ -264,7 +281,11 @@ export default async function PedidoDetailPage({ params }: PageProps) {
             />
             <Info
               label="Saldo pendiente"
-              value={money(pedido.saldo_pendiente)}
+              value={
+                saldoUsd !== null
+                  ? `${money(pedido.saldo_pendiente)} · ${money(saldoUsd, "USD")}`
+                  : money(pedido.saldo_pendiente)
+              }
             />
             <Info
               label="Costo de producción"
@@ -280,7 +301,7 @@ export default async function PedidoDetailPage({ params }: PageProps) {
       </div>
 
       <SectionCard
-        title="Anticipos recibidos"
+        title="Cobros y vueltos del pedido"
         icon={<ReceiptText className="h-5 w-5 text-brand" aria-hidden="true" />}
         className="mt-4"
       >
@@ -289,38 +310,56 @@ export default async function PedidoDetailPage({ params }: PageProps) {
             Este pedido todavía no tiene pagos registrados.
           </p>
         ) : (
-          <div className={tableWrapClass}>
-            <table className={tableClass}>
-              <thead>
-                <tr>
-                  <th className={thClass}>Fecha</th>
-                  <th className={thClass}>Concepto</th>
-                  <th className={thClass}>Categoría</th>
-                  <th className={thClass}>Método</th>
-                  <th className={`${thClass} text-right`}>Monto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pedido.anticipos.map((anticipo) => (
-                  <tr key={anticipo.id} className={tableRowClass}>
-                    <td className={tdClass}>
-                      {formatDateTime(anticipo.fecha)}
-                    </td>
-                    <td className={tdClass}>{anticipo.concepto}</td>
-                    <td className={tdClass}>
-                      {anticipo.categoria_display}
-                    </td>
-                    <td className={tdClass}>{anticipo.metodo_display}</td>
-                    <td
-                      className={`${tdClass} text-right font-bold text-emerald-600`}
-                    >
-                      {money(anticipo.monto, anticipo.moneda)}
-                    </td>
+          <>
+            <p className="mb-3 text-xs text-muted">
+              Neto aplicado al pedido:{" "}
+              <strong className="text-ink">
+                {money(pedido.anticipo_recibido)}
+              </strong>
+              . Los vueltos se muestran como egresos y no cuentan como ingreso.
+            </p>
+            <div className={tableWrapClass}>
+              <table className={tableClass}>
+                <thead>
+                  <tr>
+                    <th className={thClass}>Fecha</th>
+                    <th className={thClass}>Concepto</th>
+                    <th className={thClass}>Categoría</th>
+                    <th className={thClass}>Método</th>
+                    <th className={`${thClass} text-right`}>Monto</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {pedido.anticipos.map((anticipo) => {
+                    const esVuelto =
+                      anticipo.tipo === "EGRESO" ||
+                      anticipo.categoria === "VUELTO_CLIENTE";
+
+                    return (
+                      <tr key={anticipo.id} className={tableRowClass}>
+                        <td className={tdClass}>
+                          {formatDateTime(anticipo.fecha)}
+                        </td>
+                        <td className={tdClass}>{anticipo.concepto}</td>
+                        <td className={tdClass}>
+                          {anticipo.categoria_display}
+                        </td>
+                        <td className={tdClass}>{anticipo.metodo_display}</td>
+                        <td
+                          className={`${tdClass} text-right font-bold ${
+                            esVuelto ? "text-red-600" : "text-emerald-600"
+                          }`}
+                        >
+                          {esVuelto ? "-" : "+"}
+                          {money(anticipo.monto, anticipo.moneda)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </SectionCard>
 

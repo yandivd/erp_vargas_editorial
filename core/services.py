@@ -16,6 +16,7 @@ FECHA_CORTE_FINANCIERO = date(2026, 8, 2)
 REFERENCIA_CORTE_FINANCIERO = 487
 
 CATEGORIAS_TRANSFERENCIA = ['COMPRA_DIVISA', 'VENTA_DIVISA', 'TRANSFERENCIA']
+CATEGORIA_VUELTO_CLIENTE = 'VUELTO_CLIENTE'
 CATEGORIAS_NO_INGRESO = [
     'COMPRA_DIVISA',
     'VENTA_DIVISA',
@@ -29,6 +30,7 @@ CATEGORIAS_NO_EGRESO_OPERATIVO = [
     'TRANSFERENCIA',
     'RETIRO_UTILIDADES',
     'COMPRA_ACTIVO',
+    CATEGORIA_VUELTO_CLIENTE,
 ]
 
 Q_APERTURA = (
@@ -156,6 +158,14 @@ def _saldo_caja(moneda):
     return ServicioFinanzas.saldo_caja(moneda)
 
 
+def _sumar_vuelto(qs):
+    return (
+        qs.filter(tipo='EGRESO', categoria=CATEGORIA_VUELTO_CLIENTE)
+        .aggregate(t=Sum('monto'))['t']
+        or Decimal('0')
+    )
+
+
 def resumen_monedas(desde=None, hasta=None):
     tasa, advertencia = tasa_cambio()
     movs = movimientos_financieros(desde, hasta)
@@ -163,11 +173,15 @@ def resumen_monedas(desde=None, hasta=None):
     datos = {}
     for moneda in ('CUP', 'USD'):
         movs_moneda = movs.filter(moneda=moneda)
-        ingresos = _sumar(movs_moneda, 'INGRESO', Q_NO_INGRESO_OPERATIVO)
+        ingresos_brutos = _sumar(movs_moneda, 'INGRESO', Q_NO_INGRESO_OPERATIVO)
+        vuelto_clientes = _sumar_vuelto(movs_moneda)
+        ingresos = ingresos_brutos - vuelto_clientes
         gastos = _sumar(movs_moneda, 'EGRESO', Q_NO_EGRESO_OPERATIVO)
         flujo_ingresos = _sumar(movs_moneda, 'INGRESO', Q_TRANSFERENCIA | Q_APERTURA)
         flujo_egresos = _sumar(movs_moneda, 'EGRESO', Q_TRANSFERENCIA)
         datos[moneda] = {
+            'ingresos_brutos': float(ingresos_brutos),
+            'vuelto_clientes': float(vuelto_clientes),
             'ingresos': float(ingresos),
             'gastos': float(gastos),
             'saldo_neto_operativo': float(ingresos - gastos),
@@ -177,9 +191,13 @@ def resumen_monedas(desde=None, hasta=None):
             'saldo_caja': float(_saldo_caja(moneda)),
         }
 
-    ingresos_equiv_cup = Decimal(str(datos['CUP']['ingresos'])) + convertir_usd_a_cup(
-        datos['USD']['ingresos'], tasa
-    )
+    ingresos_brutos_equiv_cup = Decimal(
+        str(datos['CUP']['ingresos_brutos'])
+    ) + convertir_usd_a_cup(datos['USD']['ingresos_brutos'], tasa)
+    vuelto_equiv_cup = Decimal(
+        str(datos['CUP']['vuelto_clientes'])
+    ) + convertir_usd_a_cup(datos['USD']['vuelto_clientes'], tasa)
+    ingresos_equiv_cup = ingresos_brutos_equiv_cup - vuelto_equiv_cup
     gastos_equiv_cup = Decimal(str(datos['CUP']['gastos'])) + convertir_usd_a_cup(
         datos['USD']['gastos'], tasa
     )
@@ -188,6 +206,8 @@ def resumen_monedas(desde=None, hasta=None):
     datos['equivalente'] = {
         'tasa': float(tasa),
         'advertencia_tasa': advertencia,
+        'ingresos_brutos_cup': float(ingresos_brutos_equiv_cup),
+        'vuelto_clientes_cup': float(vuelto_equiv_cup),
         'ingresos_cup': float(ingresos_equiv_cup),
         'gastos_cup': float(gastos_equiv_cup),
         'saldo_neto_cup': float(saldo_neto_equiv_cup),
@@ -265,15 +285,29 @@ def dashboard_resumen(desde=None, hasta=None):
         .annotate(mes=TruncMonth('fecha'))
         .values('mes')
         .annotate(
-            ingresos=Sum('monto', filter=Q(tipo='INGRESO') & ~Q_NO_INGRESO_OPERATIVO),
-            gastos=Sum('monto', filter=Q(tipo='EGRESO') & ~Q_NO_EGRESO_OPERATIVO),
+            ingresos_brutos=Sum(
+                'monto', filter=Q(tipo='INGRESO') & ~Q_NO_INGRESO_OPERATIVO
+            ),
+            vuelto_clientes=Sum(
+                'monto',
+                filter=Q(tipo='EGRESO')
+                & Q(categoria=CATEGORIA_VUELTO_CLIENTE),
+            ),
+            gastos=Sum(
+                'monto',
+                filter=Q(tipo='EGRESO') & ~Q_NO_EGRESO_OPERATIVO,
+            ),
         )
         .order_by('mes')
     )
     tendencia_data = [
         {
             'mes': t['mes'].strftime('%b %Y'),
-            'ingresos': float(t['ingresos'] or 0),
+            'ingresos_brutos': float(t['ingresos_brutos'] or 0),
+            'vuelto_clientes': float(t['vuelto_clientes'] or 0),
+            'ingresos': float(
+                (t['ingresos_brutos'] or 0) - (t['vuelto_clientes'] or 0)
+            ),
             'gastos': float(t['gastos'] or 0),
         }
         for t in tendencia
@@ -297,15 +331,29 @@ def dashboard_resumen(desde=None, hasta=None):
         .annotate(semana=TruncWeek('fecha'))
         .values('semana')
         .annotate(
-            ingresos=Sum('monto', filter=Q(tipo='INGRESO') & ~Q_NO_INGRESO_OPERATIVO),
-            gastos=Sum('monto', filter=Q(tipo='EGRESO') & ~Q_NO_EGRESO_OPERATIVO),
+            ingresos_brutos=Sum(
+                'monto', filter=Q(tipo='INGRESO') & ~Q_NO_INGRESO_OPERATIVO
+            ),
+            vuelto_clientes=Sum(
+                'monto',
+                filter=Q(tipo='EGRESO')
+                & Q(categoria=CATEGORIA_VUELTO_CLIENTE),
+            ),
+            gastos=Sum(
+                'monto',
+                filter=Q(tipo='EGRESO') & ~Q_NO_EGRESO_OPERATIVO,
+            ),
         )
         .order_by('semana')
     )
     semanal_data = [
         {
             'semana': s['semana'].strftime('%d/%m') if s['semana'] else '',
-            'ingresos': float(s['ingresos'] or 0),
+            'ingresos_brutos': float(s['ingresos_brutos'] or 0),
+            'vuelto_clientes': float(s['vuelto_clientes'] or 0),
+            'ingresos': float(
+                (s['ingresos_brutos'] or 0) - (s['vuelto_clientes'] or 0)
+            ),
             'gastos': float(s['gastos'] or 0),
         }
         for s in semanal
@@ -381,7 +429,7 @@ def dashboard_resumen(desde=None, hasta=None):
         consejos.append({
             'tipo': 'warning',
             'titulo': 'Gastos elevados',
-            'texto': f'Tus gastos representan el {(gastos_equiv / ingresos_equiv * 100):.1f}% de los ingresos.',
+            'texto': f'Tus gastos representan el {(gastos_equiv / ingresos_equiv * 100):.1f}% de los ingresos netos.',
         })
 
     atrasados = Pedido.objects.filter(
@@ -414,14 +462,20 @@ def dashboard_resumen(desde=None, hasta=None):
         })
 
     kpis = {
+        'ingresos_brutos_cup': monedas['CUP']['ingresos_brutos'],
+        'vuelto_clientes_cup': monedas['CUP']['vuelto_clientes'],
         'ingresos_cup': monedas['CUP']['ingresos'],
         'gastos_cup': monedas['CUP']['gastos'],
         'saldo_neto_cup': monedas['CUP']['saldo_neto_operativo'],
         'flujo_neto_cup': monedas['CUP']['flujo_neto'],
+        'ingresos_brutos_usd': monedas['USD']['ingresos_brutos'],
+        'vuelto_clientes_usd': monedas['USD']['vuelto_clientes'],
         'ingresos_usd': monedas['USD']['ingresos'],
         'gastos_usd': monedas['USD']['gastos'],
         'saldo_neto_usd': monedas['USD']['saldo_neto_operativo'],
         'flujo_neto_usd': monedas['USD']['flujo_neto'],
+        'ingresos_brutos_equiv_cup': monedas['equivalente']['ingresos_brutos_cup'],
+        'vuelto_clientes_equiv_cup': monedas['equivalente']['vuelto_clientes_cup'],
         'ingresos_equiv_cup': monedas['equivalente']['ingresos_cup'],
         'gastos_equiv_cup': monedas['equivalente']['gastos_cup'],
         'saldo_neto_equiv_cup': monedas['equivalente']['saldo_neto_cup'],

@@ -35,9 +35,17 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
     <>
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
         <KpiCard
-          label="Ingresos CUP"
+          label="Ingresos netos CUP"
           value={money(kpis.ingresos_cup)}
-          sub={`USD: ${money(kpis.ingresos_usd, "USD")}`}
+          sub={
+            <>
+              <div>
+                Bruto: {money(kpis.ingresos_brutos_cup)} · Vuelto:{" "}
+                {money(kpis.vuelto_clientes_cup)}
+              </div>
+              <div>USD neto: {money(kpis.ingresos_usd, "USD")}</div>
+            </>
+          }
           tone="emerald"
           valueClassName="text-emerald-600"
         />
@@ -108,7 +116,7 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
 
       <div className="mb-4 grid gap-3 md:grid-cols-2">
         <SectionCard
-          title="Desglose por Tipo de Ingreso"
+          title="Desglose bruto por Tipo de Ingreso"
           icon={<PieChart className="h-5 w-5 text-emerald-600" aria-hidden="true" />}
         >
           <div className="h-[180px] w-full md:h-[220px]">
@@ -142,6 +150,11 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
               </tbody>
             </table>
           </div>
+          <p className="mt-3 text-xs text-muted">
+            Los cobros se muestran brutos. El ingreso neto descuenta{" "}
+            {money(kpis.vuelto_clientes_cup)} de vueltos:{" "}
+            <strong>{money(kpis.ingresos_cup)}</strong>.
+          </p>
         </SectionCard>
       </div>
 

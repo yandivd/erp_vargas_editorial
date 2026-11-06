@@ -1,66 +1,389 @@
-from decimal import Decimal
-from django.utils import timezone
-from django.db.models import Sum
-from .models import MovimientoCaja, LoteDivisa, DetalleVentaDivisa
+from datetime import timedelta
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
 from django.db import transaction
+from django.db.models import Sum
+from django.utils import timezone
+
+from .models import MovimientoCaja, LoteDivisa, DetalleVentaDivisa
 
 
 class ServicioFinanzas:
-    
+
     @staticmethod
-    def registrar_anticipo(pedido, monto, metodo='EFECTIVO'):
-        """Registra el anticipo del cliente."""
-        monto = Decimal(str(monto))
-        
-        mov = MovimientoCaja.objects.create(
-            tipo='INGRESO',
-            categoria='ANTICIPO_CLIENTE',
+    def normalizar_pago(monto, moneda_pago='CUP', tasa_cambio_aplicada=None):
+        """Valida el pago y devuelve (monto real, equivalente CUP, moneda, tasa)."""
+        moneda_pago = (moneda_pago or 'CUP').upper()
+        if moneda_pago not in ('CUP', 'USD'):
+            raise ValueError('La moneda del pago debe ser CUP o USD.')
+
+        try:
+            monto = Decimal(str(monto))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError('El monto del pago no es válido.') from exc
+
+        if monto <= 0:
+            raise ValueError('El monto del pago debe ser mayor que cero.')
+
+        tasa = None
+        if moneda_pago == 'USD':
+            if monto != monto.to_integral_value():
+                raise ValueError(
+                    'Los pagos en USD deben ser un monto entero, sin centavos.'
+                )
+
+            if tasa_cambio_aplicada in (None, ''):
+                tasa = ServicioFinanzas.obtener_tasa_usd_cup()
+            else:
+                try:
+                    tasa = Decimal(str(tasa_cambio_aplicada))
+                except (InvalidOperation, TypeError, ValueError) as exc:
+                    raise ValueError('La tasa de cambio no es válida.') from exc
+
+            if tasa <= 0:
+                raise ValueError('La tasa de cambio debe ser mayor que cero.')
+
+            monto_cup = (monto * tasa).quantize(
+                Decimal('0.01'),
+                rounding=ROUND_HALF_UP,
+            )
+        else:
+            monto = monto.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            monto_cup = monto
+
+        return monto, monto_cup, moneda_pago, tasa
+
+    @staticmethod
+    def normalizar_pago_mixto(
+        monto_cup=0,
+        monto_usd=0,
+        tasa_aplicada=None,
+    ):
+        """Valida un pago combinado y devuelve (CUP, USD, total CUP, tasa)."""
+        try:
+            cup = Decimal(str(monto_cup if monto_cup not in (None, '') else 0))
+            usd = Decimal(str(monto_usd if monto_usd not in (None, '') else 0))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError('El monto del pago no es válido.') from exc
+
+        if cup < 0 or usd < 0:
+            raise ValueError('Los montos del pago no pueden ser negativos.')
+
+        cup = cup.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        if usd != usd.to_integral_value():
+            raise ValueError(
+                'Los pagos en USD deben ser un monto entero, sin centavos.'
+            )
+        usd = usd.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        tasa = None
+        usd_en_cup = Decimal('0')
+        if usd > 0:
+            if tasa_aplicada in (None, ''):
+                tasa = ServicioFinanzas.obtener_tasa_usd_cup()
+            else:
+                try:
+                    tasa = Decimal(str(tasa_aplicada))
+                except (InvalidOperation, TypeError, ValueError) as exc:
+                    raise ValueError('La tasa de cambio no es válida.') from exc
+
+            if tasa <= 0:
+                raise ValueError('La tasa de cambio debe ser mayor que cero.')
+
+            usd_en_cup = (usd * tasa).quantize(
+                Decimal('0.01'),
+                rounding=ROUND_HALF_UP,
+            )
+
+        total_cup = (cup + usd_en_cup).quantize(
+            Decimal('0.01'),
+            rounding=ROUND_HALF_UP,
+        )
+        if total_cup <= 0:
+            raise ValueError('Debes indicar un monto mayor que cero.')
+
+        return cup, usd, total_cup, tasa
+
+    @staticmethod
+    def registrar_pago_pedido(
+        pedido,
+        monto,
+        metodo='EFECTIVO',
+        moneda_pago='CUP',
+        tasa_cambio_aplicada=None,
+        categoria='ANTICIPO_CLIENTE',
+        concepto=None,
+    ):
+        """Registra un pago del pedido y actualiza su saldo en CUP."""
+        from pedidos.models import Pedido
+
+        monto, monto_cup, moneda_pago, tasa = ServicioFinanzas.normalizar_pago(
+            monto,
+            moneda_pago=moneda_pago,
+            tasa_cambio_aplicada=tasa_cambio_aplicada,
+        )
+
+        with transaction.atomic():
+            pedido_bloqueado = (
+                Pedido.objects.select_for_update()
+                .select_related('libro', 'cliente')
+                .get(pk=pedido.pk)
+            )
+            saldo = Decimal(str(pedido_bloqueado.saldo_pendiente or 0)).quantize(
+                Decimal('0.01')
+            )
+
+            if monto_cup > saldo:
+                raise ValueError(
+                    'El pago equivale a '
+                    f'{monto_cup} CUP y supera el saldo pendiente '
+                    f'({saldo} CUP).'
+                )
+
+            detalle_tasa = (
+                f' @ {tasa.normalize():f} CUP/USD' if moneda_pago == 'USD' else ''
+            )
+            if concepto is None:
+                concepto = (
+                    f'Anticipo pedido #{pedido_bloqueado.id} - '
+                    f'{pedido_bloqueado.libro.titulo}{detalle_tasa}'
+                )
+
+            movimiento = MovimientoCaja.objects.create(
+                tipo='INGRESO',
+                categoria=categoria,
+                monto=monto,
+                metodo=metodo,
+                moneda=moneda_pago,
+                concepto=concepto[:200],
+                pedido=pedido_bloqueado,
+                cliente=pedido_bloqueado.cliente,
+            )
+
+            pedido_bloqueado.anticipo_recibido = (
+                Decimal(str(pedido_bloqueado.anticipo_recibido or 0)) + monto_cup
+            )
+            pedido_bloqueado.saldo_pendiente = (
+                Decimal(str(pedido_bloqueado.precio_venta))
+                - pedido_bloqueado.anticipo_recibido
+            )
+
+            if not pedido_bloqueado.fecha_entrega_prometida:
+                pedido_bloqueado.fecha_entrega_prometida = (
+                    timezone.now().date() + timedelta(days=28)
+                )
+
+            pedido_bloqueado.save(
+                update_fields=[
+                    'anticipo_recibido',
+                    'saldo_pendiente',
+                    'fecha_entrega_prometida',
+                ]
+            )
+
+        pedido.anticipo_recibido = pedido_bloqueado.anticipo_recibido
+        pedido.saldo_pendiente = pedido_bloqueado.saldo_pendiente
+        pedido.fecha_entrega_prometida = pedido_bloqueado.fecha_entrega_prometida
+
+        return movimiento
+
+    @staticmethod
+    def registrar_pago_mixto(
+        pedido,
+        monto_cup=0,
+        monto_usd=0,
+        tasa_aplicada=None,
+        metodo='EFECTIVO',
+        categoria='ANTICIPO_CLIENTE',
+        concepto=None,
+        permitir_vuelto=True,
+        exigir_saldo_exacto=False,
+    ):
+        """Registra un pago CUP/USD y devuelve el detalle del cobro."""
+        from pedidos.models import Pedido
+
+        monto_cup, monto_usd, total_cup, tasa = (
+            ServicioFinanzas.normalizar_pago_mixto(
+                monto_cup=monto_cup,
+                monto_usd=monto_usd,
+                tasa_aplicada=tasa_aplicada,
+            )
+        )
+
+        with transaction.atomic():
+            pedido_bloqueado = (
+                Pedido.objects.select_for_update()
+                .select_related('libro', 'cliente')
+                .get(pk=pedido.pk)
+            )
+            saldo = Decimal(str(pedido_bloqueado.saldo_pendiente or 0)).quantize(
+                Decimal('0.01')
+            )
+
+            if saldo <= 0:
+                raise ValueError('Este pedido ya está pagado en su totalidad.')
+
+            if exigir_saldo_exacto and total_cup < saldo:
+                faltante = (saldo - total_cup).quantize(Decimal('0.01'))
+                raise ValueError(
+                    f'Faltan {faltante} CUP para poder entregar el pedido.'
+                )
+
+            if not permitir_vuelto and total_cup > saldo:
+                raise ValueError(
+                    'El pago equivale a '
+                    f'{total_cup} CUP y supera el saldo pendiente '
+                    f'({saldo} CUP).'
+                )
+
+            aplicado_cup = min(total_cup, saldo)
+            vuelto_cup = (total_cup - aplicado_cup).quantize(Decimal('0.01'))
+
+            cliente_nombre = (
+                pedido_bloqueado.cliente.nombre
+                if pedido_bloqueado.cliente
+                else 'Sin cliente'
+            )
+            if concepto is None:
+                concepto = (
+                    f'Abono pedido #{pedido_bloqueado.id} - '
+                    f'{pedido_bloqueado.libro.titulo}'
+                )
+
+            movimientos = []
+            if monto_cup > 0:
+                movimientos.append(
+                    MovimientoCaja.objects.create(
+                        tipo='INGRESO',
+                        categoria=categoria,
+                        monto=monto_cup,
+                        metodo=metodo,
+                        moneda='CUP',
+                        concepto=f'{concepto} (CUP)'[:200],
+                        pedido=pedido_bloqueado,
+                        cliente=pedido_bloqueado.cliente,
+                    )
+                )
+
+            if monto_usd > 0:
+                movimientos.append(
+                    MovimientoCaja.objects.create(
+                        tipo='INGRESO',
+                        categoria=categoria,
+                        monto=monto_usd,
+                        metodo=metodo,
+                        moneda='USD',
+                        concepto=(
+                            f'{concepto} (USD @ {tasa.normalize():f} CUP/USD)'
+                        )[:200],
+                        pedido=pedido_bloqueado,
+                        cliente=pedido_bloqueado.cliente,
+                    )
+                )
+
+            if vuelto_cup > 0:
+                movimientos.append(
+                    MovimientoCaja.objects.create(
+                        tipo='EGRESO',
+                        categoria='VUELTO_CLIENTE',
+                        monto=vuelto_cup,
+                        metodo=metodo,
+                        moneda='CUP',
+                        concepto=(
+                            f'Vuelto pedido #{pedido_bloqueado.id} - '
+                            f'{cliente_nombre} (entregado en CUP)'
+                        )[:200],
+                        pedido=pedido_bloqueado,
+                        cliente=pedido_bloqueado.cliente,
+                    )
+                )
+
+            pedido_bloqueado.anticipo_recibido = (
+                Decimal(str(pedido_bloqueado.anticipo_recibido or 0))
+                + aplicado_cup
+            )
+            pedido_bloqueado.saldo_pendiente = (
+                Decimal(str(pedido_bloqueado.precio_venta))
+                - pedido_bloqueado.anticipo_recibido
+            )
+
+            if not pedido_bloqueado.fecha_entrega_prometida:
+                pedido_bloqueado.fecha_entrega_prometida = (
+                    timezone.now().date() + timedelta(days=28)
+                )
+
+            pedido_bloqueado.save(
+                update_fields=[
+                    'anticipo_recibido',
+                    'saldo_pendiente',
+                    'fecha_entrega_prometida',
+                ]
+            )
+
+        pedido.anticipo_recibido = pedido_bloqueado.anticipo_recibido
+        pedido.saldo_pendiente = pedido_bloqueado.saldo_pendiente
+        pedido.fecha_entrega_prometida = pedido_bloqueado.fecha_entrega_prometida
+
+        return {
+            'movimientos': movimientos,
+            'movimiento': movimientos[0] if movimientos else None,
+            'monto_cup': monto_cup,
+            'monto_usd': monto_usd,
+            'total_cup': total_cup,
+            'aplicado_cup': aplicado_cup,
+            'vuelto_cup': vuelto_cup,
+            'tasa': tasa,
+        }
+
+    @staticmethod
+    def registrar_anticipo(
+        pedido,
+        monto,
+        metodo='EFECTIVO',
+        moneda_pago='CUP',
+        tasa_cambio_aplicada=None,
+    ):
+        """Registra un anticipo o abono del cliente."""
+        return ServicioFinanzas.registrar_pago_pedido(
+            pedido,
             monto=monto,
             metodo=metodo,
-            concepto=f'Anticipo pedido #{pedido.id} - {pedido.libro.titulo}',
-            pedido=pedido,
-            cliente=pedido.cliente
+            moneda_pago=moneda_pago,
+            tasa_cambio_aplicada=tasa_cambio_aplicada,
+            categoria='ANTICIPO_CLIENTE',
         )
-        
-        # Actualizar anticipo del pedido
-        pedido.anticipo_recibido = (pedido.anticipo_recibido or 0) + monto
-        pedido.saldo_pendiente = pedido.precio_venta - pedido.anticipo_recibido
-        
-        # Solo calculamos la fecha de entrega la primera vez que paga el anticipo
-        if mov and pedido.anticipo_recibido > 0 and not pedido.fecha_entrega_prometida:
-            from django.utils import timezone
-            from datetime import timedelta
-            pedido.fecha_entrega_prometida = timezone.now().date() + timedelta(days=28)
-            
-        pedido.save()
-        
-        return mov
-    
+
     @staticmethod
-    def registrar_saldo(pedido, monto=None, metodo='EFECTIVO', moneda=None, concepto=None):
+    def registrar_saldo(
+        pedido,
+        monto=None,
+        metodo='EFECTIVO',
+        moneda=None,
+        concepto=None,
+        tasa_cambio_aplicada=None,
+    ):
         """Registra el pago del saldo final."""
         if monto is None:
             monto = pedido.saldo_pendiente
-            
-        monto = Decimal(str(monto))
-        if monto <= 0:
+
+        try:
+            monto_decimal = Decimal(str(monto))
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError('El monto del pago no es válido.') from exc
+
+        if monto_decimal <= 0:
             return None
 
-        mov = MovimientoCaja.objects.create(
-            tipo='INGRESO',
-            categoria='SALDO_CLIENTE',
-            monto=monto,
+        return ServicioFinanzas.registrar_pago_pedido(
+            pedido,
+            monto=monto_decimal,
             metodo=metodo,
-            moneda=moneda or 'CUP',
+            moneda_pago=moneda or 'CUP',
+            tasa_cambio_aplicada=tasa_cambio_aplicada,
+            categoria='SALDO_CLIENTE',
             concepto=concepto or f'Saldo pedido #{pedido.id} - {pedido.libro.titulo}',
-            pedido=pedido,
-            cliente=pedido.cliente
         )
-        
-        pedido.anticipo_recibido = (pedido.anticipo_recibido or 0) + monto
-        pedido.save()
-        
-        return mov
     
     @staticmethod
     def pagar_proveedor(servicio_externo, metodo='EFECTIVO'):
