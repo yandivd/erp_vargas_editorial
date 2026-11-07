@@ -28,4 +28,9 @@ urlpatterns = [
     path('catalogo/', views.catalogo, name='catalogo'),
     path('tienda/', views.tienda, name='tienda'),
     path('tienda/<int:pk>/vender/', views.tienda_vender, name='tienda_vender'),
+    path('entregas/', views.entregas, name='entregas'),
+    path('entregas/crear/', views.entrega_crear, name='entrega_crear'),
+    path('entregas/pedidos-disponibles/', views.entrega_pedidos_disponibles, name='entrega_pedidos_disponibles'),
+    path('entregas/<int:pk>/', views.entrega_detalle, name='entrega_detalle'),
+    path('entregas/<int:pk>/confirmar/', views.entrega_confirmar, name='entrega_confirmar'),
 ] + router.urls

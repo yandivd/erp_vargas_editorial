@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.db import transaction
 from core.models import Parametro
 from inventario.models import Material
-from .models import Book, HistorialEstado, LoteServicio, Pedido, ServicioExterno, Estado
+from .models import Book, Entrega, HistorialEstado, LoteServicio, Pedido, ServicioExterno, Estado
 from proveedores.models import Proveedor
 from datetime import date, timedelta
 from django.utils import timezone
@@ -215,6 +215,60 @@ class ServicioPedido:
                 usuario=usuario,
                 notas=notas or 'Venta en tienda',
             )
+
+        return resultado
+
+    @staticmethod
+    def confirmar_entrega(
+        entrega,
+        monto_cup=0,
+        monto_usd=0,
+        tasa_aplicada=None,
+        metodo='EFECTIVO',
+        usuario='',
+        notas='',
+    ):
+        from finanzas.services import ServicioFinanzas
+
+        with transaction.atomic():
+            entrega_bloqueada = (
+                Entrega.objects.select_for_update()
+                .select_related('cliente')
+                .get(pk=entrega.pk)
+            )
+
+            if entrega_bloqueada.entregado:
+                raise ValueError('Esta entrega ya fue confirmada.')
+
+            resultado = ServicioFinanzas.registrar_pago_entrega(
+                entrega_bloqueada,
+                monto_cup=monto_cup,
+                monto_usd=monto_usd,
+                tasa_aplicada=tasa_aplicada,
+                metodo=metodo,
+            )
+
+            entrega_bloqueada.entregado = True
+            entrega_bloqueada.fecha_entrega_real = timezone.now()
+            entrega_bloqueada.save(
+                update_fields=['entregado', 'fecha_entrega_real']
+            )
+
+            pedidos = list(
+                Pedido.objects.select_for_update()
+                .select_related('libro', 'cliente', 'estado')
+                .filter(entregas=entrega_bloqueada)
+                .order_by('id')
+            )
+
+            for pedido in pedidos:
+                if pedido.estado is None or pedido.estado.nombre != 'Entregado':
+                    ServicioPedido.cambiar_estado(
+                        pedido,
+                        'Entregado',
+                        usuario=usuario,
+                        notas=notas or f'Entrega #{entrega_bloqueada.id} confirmada',
+                    )
 
         return resultado
 

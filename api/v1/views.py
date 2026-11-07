@@ -22,14 +22,19 @@ from core.api import obtener_dashboard_data
 from core.models import Parametro
 from finanzas.services import ServicioFinanzas
 from inventario.models import Material
-from pedidos.models import Book, CodigoDescuento, Estado, Pedido
+from pedidos.models import Book, CodigoDescuento, Entrega, Estado, Pedido
 from pedidos.services import CosteadorPedido, ServicioPedido
 
 from .serializers import (
     ESTADOS_NO_TALLER,
+    AnticipoV1Serializer,
     CambiarEstadoMasivoSerializer,
     CambiarEstadoSerializer,
     ClienteListV1Serializer,
+    ConfirmarEntregaSerializer,
+    CrearEntregaSerializer,
+    EntregaDetailV1Serializer,
+    EntregaListV1Serializer,
     EstadoV1Serializer,
     LibroListV1Serializer,
     PedidoCreateSerializer,
@@ -199,6 +204,237 @@ def tienda_vender(request, pk):
             'tasa': float(resultado['tasa']) if resultado['tasa'] is not None else None,
         },
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def entregas(request):
+    tab = request.query_params.get('tab', 'pendientes')
+    queryset = (
+        Entrega.objects.select_related('cliente')
+        .prefetch_related('pedidos')
+        .order_by('-fecha_creacion')
+    )
+
+    if tab == 'historial':
+        queryset = queryset.filter(entregado=True)
+    elif tab == 'pendientes':
+        queryset = queryset.filter(entregado=False)
+
+    data = EntregaListV1Serializer(queryset, many=True).data
+    return Response({'ok': True, 'data': data})
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def entrega_pedidos_disponibles(request):
+    pedidos = (
+        Pedido.objects.filter(
+            estado__nombre='Listo para Entregar',
+            cliente__isnull=False,
+        )
+        .exclude(entregas__isnull=False)
+        .select_related('cliente', 'libro', 'estado')
+        .order_by(
+            'cliente__nombre',
+            F('referencia_externa').asc(nulls_last=True),
+            'id',
+        )
+    )
+    return Response({
+        'ok': True,
+        'data': PedidoListV1Serializer(pedidos, many=True).data,
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def entrega_detalle(request, pk):
+    entrega = get_object_or_404(
+        Entrega.objects.select_related('cliente').prefetch_related(
+            'pedidos__libro',
+            'pedidos__estado',
+            'pedidos__cliente',
+            'pedidos__servicios_externos__proveedor',
+            'pedidos__servicios_externos__lote',
+        ),
+        pk=pk,
+    )
+    return Response({
+        'ok': True,
+        'data': EntregaDetailV1Serializer(entrega).data,
+    })
+
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def entrega_confirmar(request, pk):
+    entrega = get_object_or_404(Entrega, pk=pk)
+    serializer = ConfirmarEntregaSerializer(data=request.data)
+
+    if not serializer.is_valid():
+        return Response(
+            {'ok': False, 'error': _primer_error_serializer(serializer.errors)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    datos = serializer.validated_data
+
+    try:
+        resultado = ServicioPedido.confirmar_entrega(
+            entrega,
+            monto_cup=datos.get('monto_cup') or Decimal('0'),
+            monto_usd=datos.get('monto_usd') or Decimal('0'),
+            tasa_aplicada=datos.get('tasa_aplicada'),
+            metodo=datos.get('metodo') or 'EFECTIVO',
+            usuario=request.user.username,
+            notas=datos.get('notas') or '',
+        )
+    except (ValueError, Estado.DoesNotExist) as error:
+        return Response(
+            {'ok': False, 'error': str(error)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    entrega = (
+        Entrega.objects.select_related('cliente').prefetch_related(
+            'pedidos__libro',
+            'pedidos__estado',
+            'pedidos__cliente',
+            'pedidos__servicios_externos__proveedor',
+            'pedidos__servicios_externos__lote',
+        ).get(pk=entrega.pk)
+    )
+
+    return Response({
+        'ok': True,
+        'data': {
+            'entrega': EntregaDetailV1Serializer(entrega).data,
+            'pago': {
+                'monto_cup': float(resultado['monto_cup']),
+                'monto_usd': float(resultado['monto_usd']),
+                'total_cup': float(resultado['total_cup']),
+                'aplicado_cup': float(resultado['aplicado_cup']),
+                'excedente_cup': float(resultado['excedente_cup']),
+                'vuelto_cup': float(resultado['vuelto_cup']),
+                'propina_cup': float(resultado['propina_cup']),
+                'tasa': (
+                    float(resultado['tasa'])
+                    if resultado['tasa'] is not None
+                    else None
+                ),
+                'saldo_pedidos': float(resultado['saldo_pedidos']),
+                'costo_mensajeria': float(resultado['costo_mensajeria']),
+                'total_a_cobrar': float(resultado['total_a_cobrar']),
+            },
+            'movimientos': AnticipoV1Serializer(
+                resultado['movimientos'],
+                many=True,
+            ).data,
+        },
+    })
+
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def entrega_crear(request):
+    serializer = CrearEntregaSerializer(data=request.data)
+
+    if not serializer.is_valid():
+        return Response(
+            {'ok': False, 'error': _primer_error_serializer(serializer.errors)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    datos = serializer.validated_data
+    pedidos = list(
+        Pedido.objects.filter(id__in=datos['pedido_ids'])
+        .select_related('cliente', 'estado')
+    )
+
+    if len(pedidos) != len(datos['pedido_ids']):
+        return Response(
+            {'ok': False, 'error': 'Algunos pedidos no existen.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if Pedido.objects.filter(
+        id__in=datos['pedido_ids'],
+        entregas__isnull=False,
+    ).exists():
+        return Response(
+            {
+                'ok': False,
+                'error': 'Algunos pedidos ya pertenecen a otra entrega.',
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if any(
+        pedido.estado is None
+        or pedido.estado.nombre != 'Listo para Entregar'
+        for pedido in pedidos
+    ):
+        return Response(
+            {
+                'ok': False,
+                'error': 'Solo se pueden entregar pedidos en estado '
+                '"Listo para Entregar".',
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    clientes = {pedido.cliente_id for pedido in pedidos if pedido.cliente_id}
+    if len(clientes) > 1:
+        return Response(
+            {
+                'ok': False,
+                'error': 'Todos los pedidos deben ser del mismo cliente.',
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not clientes:
+        return Response(
+            {
+                'ok': False,
+                'error': 'Los pedidos deben tener un cliente asignado.',
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    with transaction.atomic():
+        entrega = Entrega.objects.create(
+            cliente=pedidos[0].cliente,
+            direccion=datos.get('direccion') or '',
+            costo_mensajeria=datos.get('costo_mensajeria') or Decimal('0'),
+            fecha_entrega=datos.get('fecha_entrega'),
+            notas=datos.get('notas') or '',
+        )
+        entrega.pedidos.set(pedidos)
+
+    entrega = (
+        Entrega.objects.select_related('cliente').prefetch_related(
+            'pedidos__libro',
+            'pedidos__estado',
+            'pedidos__cliente',
+            'pedidos__servicios_externos__proveedor',
+            'pedidos__servicios_externos__lote',
+        ).get(pk=entrega.pk)
+    )
+
+    return Response(
+        {
+            'ok': True,
+            'data': EntregaDetailV1Serializer(entrega).data,
+        },
+        status=status.HTTP_201_CREATED,
+    )
 
 
 class PedidoPagination(PageNumberPagination):

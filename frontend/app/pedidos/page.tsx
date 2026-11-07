@@ -1,5 +1,6 @@
 import { AlertTriangle, ClipboardList, SearchX } from "lucide-react";
 import Link from "next/link";
+import CrearEntregaModal from "@/components/entregas/CrearEntregaModal";
 import NuevoPedidoModal from "@/components/pedidos/NuevoPedidoModal";
 import PedidosFilters from "@/components/pedidos/PedidosFilters";
 import PedidosPagination from "@/components/pedidos/PedidosPagination";
@@ -155,6 +156,7 @@ function PageHeader({
             {enTaller ? "en taller" : `resultado${count === 1 ? "" : "s"}`}
           </div>
         ) : null}
+        <CrearEntregaModal />
         <NuevoPedidoModal />
       </div>
     </div>

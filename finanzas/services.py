@@ -337,6 +337,270 @@ class ServicioFinanzas:
         }
 
     @staticmethod
+    def registrar_pago_entrega(
+        entrega,
+        monto_cup=0,
+        monto_usd=0,
+        tasa_aplicada=None,
+        metodo='EFECTIVO',
+    ):
+        """Cobra el saldo completo de una entrega y registra los movimientos."""
+        from pedidos.models import Entrega
+
+        with transaction.atomic():
+            entrega_bloqueada = (
+                Entrega.objects.select_for_update()
+                .select_related('cliente')
+                .get(pk=entrega.pk)
+            )
+            pedidos = list(
+                entrega_bloqueada.pedidos.select_for_update()
+                .select_related('libro', 'cliente', 'estado')
+                .order_by('id')
+            )
+            if not pedidos:
+                raise ValueError('La entrega no tiene pedidos asociados.')
+
+            saldo_pedidos = sum(
+                (
+                    Decimal(str(pedido.saldo_pendiente or 0))
+                    for pedido in pedidos
+                ),
+                Decimal('0'),
+            ).quantize(Decimal('0.01'))
+            costo_mensajeria = Decimal(
+                str(entrega_bloqueada.costo_mensajeria or 0)
+            ).quantize(Decimal('0.01'))
+            total_a_cobrar = (
+                saldo_pedidos + costo_mensajeria
+            ).quantize(Decimal('0.01'))
+
+            if total_a_cobrar <= 0:
+                return {
+                    'movimientos': [],
+                    'movimiento': None,
+                    'monto_cup': Decimal('0'),
+                    'monto_usd': Decimal('0'),
+                    'total_cup': Decimal('0'),
+                    'aplicado_cup': Decimal('0'),
+                    'excedente_cup': Decimal('0'),
+                    'vuelto_cup': Decimal('0'),
+                    'propina_cup': Decimal('0'),
+                    'tasa': None,
+                    'saldo_pedidos': saldo_pedidos,
+                    'costo_mensajeria': costo_mensajeria,
+                    'total_a_cobrar': total_a_cobrar,
+                }
+
+            monto_cup, monto_usd, total_cup, tasa = (
+                ServicioFinanzas.normalizar_pago_mixto(
+                    monto_cup=monto_cup,
+                    monto_usd=monto_usd,
+                    tasa_aplicada=tasa_aplicada,
+                )
+            )
+
+            if total_cup + Decimal('0.005') < total_a_cobrar:
+                faltante = (total_a_cobrar - total_cup).quantize(
+                    Decimal('0.01')
+                )
+                raise ValueError(
+                    f'Faltan {faltante} CUP para saldar la entrega.'
+                )
+
+            aplicado_cup = min(total_cup, total_a_cobrar).quantize(
+                Decimal('0.01')
+            )
+            excedente_cup = (total_cup - aplicado_cup).quantize(
+                Decimal('0.01')
+            )
+            pago_solo_cup = monto_cup > 0 and monto_usd == 0
+            propina_cup = (
+                excedente_cup if pago_solo_cup else Decimal('0')
+            ).quantize(Decimal('0.01'))
+            vuelto_cup = (
+                Decimal('0') if pago_solo_cup else excedente_cup
+            ).quantize(Decimal('0.01'))
+            saldo_aplicado = min(aplicado_cup, saldo_pedidos).quantize(
+                Decimal('0.01')
+            )
+            mensajeria_aplicada = (
+                aplicado_cup - saldo_aplicado
+            ).quantize(Decimal('0.01'))
+
+            cliente = entrega_bloqueada.cliente
+            cliente_nombre = cliente.nombre if cliente else 'Sin cliente'
+            concepto_base = (
+                f'Entrega #{entrega_bloqueada.id} - {cliente_nombre}'
+            )
+            tasa_concepto = (
+                f' @ {tasa.normalize():f} CUP/USD' if tasa else ''
+            )
+            movimientos = []
+
+            def registrar_movimiento(
+                tipo,
+                categoria,
+                monto,
+                moneda,
+                concepto,
+            ):
+                monto = Decimal(str(monto)).quantize(Decimal('0.01'))
+                if monto <= 0:
+                    return
+                movimientos.append(
+                    MovimientoCaja.objects.create(
+                        tipo=tipo,
+                        categoria=categoria,
+                        monto=monto,
+                        metodo=metodo,
+                        moneda=moneda,
+                        concepto=concepto[:200],
+                        cliente=cliente,
+                    )
+                )
+
+            cup_saldo = min(monto_cup, saldo_aplicado).quantize(
+                Decimal('0.01')
+            )
+            cup_restante = (monto_cup - cup_saldo).quantize(
+                Decimal('0.01')
+            )
+            cup_mensajeria = min(
+                cup_restante,
+                mensajeria_aplicada,
+            ).quantize(Decimal('0.01'))
+            cup_extra = (cup_restante - cup_mensajeria).quantize(
+                Decimal('0.01')
+            )
+
+            usd_en_cup = (
+                (monto_usd * tasa).quantize(Decimal('0.01'))
+                if monto_usd > 0 and tasa
+                else Decimal('0')
+            )
+            usd_saldo_cup = min(
+                usd_en_cup,
+                saldo_aplicado - cup_saldo,
+            ).quantize(Decimal('0.01'))
+            usd_restante_cup = (usd_en_cup - usd_saldo_cup).quantize(
+                Decimal('0.01')
+            )
+            usd_mensajeria_cup = min(
+                usd_restante_cup,
+                mensajeria_aplicada - cup_mensajeria,
+            ).quantize(Decimal('0.01'))
+            usd_extra_cup = (
+                usd_restante_cup - usd_mensajeria_cup
+            ).quantize(Decimal('0.01'))
+
+            def cup_a_usd(valor):
+                if not tasa or tasa <= 0:
+                    return Decimal('0')
+                return (valor / tasa).quantize(
+                    Decimal('0.01'),
+                    rounding=ROUND_HALF_UP,
+                )
+
+            usd_saldo = min(
+                cup_a_usd(usd_saldo_cup),
+                monto_usd,
+            ).quantize(Decimal('0.01'))
+            usd_mensajeria = min(
+                cup_a_usd(usd_mensajeria_cup),
+                monto_usd - usd_saldo,
+            ).quantize(Decimal('0.01'))
+            usd_extra = (
+                monto_usd - usd_saldo - usd_mensajeria
+            ).quantize(Decimal('0.01'))
+
+            registrar_movimiento(
+                'INGRESO',
+                'SALDO_CLIENTE',
+                cup_saldo,
+                'CUP',
+                f'{concepto_base} - saldo (CUP)',
+            )
+            registrar_movimiento(
+                'INGRESO',
+                'MENSAJERIA',
+                cup_mensajeria,
+                'CUP',
+                f'{concepto_base} - mensajería (CUP)',
+            )
+            if propina_cup > 0:
+                registrar_movimiento(
+                    'INGRESO',
+                    'PROPINA',
+                    propina_cup,
+                    'CUP',
+                    f'{concepto_base} - propina (CUP)',
+                )
+            else:
+                registrar_movimiento(
+                    'INGRESO',
+                    'SALDO_CLIENTE',
+                    cup_extra,
+                    'CUP',
+                    f'{concepto_base} - pago (CUP)',
+                )
+            registrar_movimiento(
+                'INGRESO',
+                'SALDO_CLIENTE',
+                usd_saldo,
+                'USD',
+                f'{concepto_base} - saldo (USD{tasa_concepto})',
+            )
+            registrar_movimiento(
+                'INGRESO',
+                'MENSAJERIA',
+                usd_mensajeria,
+                'USD',
+                f'{concepto_base} - mensajería (USD{tasa_concepto})',
+            )
+            registrar_movimiento(
+                'INGRESO',
+                'SALDO_CLIENTE',
+                usd_extra,
+                'USD',
+                f'{concepto_base} - pago (USD{tasa_concepto})',
+            )
+            registrar_movimiento(
+                'EGRESO',
+                'VUELTO_CLIENTE',
+                vuelto_cup,
+                'CUP',
+                f'{concepto_base} - vuelto',
+            )
+
+            for pedido in pedidos:
+                if Decimal(str(pedido.saldo_pendiente or 0)) != 0:
+                    pedido.anticipo_recibido = pedido.precio_venta
+                    pedido.saldo_pendiente = Decimal('0')
+                    pedido.save(
+                        update_fields=[
+                            'anticipo_recibido',
+                            'saldo_pendiente',
+                        ]
+                    )
+
+        return {
+            'movimientos': movimientos,
+            'movimiento': movimientos[0] if movimientos else None,
+            'monto_cup': monto_cup,
+            'monto_usd': monto_usd,
+            'total_cup': total_cup,
+            'aplicado_cup': aplicado_cup,
+            'excedente_cup': excedente_cup,
+            'vuelto_cup': vuelto_cup,
+            'propina_cup': propina_cup,
+            'tasa': tasa,
+            'saldo_pedidos': saldo_pedidos,
+            'costo_mensajeria': costo_mensajeria,
+            'total_a_cobrar': total_a_cobrar,
+        }
+
+    @staticmethod
     def registrar_anticipo(
         pedido,
         monto,

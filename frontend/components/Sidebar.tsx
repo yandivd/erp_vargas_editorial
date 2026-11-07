@@ -5,12 +5,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  Archive,
   ArrowRightLeft,
   BarChart3,
   Book,
   BookOpen,
-  FileText,
   HardDrive,
   LayoutGrid,
   LogOut,
@@ -59,10 +57,8 @@ const sections: NavSection[] = [
       { href: "/", label: "Dashboard", icon: LayoutGrid },
       { href: "/pedidos?en_taller=true", label: "Pedidos (Taller)", icon: BookOpen },
       { href: "/tienda", label: "Tienda", icon: Store },
-      { href: "/pedidos/entregas", label: "Entregas", icon: Truck },
-      { href: "/pedidos/entregados", label: "Historial Entregados", icon: Archive },
+      { href: "/entregas", label: "Entregas", icon: Truck },
       { href: "/pedidos/catalogo", label: "Catálogo", icon: Book },
-      { href: "/pedidos/catalogo/pdf", label: "Catálogo PDF", icon: FileText },
       { href: "/clientes", label: "Clientes", icon: Users },
     ],
   },

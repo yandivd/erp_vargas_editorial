@@ -6,7 +6,7 @@ from rest_framework import serializers
 from clientes.models import Cliente
 from finanzas.models import MovimientoCaja
 from finanzas.services import ServicioFinanzas
-from pedidos.models import Book, CodigoDescuento, Estado, Pedido, ServicioExterno
+from pedidos.models import Book, CodigoDescuento, Entrega, Estado, Pedido, ServicioExterno
 from pedidos.services import CosteadorPedido
 
 
@@ -502,3 +502,127 @@ class TiendaPedidoSerializer(serializers.ModelSerializer):
             'estado_nombre', 
             'referencia_externa'
         ]
+
+
+class CrearEntregaSerializer(serializers.Serializer):
+    pedido_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        allow_empty=False,
+    )
+    direccion = serializers.CharField(required=False, allow_blank=True, default='')
+    costo_mensajeria = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        default=Decimal('0'),
+        required=False,
+    )
+    fecha_entrega = serializers.DateField(required=False, allow_null=True)
+    notas = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate_pedido_ids(self, value):
+        return list(dict.fromkeys(value))
+
+
+class ConfirmarEntregaSerializer(serializers.Serializer):
+    monto_cup = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        default=Decimal('0'),
+        required=False,
+    )
+    monto_usd = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        default=Decimal('0'),
+        required=False,
+    )
+    tasa_aplicada = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        min_value=Decimal('0.0001'),
+        required=False,
+        allow_null=True,
+    )
+    metodo = serializers.ChoiceField(
+        choices=MovimientoCaja.METODO_CHOICES,
+        default='EFECTIVO',
+        required=False,
+    )
+    notas = serializers.CharField(required=False, allow_blank=True, default='')
+
+
+class EntregaPedidoV1Serializer(serializers.ModelSerializer):
+    libro_titulo = serializers.CharField(source='libro.titulo', read_only=True)
+    libro_autor = serializers.CharField(source='libro.autor', read_only=True)
+    estado_nombre = serializers.CharField(source='estado.nombre', read_only=True)
+    servicios_externos = ServicioExternoV1Serializer(many=True, read_only=True)
+
+    class Meta:
+        model = Pedido
+        fields = (
+            'id',
+            'referencia_externa',
+            'libro_titulo',
+            'libro_autor',
+            'cantidad',
+            'precio_venta',
+            'anticipo_recibido',
+            'saldo_pendiente',
+            'estado_nombre',
+            'servicios_externos',
+        )
+
+
+class EntregaListV1Serializer(serializers.ModelSerializer):
+    cliente_nombre = serializers.CharField(source='cliente.nombre', read_only=True)
+    cantidad_pedidos = serializers.IntegerField(read_only=True)
+    total_pedidos = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+    total_anticipos = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+    saldo_pedidos = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+    total_a_cobrar = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+    estado = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Entrega
+        fields = (
+            'id',
+            'cliente_id',
+            'cliente_nombre',
+            'direccion',
+            'fecha_creacion',
+            'fecha_entrega',
+            'fecha_entrega_real',
+            'entregado',
+            'estado',
+            'cantidad_pedidos',
+            'total_pedidos',
+            'total_anticipos',
+            'saldo_pedidos',
+            'costo_mensajeria',
+            'total_a_cobrar',
+        )
+
+    def get_estado(self, obj):
+        return 'Entregada' if obj.entregado else 'Pendiente'
+
+
+class EntregaDetailV1Serializer(EntregaListV1Serializer):
+    pedidos = EntregaPedidoV1Serializer(many=True, read_only=True)
+    notas = serializers.CharField(read_only=True)
+
+    class Meta(EntregaListV1Serializer.Meta):
+        fields = EntregaListV1Serializer.Meta.fields + (
+            'notas',
+            'pedidos',
+        )
