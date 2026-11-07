@@ -30,6 +30,7 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
   className?: string;
+  isExternal?: boolean;
 };
 
 type NavSection = {
@@ -58,7 +59,7 @@ const sections: NavSection[] = [
       { href: "/pedidos?en_taller=true", label: "Pedidos (Taller)", icon: BookOpen },
       { href: "/tienda", label: "Tienda", icon: Store },
       { href: "/entregas", label: "Entregas", icon: Truck },
-      { href: "/pedidos/catalogo", label: "Catálogo", icon: Book },
+      { href: "/catalogo", label: "Catálogo", icon: Book, isExternal: true },
       { href: "/clientes", label: "Clientes", icon: Users },
     ],
   },
@@ -115,7 +116,7 @@ function NavLinks({
           {section.items.map((item) => {
             const Icon = item.icon;
             const active = isActive(pathname, item.href);
-            const external = /^https?:\/\//.test(item.href);
+            const external = item.isExternal || /^https?:\/\//.test(item.href);
             const classes = [
               "flex items-center border-l-[3px] px-6 py-3 text-[0.95rem] font-medium no-underline transition-all duration-200 hover:-translate-y-1 hover:shadow-md",
               active
@@ -129,7 +130,7 @@ function NavLinks({
                   key={item.href}
                   href={item.href}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className={classes}
                   onClick={onNavigate}
                 >

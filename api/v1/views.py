@@ -112,16 +112,40 @@ def dashboard(request, tab='resumen'):
     return Response({'ok': True, 'data': data})
 
 
+class CatalogoPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'per_page'
+    max_page_size = 100
+
+    def get_paginated_response(self, data):
+        return Response({
+            'ok': True,
+            'data': data,
+            'pagination': {
+                'count': self.page.paginator.count,
+                'page': self.page.number,
+                'num_pages': self.page.paginator.num_pages,
+                'per_page': self.page.paginator.per_page,
+                'start_index': self.page.start_index(),
+                'end_index': self.page.end_index(),
+                'has_next': self.page.has_next(),
+                'has_previous': self.page.has_previous(),
+            },
+        })
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def catalogo(request):
-    libros = Book.objects.all().order_by('titulo')
+    libros = Book.objects.all().order_by('titulo', 'id')
     busqueda = request.query_params.get('q', '').strip()
     if busqueda:
         libros = libros.filter(
             Q(titulo__icontains=busqueda) | Q(autor__icontains=busqueda)
         )
 
+    paginador = CatalogoPagination()
+    pagina = paginador.paginate_queryset(libros, request, view=catalogo)
     data = [
         {
             'id': libro.id,
@@ -131,10 +155,10 @@ def catalogo(request):
             'paginas': libro.paginas,
             'precio': str(libro.precio),
         }
-        for libro in libros
+        for libro in pagina
     ]
 
-    return Response({'ok': True, 'data': data})
+    return paginador.get_paginated_response(data)
 
 
 @api_view(['GET'])
