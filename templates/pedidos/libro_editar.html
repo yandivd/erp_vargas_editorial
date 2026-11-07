@@ -17,7 +17,7 @@
                 {% endfor %}
             {% endif %}
 
-            <form method="post" id="formEditarLibro">
+            <form method="post" id="formEditarLibro" data-confirm="¿Guardar los cambios de este libro?">
                 {% csrf_token %}
                 <div class="mb-3">
                     <label class="form-label">Título *</label>

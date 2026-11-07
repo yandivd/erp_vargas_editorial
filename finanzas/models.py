@@ -13,6 +13,7 @@ class MovimientoCaja(models.Model):
         ('ANTICIPO_CLIENTE', 'Anticipo de cliente'),
         ('SALDO_CLIENTE', 'Saldo de cliente'),
         ('SALDO_INICIAL', 'Saldo de apertura'),
+        ('VUELTO_CLIENTE', 'Vuelto a cliente'),
         ('INGRESO_MANUAL', 'Ingreso manual'),
         ('PROPINA', 'Propina'),
         ('MENSAJERIA', 'Mensajería / Envío'),

@@ -8,9 +8,16 @@ from django.http import JsonResponse
 import json
 
 from pedidos.models import Pedido, CodigoDescuento
+from pedidos.services import obtener_ganancia_promedio
 from clientes.models import Cliente
 from inventario.models import Material, MovimientoInventario
 from finanzas.models import MovimientoCaja
+from .services import (
+    CATEGORIA_VUELTO_CLIENTE,
+    Q_NO_EGRESO_OPERATIVO,
+    Q_NO_INGRESO_OPERATIVO,
+    exportar_rentabilidad_para_ia,
+)
 
 
 def dashboard(request):
@@ -63,7 +70,7 @@ def dashboard(request):
         clientes_unicos = pedidos_qs.values('cliente').distinct().count()
 
         ventas = pedidos_todos.aggregate(t=Sum('precio_venta'))['t'] or 0
-        ganancia_promedio = (saldo_neto / total_pedidos) if total_pedidos > 0 else 0
+        ganancia_promedio = obtener_ganancia_promedio()
 
         # ==========================================
         # 2. DESGLOSE POR TIPO DE INGRESO
@@ -359,7 +366,8 @@ def dashboard(request):
         context = {
             'desde': desde_str, 'hasta': hasta_str,
             'ingresos': ingresos, 'gastos': gastos, 'saldo_neto': saldo_neto, 'margen': margen,
-            'total_pedidos': total_pedidos, 'clientes_unicos': clientes_unicos, 'ventas': ventas, 'ganancia_promedio': ganancia_promedio,
+            'total_pedidos': total_pedidos, 'clientes_unicos': clientes_unicos, 'ventas': ventas,
+            'ganancia_promedio': ganancia_promedio, 'ganancia_promedio_entregados': ganancia_promedio,
             'desglose_ingresos': desglose_ingresos_data, 'costo_unitario': costo_unitario_data, 'categorias_ingreso': desglose_ingresos_data,
             'analisis_categorias': analisis_data, 'tendencia': tendencia_data, 'proyeccion': proyeccion, 'semanal': semanal_data,
             'calor': calor_data, 'transacciones': transacciones, 'consejos': consejos,
@@ -411,20 +419,24 @@ def exportar_datos_ia(request):
     # ==========================================
     # 1. FINANZAS (Limpieza de divisas)
     # ==========================================
-    CATEGORIAS_TRANSFERENCIA = ['COMPRA_DIVISA', 'VENTA_DIVISA']
-    CATEGORIAS_EXCLUIDAS = ['COMPRA_DIVISA', 'VENTA_DIVISA', 'SALDO_INICIAL', 'APERTURA']
-
-    ingresos = movimientos.filter(tipo='INGRESO').exclude(
-        categoria__in=CATEGORIAS_EXCLUIDAS
+    ingresos_brutos = movimientos.filter(tipo='INGRESO').exclude(
+        Q_NO_INGRESO_OPERATIVO
     ).aggregate(t=Sum('monto'))['t'] or 0
+
+    vuelto_clientes = movimientos.filter(
+        tipo='EGRESO',
+        categoria=CATEGORIA_VUELTO_CLIENTE,
+    ).aggregate(t=Sum('monto'))['t'] or 0
+
+    ingresos = ingresos_brutos - vuelto_clientes
 
     gastos = movimientos.filter(tipo='EGRESO').exclude(
-        categoria__in=CATEGORIAS_TRANSFERENCIA
+        Q_NO_EGRESO_OPERATIVO
     ).aggregate(t=Sum('monto'))['t'] or 0
     
-    # Desglose de gastos SIN transferencias
+    # Desglose de gastos SIN transferencias ni vueltos (no son gasto operativo)
     gastos_por_categoria = movimientos.filter(tipo='EGRESO').exclude(
-        categoria__in=CATEGORIAS_TRANSFERENCIA
+        Q_NO_EGRESO_OPERATIVO
     ).values('categoria').annotate(total=Sum('monto')).order_by('-total')
     
     gastos_detallados = {
@@ -433,14 +445,20 @@ def exportar_datos_ia(request):
     }
 
     tendencia_mensual = movimientos.annotate(mes=TruncMonth('fecha')).values('mes').annotate(
-        ingresos=Sum('monto', filter=Q(tipo='INGRESO')),
-        gastos=Sum('monto', filter=Q(tipo='EGRESO'))
+        ingresos_brutos=Sum('monto', filter=Q(tipo='INGRESO') & ~Q_NO_INGRESO_OPERATIVO),
+        vuelto_clientes=Sum(
+            'monto',
+            filter=Q(tipo='EGRESO') & Q(categoria=CATEGORIA_VUELTO_CLIENTE),
+        ),
+        gastos=Sum('monto', filter=Q(tipo='EGRESO') & ~Q_NO_EGRESO_OPERATIVO),
     ).order_by('mes')
     
     historial_mensual = [{
         'mes': t['mes'].strftime('%Y-%m'),
-        'ingresos': float(t['ingresos'] or 0),
-        'gastos': float(t['gastos'] or 0)
+        'ingresos_brutos': float(t['ingresos_brutos'] or 0),
+        'vuelto_clientes': float(t['vuelto_clientes'] or 0),
+        'ingresos': float((t['ingresos_brutos'] or 0) - (t['vuelto_clientes'] or 0)),
+        'gastos': float(t['gastos'] or 0),
     } for t in tendencia_mensual if t['mes']]
 
     # ==========================================
@@ -527,6 +545,8 @@ def exportar_datos_ia(request):
             "nota": "Si el rango es 'Historial completo', los datos son acumulados de toda la historia del negocio."
         },
         "finanzas": {
+            "ingresos_brutos_caja": float(ingresos_brutos),
+            "vuelto_clientes": float(vuelto_clientes),
             "ingresos_reales_caja": float(ingresos),
             "gastos_reales_caja": float(gastos),
             "utilidad_caja": float(ingresos - gastos),
@@ -566,4 +586,11 @@ def exportar_datos_ia(request):
     response = JsonResponse(data, json_dumps_params={'indent': 2, 'ensure_ascii': False})
     filename = f'data_ia_{desde_str}_{hasta_str}.json' if desde_str and hasta_str else 'data_ia_completo.json'
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def exportar_rentabilidad_ia(request):
+    data = exportar_rentabilidad_para_ia()
+    response = JsonResponse(data, json_dumps_params={'indent': 2, 'ensure_ascii': False})
+    response['Content-Disposition'] = 'attachment; filename="rentabilidad_para_ia.json"'
     return response

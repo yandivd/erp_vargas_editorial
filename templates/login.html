@@ -51,7 +51,7 @@
             </div>
         {% endif %}
         
-        <form method="post">
+        <form method="post" data-skip-confirm>
             {% csrf_token %}
             <div class="mb-3">
                 <label class="form-label fw-bold small text-muted">Usuario</label>

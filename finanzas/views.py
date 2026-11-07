@@ -1,6 +1,7 @@
 import os
 
 from django.db import transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib import messages
 from django.db.models import Sum, Q
@@ -9,6 +10,14 @@ from datetime import datetime
 from decimal import Decimal
 
 from config import settings
+from core.services import (
+    CATEGORIA_VUELTO_CLIENTE,
+    FECHA_CORTE_FINANCIERO,
+    Q_NO_EGRESO_OPERATIVO,
+    Q_NO_INGRESO_OPERATIVO,
+    movimientos_financieros,
+    parse_fecha,
+)
 from .models import MovimientoCaja, GastoOperativo, CierreCaja, LoteDivisa, DetalleVentaDivisa
 from .services import ServicioFinanzas
 
@@ -30,33 +39,36 @@ def caja(request):
     if categoria:
         movimientos = movimientos.filter(categoria=categoria)
         
-    CATEGORIAS_TRANSFERENCIA = ['COMPRA_DIVISA', 'VENTA_DIVISA']
-
-    total_ingresos = MovimientoCaja.objects.filter(
+    total_ingresos_brutos = MovimientoCaja.objects.filter(
         tipo='INGRESO'
     ).exclude(
-        categoria__in=CATEGORIAS_TRANSFERENCIA
+        Q_NO_INGRESO_OPERATIVO
     ).aggregate(t=Sum('monto'))['t'] or 0
+
+    vuelto_clientes = MovimientoCaja.objects.filter(
+        tipo='EGRESO',
+        categoria=CATEGORIA_VUELTO_CLIENTE,
+    ).aggregate(t=Sum('monto'))['t'] or 0
+
+    total_ingresos = total_ingresos_brutos - vuelto_clientes
 
     total_egresos = MovimientoCaja.objects.filter(
         tipo='EGRESO'
     ).exclude(
-        categoria__in=CATEGORIAS_TRANSFERENCIA
+        Q_NO_EGRESO_OPERATIVO
     ).aggregate(t=Sum('monto'))['t'] or 0
-    
-    saldo_actual = total_ingresos - total_egresos
+
     saldo_cup = ServicioFinanzas.saldo_caja('CUP')
     saldo_usd = ServicioFinanzas.saldo_caja('USD')
     
     materiales = Material.objects.filter(activo=True)
     valor_inventario = sum(m.stock_actual * m.costo_promedio for m in materiales)
     
-    paginator = Paginator(movimientos, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
-    
     context = {
-        'movimientos': page_obj,
+        'movimientos': movimientos,
         'total_ingresos': total_ingresos,
+        'total_ingresos_brutos': total_ingresos_brutos,
+        'vuelto_clientes': vuelto_clientes,
         'total_egresos': total_egresos,
         'saldo_actual': saldo_cup,
         'saldo_usd': saldo_usd,
@@ -67,6 +79,64 @@ def caja(request):
         'valor_inventario': valor_inventario,
     }
     return render(request, 'finanzas/caja.html', context)
+
+
+def lista_movimientos(request, tipo):
+    """Lista los ingresos o gastos operativos del dashboard, con filtros."""
+    tipo = (tipo or '').upper()
+    if tipo not in ('INGRESO', 'EGRESO'):
+        raise Http404('Tipo de movimiento no válido')
+
+    desde_str = request.GET.get('desde', '')
+    hasta_str = request.GET.get('hasta', '')
+    desde = parse_fecha(desde_str)
+    hasta = parse_fecha(hasta_str)
+    if desde and hasta and desde > hasta:
+        desde, hasta = hasta, desde
+        desde_str, hasta_str = hasta_str, desde_str
+
+    movimientos = movimientos_financieros(desde, hasta)
+    if tipo == 'INGRESO':
+        movimientos = movimientos.filter(
+            (Q(tipo='INGRESO') & ~Q_NO_INGRESO_OPERATIVO)
+            | Q(tipo='EGRESO', categoria=CATEGORIA_VUELTO_CLIENTE)
+        )
+    else:
+        movimientos = movimientos.filter(tipo='EGRESO').exclude(
+            Q_NO_EGRESO_OPERATIVO
+        )
+
+    moneda = request.GET.get('moneda', '')
+    if moneda in ('CUP', 'USD'):
+        movimientos = movimientos.filter(moneda=moneda)
+    else:
+        moneda = ''
+
+    movimientos = movimientos.select_related('pedido', 'proveedor', 'cliente').order_by('-fecha')
+    totales = {}
+    for moneda_codigo, _ in MovimientoCaja.MONEDA_CHOICES:
+        agregados = movimientos.filter(moneda=moneda_codigo).aggregate(
+            ingresos=Sum('monto', filter=Q(tipo='INGRESO')),
+            vueltos=Sum('monto', filter=Q(tipo='EGRESO')),
+        )
+        totales[moneda_codigo] = (
+            (agregados['ingresos'] or 0) - (agregados['vueltos'] or 0)
+        )
+    cantidad = movimientos.count()
+
+    context = {
+        'tipo': tipo,
+        'tipo_label': 'Ingresos netos' if tipo == 'INGRESO' else 'Gastos',
+        'movimientos': movimientos,
+        'totales': totales,
+        'cantidad': cantidad,
+        'desde': desde_str,
+        'hasta': hasta_str,
+        'moneda_actual': moneda,
+        'fecha_corte': FECHA_CORTE_FINANCIERO,
+        'monedas': MovimientoCaja.MONEDA_CHOICES,
+    }
+    return render(request, 'finanzas/movimientos_tipo.html', context)
 
 
 def registrar_gasto(request):
@@ -213,10 +283,17 @@ def reporte_mensual(request):
     # ==========================================
     movimientos = MovimientoCaja.objects.filter(fecha__date__gte=desde, fecha__date__lte=hasta)
     
-    ingresos_totales = movimientos.filter(tipo='INGRESO').exclude(
-        categoria__in=['SALDO_INICIAL', 'APERTURA', 'COMPRA_DIVISA', 'VENTA_DIVISA']
+    ingresos_brutos = movimientos.filter(tipo='INGRESO').exclude(
+        Q_NO_INGRESO_OPERATIVO
     ).aggregate(t=Sum('monto'))['t'] or 0
-    egresos_totales = movimientos.filter(tipo='EGRESO').aggregate(t=Sum('monto'))['t'] or 0
+    vuelto_clientes = movimientos.filter(
+        tipo='EGRESO',
+        categoria=CATEGORIA_VUELTO_CLIENTE,
+    ).aggregate(t=Sum('monto'))['t'] or 0
+    ingresos_totales = ingresos_brutos - vuelto_clientes
+    egresos_totales = movimientos.filter(tipo='EGRESO').exclude(
+        Q_NO_EGRESO_OPERATIVO
+    ).aggregate(t=Sum('monto'))['t'] or 0
     saldo_periodo = ingresos_totales - egresos_totales
 
     # ==========================================
@@ -294,6 +371,8 @@ def reporte_mensual(request):
         'desde': desde_str,
         'hasta': hasta_str,
         'ingresos_totales': ingresos_totales,
+        'ingresos_brutos': ingresos_brutos,
+        'vuelto_clientes': vuelto_clientes,
         'egresos_totales': egresos_totales,
         'saldo_periodo': saldo_periodo,
         'total_ventas': total_ventas,
@@ -475,7 +554,7 @@ def arqueo_caja_pdf(request, pk):
             total_efectivo += subtotal
 
     # Ruta absoluta del logo para WeasyPrint
-    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo1.jpg')
 
     html_string = render_to_string('finanzas/arqueo_caja_pdf.html', {
         'cierre': cierre,

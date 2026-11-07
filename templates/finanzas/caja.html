@@ -38,14 +38,16 @@
     <!-- 3 KPIs -->
     <div class="col-12 col-md-4">
         <div class="card card-kpi p-3 border-start border-success border-4 h-100">
-            <small class="text-muted">Ingresos Totales</small>
+            <small class="text-muted">Ingresos Netos</small>
             <h3 class="mb-0 text-success">${{ total_ingresos|floatformat:2 }}</h3>
+            <small class="text-muted">Bruto: ${{ total_ingresos_brutos|floatformat:2 }} · Vuelto: ${{ vuelto_clientes|floatformat:2 }}</small>
         </div>
     </div>
     <div class="col-12 col-md-4">
         <div class="card card-kpi p-3 border-start border-danger border-4 h-100">
-            <small class="text-muted">Egresos Totales</small>
+            <small class="text-muted">Egresos Operativos</small>
             <h3 class="mb-0 text-danger">${{ total_egresos|floatformat:2 }}</h3>
+            <small class="text-muted">No incluye vueltos a clientes</small>
         </div>
     </div>
     <div class="col-12 col-md-4">
@@ -93,7 +95,7 @@
 <!-- Modal Gasto -->
 <div class="modal fade" id="modalGasto" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <form method="post" action="{% url 'finanzas:registrar_gasto' %}">
+        <form method="post" action="{% url 'finanzas:registrar_gasto' %}" data-confirm="¿Registrar este gasto y descontarlo de la caja?">
             {% csrf_token %}
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-danger text-white">
@@ -123,7 +125,7 @@
 <!-- Modal Ingreso -->
 <div class="modal fade" id="modalIngreso" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-        <form method="post" action="{% url 'finanzas:registrar_ingreso' %}">
+        <form method="post" action="{% url 'finanzas:registrar_ingreso' %}" data-confirm="¿Registrar este ingreso en la caja?">
             {% csrf_token %}
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-success text-white">
@@ -161,96 +163,4 @@
         </form>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const contenedor = document.getElementById('contenedor-caja');
-    const formFiltros = document.getElementById('formFiltrosCaja');
-    if (!contenedor) return;
-
-    function renderFila(m) {
-        const badge = m.tipo === 'INGRESO'
-            ? '<span class="badge bg-success">Ingreso</span>'
-            : '<span class="badge bg-danger">Egreso</span>';
-            
-        const cat = m.categoria || '';
-        
-        const categoria = (cat === 'COMPRA_DIVISA' || cat === 'VENTA_DIVISA')
-            ? '<span class="badge bg-secondary">Transferencia</span>'
-            : (cat.startsWith('GANANCIA')
-                ? '<span class="badge bg-success">Ganancia cambiaria</span>'
-                : (cat.startsWith('PERDIDA')
-                    ? '<span class="badge bg-danger">Pérdida cambiaria</span>'
-                    : badge));
-                    
-        const signo = (cat === 'COMPRA_DIVISA' || cat === 'VENTA_DIVISA')
-            ? '↔'
-            : (m.tipo === 'INGRESO' ? '+' : '-');
-            
-        const monto = `${signo} ${ERP.format.money(m.monto, m.moneda)}${m.moneda === 'USD' ? ' <small class="text-muted">USD</small>' : ''}`;
-        
-        return `<tr>
-            <td>${ERP.format.escapeHtml(m.fecha)}</td>
-            <td>${categoria}</td>
-            <td>${ERP.format.escapeHtml(m.concepto)}</td>
-            <td><small>${ERP.format.escapeHtml(m.categoria_label)}</small></td>
-            <td class="${m.tipo === 'INGRESO' ? 'text-success' : 'text-danger'} fw-bold">${monto}</td>
-        </tr>`;
-    }
-
-    function renderTabla(movimientos, pagination) {
-        const filas = movimientos.map(renderFila).join('');
-        const paginacion = pagination.num_pages > 1 ? `<div id="paginacion-caja"></div>` : '';
-        
-        contenedor.innerHTML = `<div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Categoría</th><th>Monto</th></tr></thead><tbody>${filas || '<tr><td colspan="5" class="text-center text-muted py-4">No hay movimientos registrados</td></tr>'}</tbody></table></div>${paginacion}`;
-        
-        const paginacionEl = document.getElementById('paginacion-caja');
-        if (paginacionEl && window.ERP.pagination) {
-            ERP.pagination.render(paginacionEl, pagination, (page, perPage) => cargarPagina(page, perPage));
-        }
-    }
-
-    async function cargarPagina(page = null, perPage = null) {
-        const params = {};
-        if (formFiltros) {
-            new FormData(formFiltros).forEach((value, key) => {
-                if (value) params[key] = value;
-            });
-        }
-        if (page) params.page = page;
-        if (perPage) params.per_page = perPage;
-        
-        contenedor.style.opacity = '0.5';
-        
-        try {
-            // Usamos TU propio ERP.api.get en lugar de fetch manual
-            const response = await ERP.api.get("{% url 'finanzas_api:caja' %}", params);
-            
-            // El api.js ya nos devuelve el JSON parseado y validado
-            if (response.ok && response.data && response.data.movimientos) {
-                renderTabla(response.data.movimientos, response.pagination);
-            } else {
-                console.warn("Estructura de respuesta inesperada:", response);
-                contenedor.innerHTML = '<div class="p-4 text-center text-muted">Error al cargar los datos: estructura inválida.</div>';
-            }
-        } catch (err) {
-            console.error(err);
-            contenedor.innerHTML = `<div class="p-4 text-center text-danger">Error: ${err.message}</div>`;
-        } finally {
-            contenedor.style.opacity = '1';
-        }
-    }
-
-    if (formFiltros) {
-        formFiltros.addEventListener('submit', function (e) {
-            e.preventDefault();
-            cargarPagina(1);
-        });
-    }
-
-    cargarPagina(1);
-});
-</script>
 {% endblock %}

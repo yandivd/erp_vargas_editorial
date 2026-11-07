@@ -1,11 +1,19 @@
-from decimal import Decimal
+import logging
+from decimal import Decimal, InvalidOperation, ROUND_FLOOR
+from clientes.models import Cliente
 from django.utils import timezone
+from django.db import transaction
 from core.models import Parametro
 from inventario.models import Material
-from .models import Book, HistorialEstado, LoteServicio, ServicioExterno, Estado
+from .models import Book, Entrega, HistorialEstado, LoteServicio, Pedido, ServicioExterno, Estado
 from proveedores.models import Proveedor
-from datetime import timedelta
+from datetime import date, timedelta
 from django.utils import timezone
+
+
+FECHA_CORTE_GANANCIA_PROMEDIO = date(2026, 8, 2)
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -118,6 +126,34 @@ class CosteadorPedido:
         return Decimal(str(precio_final))
 
 
+def obtener_ganancia_promedio():
+    """
+    Promedio de ganancia (precio_venta - costo_total) de los pedidos entregados
+    desde el 02/08/2026. Usa la fecha real de entrega o, si falta, la creación.
+    """
+    from django.db.models.functions import Coalesce
+
+    pedidos = (
+        Pedido.objects.filter(estado__nombre='Entregado')
+        .annotate(fecha_referencia=Coalesce('fecha_entrega_real', 'fecha_pedido'))
+        .filter(fecha_referencia__date__gte=FECHA_CORTE_GANANCIA_PROMEDIO)
+        .select_related('libro')
+    )
+
+    ganancia_total = Decimal('0')
+    cantidad_pedidos = 0
+
+    for pedido in pedidos:
+        costo = CosteadorPedido(pedido).calcular()
+        ganancia_total += Decimal(str(pedido.precio_venta)) - Decimal(str(costo['costo_total']))
+        cantidad_pedidos += 1
+
+    if cantidad_pedidos == 0:
+        return Decimal('0')
+
+    return (ganancia_total / cantidad_pedidos).quantize(Decimal('0.01'))
+
+
 # ============================================================
 # SERVICIO DE PEDIDOS
 # ============================================================
@@ -126,6 +162,115 @@ class ServicioPedido:
     @staticmethod
     def _estado(nombre):
         return Estado.objects.get(nombre=nombre)
+
+    @staticmethod
+    def vender_stock(
+        pedido,
+        monto_cup=0,
+        monto_usd=0,
+        tasa_aplicada=None,
+        metodo='EFECTIVO',
+        usuario='',
+        notas='',
+        cliente_id=None,
+    ):
+        from finanzas.services import ServicioFinanzas
+
+        with transaction.atomic():
+            pedido_bloqueado = (
+                Pedido.objects.select_for_update()
+                .select_related('libro', 'cliente', 'estado')
+                .get(pk=pedido.pk)
+            )
+
+            if pedido_bloqueado.estado is None or pedido_bloqueado.estado.nombre != 'En Stock':
+                raise ValueError('El pedido no está disponible para venta en tienda.')
+
+            if pedido_bloqueado.cliente_id is not None:
+                raise ValueError('El pedido de tienda ya tiene cliente asignado.')
+
+            if cliente_id:
+                cliente = Cliente.objects.get(pk=cliente_id)
+            else:
+                cliente = Cliente.objects.filter(nombre='Cliente en Tienda').first()
+                if cliente is None:
+                    cliente = Cliente.objects.create(nombre='Cliente en Tienda')
+
+            pedido_bloqueado.cliente = cliente
+
+            resultado = ServicioFinanzas.registrar_pago_mixto(
+                pedido=pedido_bloqueado,
+                monto_cup=monto_cup,
+                monto_usd=monto_usd,
+                tasa_aplicada=tasa_aplicada,
+                metodo=metodo,
+                categoria='VENTA_DIRECTA',
+                concepto=f'Venta en tienda - pedido #{pedido_bloqueado.id} - {pedido_bloqueado.libro.titulo}',
+                permitir_vuelto=True,
+            )
+
+            pedido = ServicioPedido.cambiar_estado(
+                pedido_bloqueado,
+                'Entregado',
+                usuario=usuario,
+                notas=notas or 'Venta en tienda',
+            )
+
+        return resultado
+
+    @staticmethod
+    def confirmar_entrega(
+        entrega,
+        monto_cup=0,
+        monto_usd=0,
+        tasa_aplicada=None,
+        metodo='EFECTIVO',
+        usuario='',
+        notas='',
+    ):
+        from finanzas.services import ServicioFinanzas
+
+        with transaction.atomic():
+            entrega_bloqueada = (
+                Entrega.objects.select_for_update()
+                .select_related('cliente')
+                .get(pk=entrega.pk)
+            )
+
+            if entrega_bloqueada.entregado:
+                raise ValueError('Esta entrega ya fue confirmada.')
+
+            resultado = ServicioFinanzas.registrar_pago_entrega(
+                entrega_bloqueada,
+                monto_cup=monto_cup,
+                monto_usd=monto_usd,
+                tasa_aplicada=tasa_aplicada,
+                metodo=metodo,
+            )
+
+            entrega_bloqueada.entregado = True
+            entrega_bloqueada.fecha_entrega_real = timezone.now()
+            entrega_bloqueada.save(
+                update_fields=['entregado', 'fecha_entrega_real']
+            )
+
+            pedidos = list(
+                Pedido.objects.select_for_update()
+                .select_related('libro', 'cliente', 'estado')
+                .filter(entregas=entrega_bloqueada)
+                .order_by('id')
+            )
+
+            for pedido in pedidos:
+                if pedido.estado is None or pedido.estado.nombre != 'Entregado':
+                    ServicioPedido.cambiar_estado(
+                        pedido,
+                        'Entregado',
+                        usuario=usuario,
+                        notas=notas or f'Entrega #{entrega_bloqueada.id} confirmada',
+                    )
+
+        return resultado
 
     @staticmethod
     def cambiar_estado(pedido, nombre_nuevo_estado, usuario='', notas=''):
@@ -159,7 +304,13 @@ class ServicioPedido:
             ServicioPedido.consumir_materiales(pedido, momento='ENTREGA')
 
         elif nuevo_estado.nombre == 'Entregado':
-            ServicioPedido.cobrar_saldo(pedido)
+            entrega = pedido.entregas.select_related('cliente').order_by('id').first()
+
+            with transaction.atomic():
+                if entrega and not entrega.entregado:
+                    entrega.pedidos.remove(pedido)
+
+                ServicioPedido.cobrar_saldo(pedido)
 
         return pedido
 
@@ -252,6 +403,112 @@ class ServicioPedido:
             lote.save()
             return True
         return False
+
+
+def cobrar_saldo_anticipado(
+    pedido,
+    monto=None,
+    usuario=None,
+    notas="",
+    moneda_pago='CUP',
+    tasa_cambio_aplicada=None,
+):
+    """
+    Registra el cobro del saldo pendiente de un pedido antes de que esté entregado.
+    - pedido: instancia de Pedido
+    - monto: si es None, cobra todo el saldo_pendiente (o el mayor entero en USD).
+    - moneda_pago: CUP o USD.
+    - tasa_cambio_aplicada: obligatoria para pagos en USD; si falta se usa la actual.
+    - Devuelve el MovimientoCaja creado.
+    - Lanza ValueError si el pedido ya está pagado, está entregado, es histórico,
+      o el monto es inválido.
+    """
+    from finanzas.services import ServicioFinanzas
+
+    pedido_original = pedido
+
+    with transaction.atomic():
+        pedido = (
+            Pedido.objects.select_for_update()
+            .select_related('cliente', 'libro', 'estado')
+            .get(pk=pedido.pk)
+        )
+
+        if pedido.es_historico:
+            raise ValueError('No se puede cobrar el saldo de un pedido histórico.')
+
+        if pedido.estado and pedido.estado.nombre == 'Entregado':
+            raise ValueError('No se puede cobrar el saldo de un pedido entregado.')
+
+        saldo = Decimal(str(pedido.saldo_pendiente or 0)).quantize(Decimal('0.01'))
+        if saldo <= 0:
+            raise ValueError('Este pedido ya está pagado en su totalidad')
+
+        moneda = (moneda_pago or 'CUP').upper()
+
+        if monto is None:
+            if moneda == 'USD':
+                tasa = (
+                    Decimal(str(tasa_cambio_aplicada))
+                    if tasa_cambio_aplicada not in (None, '')
+                    else ServicioFinanzas.obtener_tasa_usd_cup()
+                )
+                if tasa <= 0:
+                    raise ValueError('La tasa de cambio debe ser mayor que cero.')
+                monto_cobro = (saldo / tasa).to_integral_value(
+                    rounding=ROUND_FLOOR
+                )
+                if monto_cobro <= 0:
+                    raise ValueError(
+                        'El saldo pendiente es menor a 1 USD; cobra el resto en CUP.'
+                    )
+            else:
+                monto_cobro = saldo
+        else:
+            try:
+                monto_cobro = Decimal(str(monto))
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                raise ValueError('El monto a cobrar no es válido.') from exc
+
+        monto_cobro, monto_cup, moneda, tasa = ServicioFinanzas.normalizar_pago(
+            monto_cobro,
+            moneda_pago=moneda,
+            tasa_cambio_aplicada=tasa_cambio_aplicada,
+        )
+
+        if monto_cup > saldo:
+            raise ValueError('El monto a cobrar no puede superar el saldo pendiente.')
+
+        cliente = pedido.cliente.nombre if pedido.cliente else 'Sin cliente'
+        concepto = f'Saldo pedido #{pedido.id} - {cliente} - {pedido.libro.titulo}'
+        if moneda == 'USD':
+            concepto = f'{concepto} @ {tasa.normalize():f} CUP/USD'
+        concepto = concepto[:200]
+
+        movimiento = ServicioFinanzas.registrar_saldo(
+            pedido,
+            monto=monto_cobro,
+            moneda=moneda,
+            tasa_cambio_aplicada=tasa,
+            concepto=concepto,
+        )
+        if movimiento is None:
+            raise ValueError('No se pudo registrar el cobro del saldo.')
+
+        logger.info(
+            'Cobro anticipado de saldo registrado: pedido=%s monto=%s moneda=%s tasa=%s usuario=%s notas=%s',
+            pedido.id,
+            monto_cobro,
+            moneda,
+            tasa,
+            usuario,
+            notas,
+        )
+
+    pedido_original.anticipo_recibido = pedido.anticipo_recibido
+    pedido_original.saldo_pendiente = pedido.saldo_pendiente
+
+    return movimiento
 
 
 # ============================================================

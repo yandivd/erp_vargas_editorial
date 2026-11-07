@@ -8,9 +8,9 @@
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalActivo">
             <i class="bi bi-plus-lg"></i> Registrar Activo
         </button>
-        <form method="post" action="{% url 'finanzas:depreciar_mes' %}" style="display:inline;">
+        <form method="post" action="{% url 'finanzas:depreciar_mes' %}" id="formDepreciar" style="display:inline;">
             {% csrf_token %}
-            <button type="submit" class="btn btn-warning" onclick="return confirm('¿Registrar el desgaste de este mes para todos los activos?')">
+            <button type="submit" class="btn btn-warning" data-confirm="¿Registrar el desglose de este mes para todos los activos?">
                 <i class="bi bi-arrow-down-circle"></i> Depreciar Mes
             </button>
         </form>
@@ -28,7 +28,7 @@
 
 <div class="card card-kpi">
     <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
+        <table class="table table-hover mb-0 align-middle datatable">
             <thead class="table-light">
                 <tr>
                     <th>Activo</th>
@@ -60,7 +60,7 @@
 <!-- Modal Registrar Activo -->
 <div class="modal fade" id="modalActivo" tabindex="-1">
     <div class="modal-dialog">
-        <form method="post" action="{% url 'finanzas:registrar_activo' %}">
+        <form method="post" action="{% url 'finanzas:registrar_activo' %}" data-confirm="¿Registrar este activo y descontar su valor de la caja?">
             {% csrf_token %}
             <div class="modal-content">
                 <div class="modal-header">

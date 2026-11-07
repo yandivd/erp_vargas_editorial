@@ -25,7 +25,7 @@
                 </tbody>
             </table>
 
-            <form method="post" class="mt-4">
+            <form method="post" class="mt-4" data-confirm="¿Confirmar la recepción del material y el pago?">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-success btn-lg w-100">Sí, recibí el material y pagué</button>
                 <a href="{% url 'compras:lista' %}" class="btn btn-outline-secondary w-100 mt-2">Cancelar</a>

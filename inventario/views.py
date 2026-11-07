@@ -225,7 +225,7 @@ def imprimir_movimiento(request, pk):
     movimiento = get_object_or_404(MovimientoInventario, pk=pk)
     
     # Rutas absolutas para WeasyPrint (logo)
-    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo1.jpg')
     
     html_string = render_to_string('inventario/imprimir_movimiento.html', {
         'movimiento': movimiento,
