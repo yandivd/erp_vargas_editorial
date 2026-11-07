@@ -17,10 +17,5 @@
   "bugs": {
     "url": "https://github.com/yandivd/erp_vargas_editorial/issues"
   },
-  "homepage": "https://github.com/yandivd/erp_vargas_editorial#readme",
-  "dependencies": {
-    "@capacitor/android": "^8.5.3",
-    "@capacitor/cli": "^8.5.3",
-    "@capacitor/core": "^8.5.3"
-  }
+  "homepage": "https://github.com/yandivd/erp_vargas_editorial#readme"
 }
