@@ -21,6 +21,8 @@ export default function CrearEntregaModal() {
   const [pedidos, setPedidos] = useState<PedidoListItem[]>([]);
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
   const [direccion, setDireccion] = useState("");
+  const [direccionError, setDireccionError] = useState<string | null>(null);
+  const [direccionAutocompletada, setDireccionAutocompletada] = useState("");
   const [costoMensajeria, setCostoMensajeria] = useState("0");
   const [fechaEntrega, setFechaEntrega] = useState("");
   const [notas, setNotas] = useState("");
@@ -35,6 +37,11 @@ export default function CrearEntregaModal() {
   );
 
   const clienteSeleccionado = seleccionadosPedidos[0] ?? null;
+  const direccionCliente = (
+    clienteSeleccionado?.cliente_direccion ?? ""
+  ).trim();
+  const requiereDireccion =
+    clienteSeleccionado !== null && !direccionCliente;
   const totalSeleccionado = redondear2(
     seleccionadosPedidos.reduce(
       (total, pedido) => total + Number(pedido.saldo_pendiente || 0),
@@ -124,6 +131,8 @@ export default function CrearEntregaModal() {
   function abrirModal() {
     setSeleccionados(new Set());
     setDireccion("");
+    setDireccionError(null);
+    setDireccionAutocompletada("");
     setCostoMensajeria("0");
     setFechaEntrega("");
     setNotas("");
@@ -143,6 +152,24 @@ export default function CrearEntregaModal() {
     setError(null);
   }
 
+  function sincronizarDireccion(cliente: PedidoListItem | null) {
+    const direccionDelCliente = (cliente?.cliente_direccion ?? "").trim();
+
+    if (!cliente) {
+      setDireccionAutocompletada("");
+      setDireccion("");
+      setDireccionError(null);
+      return;
+    }
+
+    if (!direccion.trim() || direccion === direccionAutocompletada) {
+      setDireccion(direccionDelCliente);
+    }
+
+    setDireccionAutocompletada(direccionDelCliente);
+    setDireccionError(null);
+  }
+
   function togglePedido(pedido: PedidoListItem) {
     if (guardando) {
       return;
@@ -160,17 +187,18 @@ export default function CrearEntregaModal() {
     }
 
     setError(null);
-    setSeleccionados((actual) => {
-      const siguiente = new Set(actual);
+    const siguiente = new Set(seleccionados);
 
-      if (siguiente.has(pedido.id)) {
-        siguiente.delete(pedido.id);
-      } else {
-        siguiente.add(pedido.id);
-      }
+    if (siguiente.has(pedido.id)) {
+      siguiente.delete(pedido.id);
+    } else {
+      siguiente.add(pedido.id);
+    }
 
-      return siguiente;
-    });
+    setSeleccionados(siguiente);
+    sincronizarDireccion(
+      pedidos.find((item) => siguiente.has(item.id)) ?? null,
+    );
   }
 
   function toggleGrupo(grupo: GrupoCliente) {
@@ -189,22 +217,23 @@ export default function CrearEntregaModal() {
     }
 
     setError(null);
-    setSeleccionados((actual) => {
-      const siguiente = new Set(actual);
-      const todosSeleccionados = grupo.pedidos.every((pedido) =>
-        siguiente.has(pedido.id),
-      );
+    const siguiente = new Set(seleccionados);
+    const todosSeleccionados = grupo.pedidos.every((pedido) =>
+      siguiente.has(pedido.id),
+    );
 
-      for (const pedido of grupo.pedidos) {
-        if (todosSeleccionados) {
-          siguiente.delete(pedido.id);
-        } else {
-          siguiente.add(pedido.id);
-        }
+    for (const pedido of grupo.pedidos) {
+      if (todosSeleccionados) {
+        siguiente.delete(pedido.id);
+      } else {
+        siguiente.add(pedido.id);
       }
+    }
 
-      return siguiente;
-    });
+    setSeleccionados(siguiente);
+    sincronizarDireccion(
+      pedidos.find((item) => siguiente.has(item.id)) ?? null,
+    );
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -230,6 +259,15 @@ export default function CrearEntregaModal() {
       return;
     }
 
+    const direccionLimpia = direccion.trim();
+
+    if (requiereDireccion && !direccionLimpia) {
+      setDireccionError(
+        "El cliente no tiene dirección registrada. Indica una dirección de entrega.",
+      );
+      return;
+    }
+
     const costo = Number(costoMensajeria || 0);
 
     if (!Number.isFinite(costo) || costo < 0) {
@@ -239,13 +277,14 @@ export default function CrearEntregaModal() {
 
     setGuardando(true);
     setError(null);
+    setDireccionError(null);
 
     try {
       const entrega = await apiFetch<EntregaDetail>("entregas/crear/", {
         method: "POST",
         body: JSON.stringify({
           pedido_ids: Array.from(seleccionados),
-          direccion: direccion.trim(),
+          direccion: direccionLimpia,
           costo_mensajeria: redondear2(costo),
           fecha_entrega: fechaEntrega || null,
           notas: notas.trim(),
@@ -395,16 +434,57 @@ export default function CrearEntregaModal() {
                     className="mb-1.5 block text-sm font-semibold text-ink"
                   >
                     Dirección de entrega
+                    {requiereDireccion ? (
+                      <span className="text-red-600"> *</span>
+                    ) : null}
                   </label>
                   <textarea
                     id="entrega-direccion"
                     rows={2}
                     value={direccion}
-                    onChange={(event) => setDireccion(event.target.value)}
+                    onChange={(event) => {
+                      setDireccion(event.target.value);
+                      if (direccionError) {
+                        setDireccionError(null);
+                      }
+                    }}
                     disabled={guardando}
+                    required={requiereDireccion}
+                    aria-invalid={Boolean(direccionError)}
+                    aria-describedby="entrega-direccion-help"
                     placeholder="Dirección a donde se llevará el pedido..."
-                    className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-50"
+                    className={`w-full rounded-lg border bg-white px-3 py-2 text-sm text-ink outline-none transition focus:ring-2 disabled:bg-slate-50 ${
+                      direccionError
+                        ? "border-red-300 focus:border-red-400 focus:ring-red-200"
+                        : "border-line focus:border-brand focus:ring-brand/20"
+                    }`}
                   />
+                  {direccionError ? (
+                    <p
+                      id="entrega-direccion-help"
+                      role="alert"
+                      className="mt-1 text-xs font-semibold text-red-600"
+                    >
+                      {direccionError}
+                    </p>
+                  ) : requiereDireccion ? (
+                    <p
+                      id="entrega-direccion-help"
+                      className="mt-1 text-xs text-red-600"
+                    >
+                      El cliente no tiene dirección registrada. Este campo es
+                      obligatorio.
+                    </p>
+                  ) : (
+                    <p
+                      id="entrega-direccion-help"
+                      className="mt-1 text-xs text-muted"
+                    >
+                      {direccionCliente
+                        ? `Si lo dejas vacío, se usará la dirección del cliente: ${direccionCliente}`
+                        : "Selecciona un pedido para autocompletar la dirección del cliente."}
+                    </p>
+                  )}
                 </div>
 
                 <div className="sm:col-span-2">

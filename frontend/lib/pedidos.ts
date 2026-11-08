@@ -13,6 +13,7 @@ export type PedidoListItem = {
   referencia_externa: number | null;
   cliente_id: number | null;
   cliente_nombre: string;
+  cliente_direccion: string;
   libro_id: number;
   libro_titulo: string;
   libro_autor: string;
@@ -70,7 +71,6 @@ export type PedidoDetail = PedidoListItem & {
   descuento_aplicado: string;
   horas_invertidas: string | null;
   cliente_telefono: string;
-  cliente_direccion: string;
   libro_paginas?: number;
   dias_para_entrega: number | null;
   esta_atrasado: boolean;

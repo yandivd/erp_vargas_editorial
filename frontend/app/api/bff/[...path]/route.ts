@@ -126,6 +126,13 @@ export async function PUT(
   return forwardRequest(request, context);
 }
 
+export async function PATCH(
+  request: NextRequest,
+  context: RouteContext,
+): Promise<NextResponse> {
+  return forwardRequest(request, context);
+}
+
 export async function DELETE(
   request: NextRequest,
   context: RouteContext,

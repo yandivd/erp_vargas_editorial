@@ -1,3 +1,9 @@
+from io import BytesIO
+from pathlib import Path
+
+from PIL import Image as PilImage, ImageOps
+
+from django.core.files.base import ContentFile
 from django.db import models
 from django.utils.safestring import mark_safe
 from django.utils import timezone
@@ -5,6 +11,40 @@ from django.db.models import Sum
 from clientes.models import Cliente
 from proveedores.models import Proveedor
 
+
+def _procesar_imagen_libro(imagen):
+    imagen.seek(0)
+    with PilImage.open(imagen) as original:
+        optimizada = ImageOps.exif_transpose(original)
+
+        if optimizada.mode in ('RGBA', 'LA') or (
+            optimizada.mode == 'P' and 'transparency' in optimizada.info
+        ):
+            optimizada = optimizada.convert('RGBA')
+            fondo = PilImage.new('RGB', optimizada.size, (255, 255, 255))
+            fondo.paste(optimizada, mask=optimizada.getchannel(3))
+            optimizada = fondo
+        else:
+            optimizada = optimizada.convert('RGB')
+
+        if optimizada.width > 800:
+            alto = max(1, round(optimizada.height * 800 / optimizada.width))
+            optimizada = optimizada.resize(
+                (800, alto),
+                PilImage.Resampling.LANCZOS,
+            )
+
+        salida = BytesIO()
+        optimizada.save(
+            salida,
+            format='JPEG',
+            quality=75,
+            optimize=True,
+            progressive=True,
+        )
+
+    nombre = f'{Path(imagen.name).stem}.jpg'
+    return nombre, ContentFile(salida.getvalue())
 
 # ============================================================
 # LIBRO (catálogo)
@@ -18,6 +58,7 @@ class Book(models.Model):
     notas = models.TextField(blank=True, verbose_name='Notas')
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de creación')
     precio = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Precio base') # <-- NUEVO CAMPO
+    imagen = models.ImageField(upload_to='libros/', blank=True, null=True, verbose_name='Imagen')
 
     class Meta:
         verbose_name = 'Libro'
@@ -28,6 +69,12 @@ class Book(models.Model):
         if self.autor:
             return f"{self.titulo} - {self.autor}"
         return self.titulo
+
+    def save(self, *args, **kwargs):
+        if self.imagen and not self.imagen._committed:
+            nombre, contenido = _procesar_imagen_libro(self.imagen)
+            self.imagen.save(nombre, contenido, save=False)
+        super().save(*args, **kwargs)
 
     @property
     def hojas_necesarias(self):

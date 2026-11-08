@@ -17,6 +17,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import DesgloseCostos from "@/components/ui/DesgloseCostos";
 import SelectBuscador, {
   type SelectBuscadorOption,
 } from "@/components/ui/SelectBuscador";
@@ -1177,21 +1178,7 @@ export default function NuevoPedidoModal() {
                     </div>
                   </div>
 
-                  {costo ? (
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-                      <span>Papel {money(costo.costo_papel)}</span>
-                      <span>Tinta {money(costo.costo_tinta)}</span>
-                      <span>Pegamento {money(costo.costo_pegamento)}</span>
-                      <span>Scotch {money(costo.costo_scotch)}</span>
-                      <span>Esquineros {money(costo.costo_esquineros)}</span>
-                      <span>Portada {money(costo.costo_portada)}</span>
-                      <span>
-                        Encuadernación {money(costo.costo_encuadernacion)}
-                      </span>
-                      <span>Electricidad {money(costo.costo_electricidad)}</span>
-                      <span>Diseño {money(costo.costo_diseno)}</span>
-                    </div>
-                  ) : null}
+                  <DesgloseCostos costo={costo} />
                 </section>
 
                 <section className="space-y-3">

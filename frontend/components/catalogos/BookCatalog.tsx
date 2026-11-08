@@ -1,7 +1,8 @@
 import type { RefObject } from "react";
-import { BookOpen, Loader2, Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { money } from "@/lib/format";
 import type { LibroPublico } from "@/lib/catalogos";
+import { libroImagenSrc } from "@/lib/libros";
 
 type BookCatalogProps = {
   books: LibroPublico[];
@@ -23,7 +24,7 @@ function SkeletonGrid() {
           key={index}
           className="animate-pulse rounded-xl border border-line p-5"
         >
-          <div className="mb-4 h-36 rounded-lg bg-slate-100" />
+          <div className="mb-4 aspect-[21/9] rounded-lg bg-slate-100" />
           <div className="h-5 w-2/3 rounded bg-slate-100" />
           <div className="mt-2 h-4 w-1/2 rounded bg-slate-100" />
           <div className="mt-4 h-4 w-full rounded bg-slate-100" />
@@ -110,8 +111,15 @@ export default function BookCatalog({
                 key={book.id}
                 className="flex flex-col rounded-xl border border-line p-5 transition hover:bg-slate-50"
               >
-                <div className="mb-4 flex h-36 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
-                  <BookOpen className="h-10 w-10" aria-hidden="true" />
+                <div className="mb-4 aspect-[21/9] overflow-hidden rounded-lg bg-slate-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={libroImagenSrc(book.imagen)}
+                    alt={`Portada de ${book.titulo}`}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 <h3 className="text-lg font-bold text-ink">{book.titulo}</h3>
                 <p className="text-sm text-muted">

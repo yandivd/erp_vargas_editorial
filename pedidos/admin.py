@@ -11,7 +11,7 @@ from .services import ServicioPedido
 # ==========================================
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'autor', 'paginas',)
+    list_display = ('titulo', 'autor', 'paginas', 'precio', 'imagen')
     search_fields = ('titulo', 'autor')
 
 

@@ -249,7 +249,26 @@ class ClienteCreateV1Serializer(serializers.ModelSerializer):
 class LibroListV1Serializer(serializers.ModelSerializer):
     class Meta:
         model = Book
-        fields = ('id', 'titulo', 'autor', 'paginas', 'precio')
+        fields = ('id', 'titulo', 'autor', 'paginas', 'precio', 'imagen')
+        extra_kwargs = {
+            'imagen': {'required': False, 'allow_null': True},
+        }
+
+    def validate_titulo(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('El título es obligatorio.')
+        return value
+
+    def validate_paginas(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Las páginas deben ser mayores que cero.')
+        return value
+
+    def validate_precio(self, value):
+        if value < 0:
+            raise serializers.ValidationError('El precio no puede ser negativo.')
+        return value
 
 
 class PedidoCreateSerializer(serializers.Serializer):
@@ -421,6 +440,7 @@ class ServicioExternoV1Serializer(serializers.ModelSerializer):
 class PedidoListV1Serializer(serializers.ModelSerializer):
     cliente_id = serializers.IntegerField(read_only=True)
     cliente_nombre = serializers.SerializerMethodField()
+    cliente_direccion = serializers.SerializerMethodField()
     libro_id = serializers.IntegerField(read_only=True)
     libro_titulo = serializers.SerializerMethodField()
     libro_autor = serializers.SerializerMethodField()
@@ -436,6 +456,7 @@ class PedidoListV1Serializer(serializers.ModelSerializer):
             'referencia_externa',
             'cliente_id',
             'cliente_nombre',
+            'cliente_direccion',
             'libro_id',
             'libro_titulo',
             'libro_autor',
@@ -457,6 +478,9 @@ class PedidoListV1Serializer(serializers.ModelSerializer):
     def get_cliente_nombre(self, obj):
         return obj.cliente.nombre if obj.cliente_id else 'Stock / Venta Directa'
 
+    def get_cliente_direccion(self, obj):
+        return obj.cliente.direccion if obj.cliente_id else ''
+
     def get_libro_titulo(self, obj):
         return obj.libro.titulo if obj.libro_id else ''
 
@@ -475,7 +499,6 @@ class PedidoListV1Serializer(serializers.ModelSerializer):
 
 class PedidoDetailV1Serializer(PedidoListV1Serializer):
     cliente_telefono = serializers.SerializerMethodField()
-    cliente_direccion = serializers.SerializerMethodField()
     libro_paginas = serializers.SerializerMethodField()
     dias_para_entrega = serializers.SerializerMethodField()
     esta_atrasado = serializers.SerializerMethodField()
@@ -494,7 +517,6 @@ class PedidoDetailV1Serializer(PedidoListV1Serializer):
             'descuento_aplicado',
             'horas_invertidas',
             'cliente_telefono',
-            'cliente_direccion',
             'libro_paginas',
             'dias_para_entrega',
             'esta_atrasado',
@@ -506,9 +528,6 @@ class PedidoDetailV1Serializer(PedidoListV1Serializer):
 
     def get_cliente_telefono(self, obj):
         return obj.cliente.telefono if obj.cliente_id else ''
-
-    def get_cliente_direccion(self, obj):
-        return obj.cliente.direccion if obj.cliente_id else ''
 
     def get_libro_paginas(self, obj):
         return obj.libro.paginas if obj.libro_id else 0
@@ -711,7 +730,7 @@ class ClienteDetailV1Serializer(ClienteListV1Serializer):
 
     def get_historial_pedidos(self, obj):
         pedidos = (
-            obj.pedidos.select_related('libro', 'estado')
+            obj.pedidos.select_related('cliente', 'libro', 'estado')
             .order_by('-fecha_pedido')
         )
         return PedidoListV1Serializer(pedidos, many=True).data

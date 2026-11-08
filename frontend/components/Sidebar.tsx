@@ -66,6 +66,7 @@ const sections: NavSection[] = [
   {
     label: "Operaciones",
     items: [
+      { href: "/libros", label: "Libros", icon: BookOpen },
       { href: "/inventario", label: "Inventario", icon: Package },
       { href: "/proveedores", label: "Proveedores", icon: Truck },
       { href: "/compras", label: "Compras", icon: ShoppingCart },

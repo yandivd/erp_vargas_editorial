@@ -62,6 +62,58 @@ def _es_verdadero(value):
     return value.strip().lower() in ('1', 'true', 'yes', 'si', 'sí')
 
 
+def _parametros_costo():
+    material_esquineros = Material.objects.filter(
+        nombre__iexact='esquineros'
+    ).first()
+    return {
+        'paginas_por_hoja': int(Parametro.get('paginas_por_hoja', 4)),
+        'precio_papel_paquete': float(Parametro.get('precio_papel_paquete', 1800)),
+        'hojas_por_paquete': float(Parametro.get('hojas_por_paquete', 500)),
+        'precio_tinta_litro': float(Parametro.get('precio_tinta_litro', 17500)),
+        'rinde_tinta_paginas': float(Parametro.get('rinde_tinta_paginas', 35000)),
+        'precio_pegamento': float(Parametro.get('precio_pegamento', 3500)),
+        'rinde_pegamento_lomos': float(Parametro.get('rinde_pegamento_lomos', 70)),
+        'esquineros_por_libro': float(Parametro.get('esquineros_por_libro', 4)),
+        'costo_esquineros_material': (
+            float(material_esquineros.costo_promedio)
+            if material_esquineros
+            else 0
+        ),
+        'precio_scotch': float(Parametro.get('precio_scotch', 1000)),
+        'rinde_scotch_libros': float(Parametro.get('rinde_scotch_libros', 30)),
+        'precio_portada': float(Parametro.get('precio_portada', 1000)),
+        'paginas_para_grueso': float(Parametro.get('paginas_para_grueso', 300)),
+        'precio_encuadernacion': float(Parametro.get('precio_encuadernacion', 500)),
+        'precio_encuadernacion_grueso': float(Parametro.get('precio_encuadernacion_grueso', 500)),
+        'electricidad_mensual': float(Parametro.get('electricidad_mensual', 1000)),
+        'libros_por_mes_estimado': float(Parametro.get('libros_por_mes_estimado', 30)),
+        'precio_diseno': float(Parametro.get('precio_diseno', 500)),
+        'paginas_min': float(Parametro.get('paginas_min', 100)),
+        'paginas_max': float(Parametro.get('paginas_max', 1000)),
+        'margen_min': float(Parametro.get('margen_min', 0.8)),
+        'margen_max': float(Parametro.get('margen_max', 2.0)),
+    }
+
+
+def _calcular_costo_paginas(paginas, lleva_scotch=False, lleva_esquineros=False):
+    libro_temp = Book(paginas=paginas)
+    pedido_temp = Pedido(
+        libro=libro_temp,
+        lleva_scotch=lleva_scotch,
+        lleva_esquineros=lleva_esquineros,
+        cantidad=1,
+        precio_venta=0,
+    )
+    costeador = CosteadorPedido(pedido_temp)
+    resultado = costeador.calcular()
+    precio_sugerido = costeador.calcular_precio_sugerido()
+    resultado['paginas'] = paginas
+    resultado['precio_sugerido'] = float(precio_sugerido)
+    resultado['anticipo_sugerido'] = float(round(precio_sugerido / 2, 2))
+    return resultado
+
+
 def _primer_error_serializer(errors):
     for value in errors.values():
         if isinstance(value, (list, tuple)) and value:
@@ -158,6 +210,11 @@ def catalogo(request):
             'descripcion': libro.descripcion or '',
             'paginas': libro.paginas,
             'precio': str(libro.precio),
+            'imagen': (
+                request.build_absolute_uri(libro.imagen.url)
+                if libro.imagen
+                else None
+            ),
         }
         for libro in pagina
     ]
@@ -436,10 +493,26 @@ def entrega_crear(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    cliente = next((pedido.cliente for pedido in pedidos if pedido.cliente_id), None)
+    direccion = (datos.get('direccion') or '').strip()
+    if not direccion:
+        direccion = (cliente.direccion or '').strip()
+    if not direccion:
+        return Response(
+            {
+                'ok': False,
+                'error': (
+                    'El cliente no tiene dirección registrada. '
+                    'Indica una dirección de entrega.'
+                ),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     with transaction.atomic():
         entrega = Entrega.objects.create(
-            cliente=pedidos[0].cliente,
-            direccion=datos.get('direccion') or '',
+            cliente=cliente,
+            direccion=direccion,
             costo_mensajeria=datos.get('costo_mensajeria') or Decimal('0'),
             fecha_entrega=datos.get('fecha_entrega'),
             notas=datos.get('notas') or '',
@@ -649,38 +722,7 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='parametros-costo')
     def parametros_costo(self, request):
-        material_esquineros = Material.objects.filter(
-            nombre__iexact='esquineros'
-        ).first()
-        parametros = {
-            'paginas_por_hoja': int(Parametro.get('paginas_por_hoja', 4)),
-            'precio_papel_paquete': float(Parametro.get('precio_papel_paquete', 1800)),
-            'hojas_por_paquete': float(Parametro.get('hojas_por_paquete', 500)),
-            'precio_tinta_litro': float(Parametro.get('precio_tinta_litro', 17500)),
-            'rinde_tinta_paginas': float(Parametro.get('rinde_tinta_paginas', 35000)),
-            'precio_pegamento': float(Parametro.get('precio_pegamento', 3500)),
-            'rinde_pegamento_lomos': float(Parametro.get('rinde_pegamento_lomos', 70)),
-            'esquineros_por_libro': float(Parametro.get('esquineros_por_libro', 4)),
-            'costo_esquineros_material': (
-                float(material_esquineros.costo_promedio)
-                if material_esquineros
-                else 0
-            ),
-            'precio_scotch': float(Parametro.get('precio_scotch', 1000)),
-            'rinde_scotch_libros': float(Parametro.get('rinde_scotch_libros', 30)),
-            'precio_portada': float(Parametro.get('precio_portada', 1000)),
-            'paginas_para_grueso': float(Parametro.get('paginas_para_grueso', 300)),
-            'precio_encuadernacion': float(Parametro.get('precio_encuadernacion', 500)),
-            'precio_encuadernacion_grueso': float(Parametro.get('precio_encuadernacion_grueso', 500)),
-            'electricidad_mensual': float(Parametro.get('electricidad_mensual', 1000)),
-            'libros_por_mes_estimado': float(Parametro.get('libros_por_mes_estimado', 30)),
-            'precio_diseno': float(Parametro.get('precio_diseno', 500)),
-            'paginas_min': float(Parametro.get('paginas_min', 100)),
-            'paginas_max': float(Parametro.get('paginas_max', 1000)),
-            'margen_min': float(Parametro.get('margen_min', 0.8)),
-            'margen_max': float(Parametro.get('margen_max', 2.0)),
-        }
-        return Response({'ok': True, 'data': {'parametros': parametros}})
+        return Response({'ok': True, 'data': {'parametros': _parametros_costo()}})
 
     @action(detail=False, methods=['get'], url_path='calcular-costo')
     def calcular_costo(self, request):
@@ -697,22 +739,11 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            libro_temp = Book(paginas=paginas)
-            pedido_temp = Pedido(
-                libro=libro_temp,
+            resultado = _calcular_costo_paginas(
+                paginas,
                 lleva_scotch=lleva_scotch,
                 lleva_esquineros=lleva_esquineros,
-                cantidad=1,
-                precio_venta=0,
             )
-            costeador = CosteadorPedido(pedido_temp)
-            resultado = costeador.calcular()
-            precio_sugerido = costeador.calcular_precio_sugerido()
-            anticipo_sugerido = round(precio_sugerido / 2, 2)
-
-            resultado['paginas'] = paginas
-            resultado['precio_sugerido'] = float(precio_sugerido)
-            resultado['anticipo_sugerido'] = float(anticipo_sugerido)
 
             return Response({'ok': True, 'data': {'costo': resultado}})
         except Exception as error:
@@ -1064,11 +1095,16 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
         )
 
 
-class LibroViewSetV1(viewsets.ReadOnlyModelViewSet):
+class LibroViewSetV1(viewsets.ModelViewSet):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     queryset = Book.objects.all().order_by('titulo')
     serializer_class = LibroListV1Serializer
+    http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
+
+    @action(detail=False, methods=['get'], url_path='parametros-costo')
+    def parametros_costo(self, request):
+        return Response({'ok': True, 'data': {'parametros': _parametros_costo()}})
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -1079,3 +1115,50 @@ class LibroViewSetV1(viewsets.ReadOnlyModelViewSet):
             )
         serializer = self.get_serializer(queryset, many=True)
         return Response({'ok': True, 'data': serializer.data})
+
+    def retrieve(self, request, *args, **kwargs):
+        libro = self.get_object()
+        serializer = self.get_serializer(libro)
+        return Response({'ok': True, 'data': serializer.data})
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {
+                    'ok': False,
+                    'error': _primer_error_serializer(serializer.errors),
+                    'details': serializer.errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer.save()
+        return Response(
+            {'ok': True, 'data': serializer.data},
+            status=status.HTTP_201_CREATED,
+        )
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        libro = self.get_object()
+        serializer = self.get_serializer(
+            libro,
+            data=request.data,
+            partial=partial,
+        )
+        if not serializer.is_valid():
+            return Response(
+                {
+                    'ok': False,
+                    'error': _primer_error_serializer(serializer.errors),
+                    'details': serializer.errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer.save()
+        return Response({'ok': True, 'data': serializer.data})
+
+    def destroy(self, request, *args, **kwargs):
+        libro = self.get_object()
+        libro.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
