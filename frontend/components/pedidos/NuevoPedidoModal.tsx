@@ -187,7 +187,7 @@ export default function NuevoPedidoModal() {
     try {
       const [clientesResult, librosResult, codigosResult, parametrosResult] =
         await Promise.all([
-          apiFetch<Cliente[]>("clientes/"),
+          apiFetch<{ clientes: Cliente[] }>("clientes/?per_page=50"),
           apiFetch<Libro[]>("libros/"),
           apiFetch<{ codigos: CodigoDescuento[] }>(
             "pedidos/codigos-vigentes/",
@@ -197,7 +197,7 @@ export default function NuevoPedidoModal() {
           ),
         ]);
       setCatalogosError(null);
-      setClientes(clientesResult);
+      setClientes(clientesResult.clientes);
       setLibros(librosResult);
       setCodigos(codigosResult.codigos);
       setParametros(parametrosResult.parametros);
@@ -210,7 +210,7 @@ export default function NuevoPedidoModal() {
     let cancelado = false;
 
     Promise.all([
-      apiFetch<Cliente[]>("clientes/"),
+      apiFetch<{ clientes: Cliente[] }>("clientes/?per_page=500"),
       apiFetch<Libro[]>("libros/"),
       apiFetch<{ codigos: CodigoDescuento[] }>("pedidos/codigos-vigentes/"),
       apiFetch<{ parametros: ParametrosCosto }>(
@@ -222,7 +222,7 @@ export default function NuevoPedidoModal() {
           return;
         }
         setCatalogosError(null);
-        setClientes(clientesResult);
+        setClientes(clientesResult.clientes);
         setLibros(librosResult);
         setCodigos(codigosResult.codigos);
         setParametros(parametrosResult.parametros);

@@ -16,22 +16,17 @@
     <!-- BARRA DE FILTROS -->
     <div class="p-3 border-bottom">
         <form id="formFiltrosClientes" class="row g-2 align-items-end">
-            <div class="col-12 col-sm-6 col-md-3">
+            <div class="col-12 col-sm-6 col-md-4">
                 <label class="form-label small fw-bold text-muted mb-1">Nombre</label>
                 <input type="text" name="nombre" class="form-control form-control-sm" placeholder="Buscar nombre..." value="{{ f_nombre }}">
             </div>
             
-            <div class="col-12 col-sm-6 col-md-3">
+            <div class="col-12 col-sm-6 col-md-4">
                 <label class="form-label small fw-bold text-muted mb-1">Teléfono</label>
                 <input type="text" name="telefono" class="form-control form-control-sm" placeholder="Buscar teléfono..." value="{{ f_telefono }}">
             </div>
             
-            <div class="col-12 col-sm-6 col-md-3">
-                <label class="form-label small fw-bold text-muted mb-1">Email</label>
-                <input type="text" name="email" class="form-control form-control-sm" placeholder="Buscar email..." value="{{ f_email }}">
-            </div>
-            
-            <div class="col-12 col-sm-6 col-md-3">
+            <div class="col-12 col-sm-6 col-md-4">
                 <label class="form-label small fw-bold text-muted mb-1">Estado de deuda</label>
                 <select name="deuda" class="form-select form-select-sm">
                     <option value="">Todos</option>
@@ -61,7 +56,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const link = `<a href="/clientes/${c.id}/" class="text-dark fw-bold text-decoration-none">${ERP.format.escapeHtml(c.nombre)}</a>`;
         const saldo = ERP.format.money(c.saldo_pendiente);
         const estado = c.saldo_pendiente > 0 ? `<span class="text-danger fw-bold">${saldo}</span>` : `<span class="badge bg-success">Al día</span>`;
-        return `<tr><td>${link}<div class="d-sm-none small text-muted mt-1"><i class="bi bi-telephone"></i> ${ERP.format.escapeHtml(c.telefono)}</div></td><td class="d-none d-md-table-cell">${ERP.format.escapeHtml(c.email || '—')}</td><td class="d-none d-sm-table-cell"><span class="badge bg-secondary rounded-pill">${ERP.format.integer(c.pedidos)}</span></td><td>${estado}</td><td class="text-end"><a href="/clientes/${c.id}/" class="btn btn-sm btn-outline-primary" title="Ver Perfil"><i class="bi bi-person-lines-fill"></i></a></td></tr>`;
+        return `<tr><td>${link}<div class="d-sm-none small text-muted mt-1"><i class="bi bi-telephone"></i> ${ERP.format.escapeHtml(c.telefono)}</div></td><td class="d-none d-sm-table-cell"><span class="badge bg-secondary rounded-pill">${ERP.format.integer(c.pedidos)}</span></td><td>${estado}</td><td class="text-end"><a href="/clientes/${c.id}/" class="btn btn-sm btn-outline-primary" title="Ver Perfil"><i class="bi bi-person-lines-fill"></i></a></td></tr>`;
     }
 
     async function actualizarTabla() {

@@ -4,7 +4,6 @@
         <thead class="table-light">
             <tr>
                 <th>Nombre</th>
-                <th class="d-none d-md-table-cell">Email</th>
                 <th class="d-none d-sm-table-cell">Pedidos</th>
                 <th>Saldo Pendiente</th>
                 <th class="text-end no-sort">Acciones</th>
@@ -29,7 +28,6 @@
                         {% endif %}
                     </div>
                 </td>
-                <td class="d-none d-md-table-cell">{{ c.email|default:"—" }}</td>
                 <td class="d-none d-sm-table-cell">
                     <span class="badge bg-secondary rounded-pill">{{ c.pedidos.count }}</span>
                 </td>
@@ -49,7 +47,7 @@
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="5" class="text-center text-muted py-5">
+            <tr><td colspan="4" class="text-center text-muted py-5">
                 <i class="bi bi-people fs-1 d-block mb-2"></i>
                 No se encontraron clientes.
             </td></tr>

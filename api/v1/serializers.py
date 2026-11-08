@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db.models import Q
+from django.db.models import Q, Sum
 from rest_framework import serializers
 
 from clientes.models import Cliente
@@ -184,10 +184,66 @@ class RegistrarAnticipoSerializer(serializers.Serializer):
         return attrs
 
 
+ESTADOS_CLIENTE_EXCLUIDOS = ('Entregado', 'Cancelado')
+
+
 class ClienteListV1Serializer(serializers.ModelSerializer):
+    pedidos = serializers.SerializerMethodField()
+    saldo_pendiente = serializers.SerializerMethodField()
+    total_libros = serializers.SerializerMethodField()
+    dias_sin_comprar = serializers.SerializerMethodField()
+    badge = serializers.SerializerMethodField()
+
     class Meta:
         model = Cliente
-        fields = ('id', 'nombre', 'telefono')
+        fields = (
+            'id',
+            'nombre',
+            'telefono',
+            'direccion',
+            'notas',
+            'fecha_registro',
+            'pedidos',
+            'saldo_pendiente',
+            'total_libros',
+            'dias_sin_comprar',
+            'badge',
+        )
+
+    def get_pedidos(self, obj):
+        anotado = getattr(obj, 'pedidos_totales', None)
+        if anotado is not None:
+            return anotado
+        return obj.pedidos.exclude(
+            estado__nombre__in=ESTADOS_CLIENTE_EXCLUIDOS,
+        ).count()
+
+    def get_saldo_pendiente(self, obj):
+        anotado = getattr(obj, 'saldo_pendiente_total_db', None)
+        if anotado is not None:
+            return float(anotado)
+        return float(obj.saldo_pendiente_total)
+
+    def get_total_libros(self, obj):
+        return obj.total_libros
+
+    def get_dias_sin_comprar(self, obj):
+        return obj.dias_sin_comprar
+
+    def get_badge(self, obj):
+        return obj.badge
+
+
+class ClienteCreateV1Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cliente
+        fields = ('id', 'nombre', 'telefono', 'direccion', 'notas')
+
+    def validate_nombre(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('El nombre es obligatorio.')
+        return value
 
 
 class LibroListV1Serializer(serializers.ModelSerializer):
@@ -626,3 +682,36 @@ class EntregaDetailV1Serializer(EntregaListV1Serializer):
             'notas',
             'pedidos',
         )
+
+
+class ClienteDetailV1Serializer(ClienteListV1Serializer):
+    estadisticas = serializers.SerializerMethodField()
+    historial_pedidos = serializers.SerializerMethodField()
+
+    class Meta(ClienteListV1Serializer.Meta):
+        fields = ClienteListV1Serializer.Meta.fields + (
+            'estadisticas',
+            'historial_pedidos',
+        )
+
+    def get_estadisticas(self, obj):
+        pedidos = obj.pedidos.all()
+        return {
+            'total_pedidos': pedidos.count(),
+            'total_facturado': float(
+                pedidos.aggregate(total=Sum('precio_venta'))['total'] or 0
+            ),
+            'total_pagado': float(
+                pedidos.aggregate(total=Sum('anticipo_recibido'))['total'] or 0
+            ),
+            'total_deuda': float(
+                pedidos.aggregate(total=Sum('saldo_pendiente'))['total'] or 0
+            ),
+        }
+
+    def get_historial_pedidos(self, obj):
+        pedidos = (
+            obj.pedidos.select_related('libro', 'estado')
+            .order_by('-fecha_pedido')
+        )
+        return PedidoListV1Serializer(pedidos, many=True).data

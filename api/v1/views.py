@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q, Count, Sum, F, IntegerField
 from django.db.models.functions import Cast
@@ -19,6 +20,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from clientes.models import Cliente
 from core.api import obtener_dashboard_data
+from core.api_utils import payload_paginacion
 from core.models import Parametro
 from finanzas.services import ServicioFinanzas
 from inventario.models import Material
@@ -30,6 +32,8 @@ from .serializers import (
     AnticipoV1Serializer,
     CambiarEstadoMasivoSerializer,
     CambiarEstadoSerializer,
+    ClienteCreateV1Serializer,
+    ClienteDetailV1Serializer,
     ClienteListV1Serializer,
     ConfirmarEntregaSerializer,
     CrearEntregaSerializer,
@@ -968,19 +972,96 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
 
 
 
-class ClienteViewSetV1(viewsets.ReadOnlyModelViewSet):
+class ClienteViewSetV1(viewsets.ModelViewSet):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
-    queryset = Cliente.objects.all().order_by('nombre')
     serializer_class = ClienteListV1Serializer
+    http_method_names = ['get', 'post', 'head', 'options']
 
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
+    ESTADOS_EXCLUIDOS = ('Entregado', 'Cancelado')
+
+    def get_queryset(self):
+        return Cliente.objects.annotate(
+            pedidos_totales=Count(
+                'pedidos',
+                distinct=True,
+                filter=~Q(pedidos__estado__nombre__in=self.ESTADOS_EXCLUIDOS),
+            ),
+            saldo_pendiente_total_db=Sum(
+                'pedidos__saldo_pendiente',
+                filter=~Q(pedidos__estado__nombre__in=self.ESTADOS_EXCLUIDOS),
+            ),
+        ).order_by('nombre')
+
+    def _filtrar(self, queryset, request):
+        nombre = request.query_params.get('nombre', '').strip()
+        telefono = request.query_params.get('telefono', '').strip()
+        deuda = request.query_params.get('deuda', '')
+        orden = request.query_params.get('orden', 'nombre_asc')
         search = request.query_params.get('search', '').strip()
+
+        if nombre:
+            queryset = queryset.filter(nombre__icontains=nombre)
+        if telefono:
+            queryset = queryset.filter(telefono__icontains=telefono)
+        if deuda == 'con_deuda':
+            queryset = queryset.filter(saldo_pendiente_total_db__gt=0)
+        elif deuda == 'al_dia':
+            queryset = queryset.filter(saldo_pendiente_total_db=0)
         if search:
             queryset = queryset.filter(nombre__icontains=search)
-        serializer = self.get_serializer(queryset, many=True)
+
+        if orden == 'nombre_desc':
+            return queryset.order_by('-nombre')
+        if orden == 'pedidos_desc':
+            return queryset.order_by('-pedidos_totales', '-nombre')
+        if orden == 'pedidos_asc':
+            return queryset.order_by('pedidos_totales', 'nombre')
+        return queryset.order_by('nombre')
+
+    def _per_page(self, request):
+        try:
+            valor = int(request.query_params.get('per_page') or 10)
+        except (TypeError, ValueError):
+            valor = 10
+        return valor if 1 <= valor <= 500 else 10
+
+    def list(self, request, *args, **kwargs):
+        queryset = self._filtrar(self.get_queryset(), request)
+        paginator = Paginator(queryset, self._per_page(request))
+        page_obj = paginator.get_page(request.query_params.get('page') or 1)
+        clientes = ClienteListV1Serializer(page_obj.object_list, many=True).data
+
+        return Response({
+            'ok': True,
+            'data': {'clientes': clientes},
+            'pagination': payload_paginacion(paginator, page_obj),
+            'meta': {
+                'total_clientes': paginator.count,
+                'filtros': {
+                    'nombre': request.query_params.get('nombre', ''),
+                    'telefono': request.query_params.get('telefono', ''),
+                    'deuda': request.query_params.get('deuda', ''),
+                },
+            },
+        })
+
+    def retrieve(self, request, *args, **kwargs):
+        cliente = self.get_object()
+        serializer = ClienteDetailV1Serializer(cliente)
         return Response({'ok': True, 'data': serializer.data})
+
+    def create(self, request, *args, **kwargs):
+        serializer = ClienteCreateV1Serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        cliente = serializer.save()
+        return Response(
+            {
+                'ok': True,
+                'data': ClienteListV1Serializer(cliente).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class LibroViewSetV1(viewsets.ReadOnlyModelViewSet):

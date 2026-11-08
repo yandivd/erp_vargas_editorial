@@ -21,15 +21,12 @@ def lista_clientes(request):
     # 2. Filtros (igual que antes)
     nombre = request.GET.get('nombre', '').strip()
     telefono = request.GET.get('telefono', '').strip()
-    email = request.GET.get('email', '').strip()
     deuda = request.GET.get('deuda', '')
 
     if nombre:
         clientes_list = clientes_list.filter(nombre__icontains=nombre)
     if telefono:
         clientes_list = clientes_list.filter(telefono__icontains=telefono)
-    if email:
-        clientes_list = clientes_list.filter(email__icontains=email)
     if deuda:
         if deuda == 'con_deuda':
             clientes_list = [c for c in clientes_list if c.saldo_pendiente_total > 0]
@@ -44,7 +41,6 @@ def lista_clientes(request):
         'total_clientes': len(clientes),
         'f_nombre': nombre,
         'f_telefono': telefono,
-        'f_email': email,
         'f_deuda': deuda,
         'orden_actual': orden,
     })

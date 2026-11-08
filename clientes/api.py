@@ -11,7 +11,6 @@ def _obtener_clientes(request):
     orden = request.GET.get('orden', 'nombre_asc')
     nombre = request.GET.get('nombre', '').strip()
     telefono = request.GET.get('telefono', '').strip()
-    email = request.GET.get('email', '').strip()
     deuda = request.GET.get('deuda', '')
 
     clientes = Cliente.objects.annotate(
@@ -29,8 +28,6 @@ def _obtener_clientes(request):
         clientes = clientes.filter(nombre__icontains=nombre)
     if telefono:
         clientes = clientes.filter(telefono__icontains=telefono)
-    if email:
-        clientes = clientes.filter(email__icontains=email)
     if deuda == 'con_deuda':
         clientes = clientes.filter(saldo_pendiente_total_db__gt=0)
     elif deuda == 'al_dia':
@@ -59,7 +56,6 @@ def api_lista_clientes(request):
             'id': c.id,
             'nombre': c.nombre,
             'telefono': c.telefono or '',
-            'email': getattr(c, 'email', '') or '',
             'pedidos': c.pedidos_totales or 0,
             'saldo_pendiente': float(c.saldo_pendiente_total_db or 0),
         })
@@ -72,7 +68,6 @@ def api_lista_clientes(request):
             'filtros': {
                 'nombre': request.GET.get('nombre', ''),
                 'telefono': request.GET.get('telefono', ''),
-                'email': request.GET.get('email', ''),
                 'deuda': request.GET.get('deuda', ''),
             },
         },
