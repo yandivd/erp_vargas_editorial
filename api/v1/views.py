@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -23,7 +23,7 @@ from core.api import obtener_dashboard_data
 from core.api_utils import payload_paginacion
 from core.models import Parametro
 from finanzas.services import ServicioFinanzas
-from inventario.models import Material
+from inventario.models import Material, MovimientoInventario
 from pedidos.models import Book, CodigoDescuento, Entrega, Estado, Pedido
 from pedidos.services import CosteadorPedido, ServicioPedido
 
@@ -220,6 +220,124 @@ def catalogo(request):
     ]
 
     return paginador.get_paginated_response(data)
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def inventario(request):
+    busqueda = request.query_params.get('search', '').strip()
+    materiales = Material.objects.filter(activo=True).order_by('nombre')
+
+    if busqueda:
+        materiales = materiales.filter(Q(nombre__icontains=busqueda))
+
+    paginador = Paginator(materiales, int(request.query_params.get('per_page') or 20))
+    pagina = paginador.get_page(request.query_params.get('page'))
+
+    data = [
+        {
+            'id': material.id,
+            'nombre': material.nombre,
+            'unidad_medida': material.unidad_medida,
+            'stock_actual': float(material.stock_actual),
+            'stock_minimo': float(material.stock_minimo),
+            'stock_bajo': bool(material.stock_bajo),
+            'alerta': bool(material.stock_bajo),
+        }
+        for material in pagina
+    ]
+
+    return Response({
+        'ok': True,
+        'data': {'materiales': data},
+        'pagination': {
+            'count': paginador.count,
+            'page': pagina.number,
+            'num_pages': paginador.num_pages,
+            'per_page': paginador.per_page,
+            'start_index': pagina.start_index() if paginador.count else 0,
+            'end_index': pagina.end_index() if paginador.count else 0,
+            'has_next': pagina.has_next(),
+            'has_previous': pagina.has_previous(),
+        },
+    })
+
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def inventario_movimiento(request):
+    try:
+        material_id = int(request.data.get('material_id'))
+        tipo = str(request.data.get('tipo') or '').strip().upper()
+        cantidad = Decimal(str(request.data.get('cantidad') or 0))
+        motivo = str(request.data.get('motivo') or '')
+        pedido_id = request.data.get('pedido_id') or None
+    except (ValueError, TypeError, InvalidOperation):
+        return Response(
+            {'ok': False, 'error': 'Datos inválidos para el movimiento de inventario.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if tipo not in ('ENTRADA', 'SALIDA'):
+        return Response(
+            {'ok': False, 'error': 'El tipo debe ser ENTRADA o SALIDA.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if cantidad <= 0:
+        return Response(
+            {'ok': False, 'error': 'La cantidad debe ser mayor a cero.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    material = get_object_or_404(Material, id=material_id)
+
+    if tipo == 'SALIDA' and cantidad > material.stock_actual:
+        return Response(
+            {'ok': False, 'error': 'No hay suficiente stock para la salida.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    pedido = None
+    if pedido_id is not None and str(pedido_id) != '':
+        pedido = get_object_or_404(Pedido, id=pedido_id)
+
+    with transaction.atomic():
+        movimiento = MovimientoInventario.objects.create(
+            material=material,
+            tipo=tipo,
+            cantidad=cantidad,
+            costo_unitario=(
+                material.costo_promedio
+                if tipo == 'SALIDA'
+                else Decimal('0')
+            ),
+            pedido=pedido,
+            motivo=motivo,
+        )
+
+    return Response({
+        'ok': True,
+        'data': {
+            'movimiento': {
+                'id': movimiento.id,
+                'tipo': movimiento.tipo,
+                'cantidad': float(movimiento.cantidad),
+                'costo_total': float(movimiento.costo_total),
+                'motivo': movimiento.motivo,
+                'pedido_id': movimiento.pedido_id,
+            },
+            'material': {
+                'id': material.id,
+                'stock_actual': float(material.stock_actual),
+                'stock_minimo': float(material.stock_minimo),
+                'stock_bajo': bool(material.stock_bajo),
+                'alerta': bool(material.stock_bajo),
+            },
+        },
+    }, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])
