@@ -22,10 +22,12 @@ from clientes.models import Cliente
 from core.api import obtener_dashboard_data
 from core.api_utils import payload_paginacion
 from core.models import Parametro
+from finanzas.models import MovimientoCaja
 from finanzas.services import ServicioFinanzas
 from inventario.models import Material, MovimientoInventario
 from pedidos.models import Book, CodigoDescuento, Entrega, Estado, Pedido
 from pedidos.services import CosteadorPedido, ServicioPedido
+from proveedores.models import Proveedor
 
 from .serializers import (
     ESTADOS_NO_TALLER,
@@ -274,6 +276,8 @@ def inventario_movimiento(request):
         cantidad = Decimal(str(request.data.get('cantidad') or 0))
         motivo = str(request.data.get('motivo') or '')
         pedido_id = request.data.get('pedido_id') or None
+        costo_unitario = Decimal(str(request.data.get('costo_unitario') or 0))
+        proveedor_id = request.data.get('proveedor_id') or None
     except (ValueError, TypeError, InvalidOperation):
         return Response(
             {'ok': False, 'error': 'Datos inválidos para el movimiento de inventario.'},
@@ -294,6 +298,10 @@ def inventario_movimiento(request):
 
     material = get_object_or_404(Material, id=material_id)
 
+    proveedor = None
+    if proveedor_id is not None and str(proveedor_id) != '':
+        proveedor = get_object_or_404(Proveedor, id=proveedor_id)
+
     if tipo == 'SALIDA' and cantidad > material.stock_actual:
         return Response(
             {'ok': False, 'error': 'No hay suficiente stock para la salida.'},
@@ -312,11 +320,21 @@ def inventario_movimiento(request):
             costo_unitario=(
                 material.costo_promedio
                 if tipo == 'SALIDA'
-                else Decimal('0')
+                else (costo_unitario if costo_unitario > 0 else material.costo_promedio)
             ),
             pedido=pedido,
             motivo=motivo,
         )
+
+        if tipo == 'ENTRADA' and costo_unitario > 0:
+            MovimientoCaja.objects.create(
+                tipo='EGRESO',
+                categoria='COMPRA_MATERIAL',
+                monto=cantidad * costo_unitario,
+                metodo='EFECTIVO',
+                concepto=f'Compra de {material.nombre} ({cantidad} {material.unidad_medida})',
+                proveedor=proveedor,
+            )
 
     return Response({
         'ok': True,

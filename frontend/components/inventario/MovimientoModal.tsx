@@ -14,6 +14,12 @@ type MovimientoModalProps = {
   materiales: InventarioMaterial[];
 };
 
+type ProveedorInventario = {
+  id: number;
+  nombre: string;
+  tipo_label?: string;
+};
+
 export default function MovimientoModal({
   materiales,
 }: MovimientoModalProps) {
@@ -23,6 +29,9 @@ export default function MovimientoModal({
   const [tipo, setTipo] = useState<"ENTRADA" | "SALIDA">("ENTRADA");
   const [cantidad, setCantidad] = useState("1");
   const [motivo, setMotivo] = useState("");
+  const [costoUnitario, setCostoUnitario] = useState("0");
+  const [proveedorId, setProveedorId] = useState("");
+  const [proveedores, setProveedores] = useState<ProveedorInventario[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
@@ -31,6 +40,36 @@ export default function MovimientoModal({
   const cantidadNumero = Number(cantidad);
   const cantidadValida =
     Number.isFinite(cantidadNumero) && cantidadNumero > 0;
+
+  useEffect(() => {
+    if (!abierto) {
+      return;
+    }
+
+    let cancelado = false;
+
+    async function cargarProveedores() {
+      try {
+        const response = await apiFetch<{ proveedores: ProveedorInventario[] }>(
+          "proveedores/?per_page=100",
+        );
+
+        if (!cancelado) {
+          setProveedores(response.proveedores);
+        }
+      } catch {
+        if (!cancelado) {
+          setProveedores([]);
+        }
+      }
+    }
+
+    void cargarProveedores();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [abierto]);
 
   useEffect(() => {
     if (!abierto) {
@@ -53,6 +92,9 @@ export default function MovimientoModal({
     setTipo("ENTRADA");
     setCantidad("1");
     setMotivo("");
+    setCostoUnitario("0");
+    setProveedorId("");
+    setProveedores([]);
     setGuardando(false);
     setError(null);
     setExito(null);
@@ -89,6 +131,18 @@ export default function MovimientoModal({
       return;
     }
 
+    const costoUnitarioNumero = Number(costoUnitario || 0);
+    const proveedorIdNumero =
+      tipo === "ENTRADA" ? (proveedorId ? Number(proveedorId) : null) : null;
+
+    if (
+      tipo === "ENTRADA" &&
+      (!Number.isFinite(costoUnitarioNumero) || costoUnitarioNumero < 0)
+    ) {
+      setError("El costo unitario debe ser un número mayor o igual a cero.");
+      return;
+    }
+
     setGuardando(true);
     setError(null);
 
@@ -102,6 +156,8 @@ export default function MovimientoModal({
             tipo,
             cantidad: cantidadNumero,
             motivo: motivo.trim(),
+            costo_unitario: tipo === "ENTRADA" ? costoUnitarioNumero : 0,
+            proveedor_id: tipo === "ENTRADA" ? proveedorIdNumero : null,
           }),
         },
       );
@@ -230,9 +286,17 @@ export default function MovimientoModal({
                   <select
                     id="inventario-movimiento-tipo"
                     value={tipo}
-                    onChange={(event) =>
-                      setTipo(event.target.value as "ENTRADA" | "SALIDA")
-                    }
+                    onChange={(event) => {
+                      const nuevoTipo = event.target.value as
+                        | "ENTRADA"
+                        | "SALIDA";
+                      setTipo(nuevoTipo);
+
+                      if (nuevoTipo === "SALIDA") {
+                        setCostoUnitario("0");
+                        setProveedorId("");
+                      }
+                    }}
                     disabled={guardando}
                     required
                     className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-50"
@@ -281,6 +345,55 @@ export default function MovimientoModal({
                   className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-50"
                 />
               </div>
+
+              {tipo === "ENTRADA" ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="inventario-movimiento-costo"
+                      className="mb-1.5 block text-sm font-semibold text-ink"
+                    >
+                      Costo Unitario
+                    </label>
+                    <input
+                      id="inventario-movimiento-costo"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={costoUnitario}
+                      onChange={(event) => setCostoUnitario(event.target.value)}
+                      disabled={guardando}
+                      placeholder="0.00"
+                      className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-50"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="inventario-movimiento-proveedor"
+                      className="mb-1.5 block text-sm font-semibold text-ink"
+                    >
+                      Proveedor (opcional)
+                    </label>
+                    <select
+                      id="inventario-movimiento-proveedor"
+                      value={proveedorId}
+                      onChange={(event) => setProveedorId(event.target.value)}
+                      disabled={guardando}
+                      className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-50"
+                    >
+                      <option value="">Selecciona un proveedor (opcional)...</option>
+                      {proveedores.map((proveedor) => (
+                        <option key={proveedor.id} value={String(proveedor.id)}>
+                          {proveedor.nombre}
+                          {proveedor.tipo_label ? ` (${proveedor.tipo_label})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="flex justify-end gap-2 pt-1">
                 <button
