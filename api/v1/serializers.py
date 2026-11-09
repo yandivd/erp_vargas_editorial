@@ -6,8 +6,17 @@ from rest_framework import serializers
 from clientes.models import Cliente
 from finanzas.models import MovimientoCaja
 from finanzas.services import ServicioFinanzas
-from pedidos.models import Book, CodigoDescuento, Entrega, Estado, Pedido, ServicioExterno
+from pedidos.models import (
+    Book,
+    CodigoDescuento,
+    Entrega,
+    Estado,
+    LoteServicio,
+    Pedido,
+    ServicioExterno,
+)
 from pedidos.services import CosteadorPedido
+from proveedores.models import Proveedor
 
 
 ESTADOS_NO_TALLER = ('Entregado', 'En Stock', 'Cancelado')
@@ -734,3 +743,155 @@ class ClienteDetailV1Serializer(ClienteListV1Serializer):
             .order_by('-fecha_pedido')
         )
         return PedidoListV1Serializer(pedidos, many=True).data
+
+
+class ProveedorV1Serializer(serializers.ModelSerializer):
+    tipo_label = serializers.CharField(source='get_tipo_display', read_only=True)
+    deuda_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Proveedor
+        fields = (
+            'id',
+            'nombre',
+            'tipo',
+            'tipo_label',
+            'telefono',
+            'direccion',
+            'notas',
+            'activo',
+            'deuda_total',
+        )
+
+    def validate_nombre(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('El nombre es obligatorio.')
+        return value
+
+    def get_deuda_total(self, obj):
+        if hasattr(obj, 'deuda_total_db'):
+            return float(obj.deuda_total_db or 0)
+        total = obj.servicioexterno_set.filter(
+            estado__in=['SOLICITADO', 'RECIBIDO']
+        ).aggregate(total=Sum('monto'))['total']
+        return float(total or 0)
+
+
+class ServicioExternoResumenV1Serializer(serializers.ModelSerializer):
+    tipo_label = serializers.CharField(source='get_tipo_display', read_only=True)
+    estado_label = serializers.CharField(source='get_estado_display', read_only=True)
+    pedido_id = serializers.IntegerField(read_only=True)
+    referencia_externa = serializers.SerializerMethodField()
+    libro_titulo = serializers.SerializerMethodField()
+    cantidad = serializers.SerializerMethodField()
+    cliente_nombre = serializers.SerializerMethodField()
+    monto = serializers.FloatField()
+
+    class Meta:
+        model = ServicioExterno
+        fields = (
+            'id',
+            'pedido_id',
+            'referencia_externa',
+            'libro_titulo',
+            'cantidad',
+            'cliente_nombre',
+            'tipo',
+            'tipo_label',
+            'monto',
+            'estado',
+            'estado_label',
+        )
+
+    def get_referencia_externa(self, obj):
+        return obj.pedido.referencia_externa if obj.pedido_id else None
+
+    def get_libro_titulo(self, obj):
+        return obj.pedido.libro.titulo if obj.pedido_id else ''
+
+    def get_cantidad(self, obj):
+        return obj.pedido.cantidad if obj.pedido_id else 0
+
+    def get_cliente_nombre(self, obj):
+        cliente = obj.pedido.cliente if obj.pedido_id else None
+        return cliente.nombre if cliente else 'Stock / Venta Directa'
+
+
+class LoteServicioV1Serializer(serializers.ModelSerializer):
+    tipo_label = serializers.CharField(source='get_tipo_display', read_only=True)
+    estado_label = serializers.CharField(source='get_estado_display', read_only=True)
+    servicios = ServicioExternoResumenV1Serializer(many=True, read_only=True)
+    cantidad_servicios = serializers.SerializerMethodField()
+    total = serializers.SerializerMethodField()
+    total_pendiente = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LoteServicio
+        fields = (
+            'id',
+            'numero',
+            'tipo',
+            'tipo_label',
+            'estado',
+            'estado_label',
+            'fecha_apertura',
+            'fecha_cierre',
+            'fecha_pago',
+            'notas',
+            'cantidad_servicios',
+            'total',
+            'total_pendiente',
+            'servicios',
+        )
+
+    def get_cantidad_servicios(self, obj):
+        return len(obj.servicios.all())
+
+    def get_total(self, obj):
+        return float(sum((servicio.monto for servicio in obj.servicios.all()), Decimal('0')))
+
+    def get_total_pendiente(self, obj):
+        total = sum(
+            (
+                servicio.monto
+                for servicio in obj.servicios.all()
+                if servicio.estado in ('SOLICITADO', 'RECIBIDO')
+            ),
+            Decimal('0'),
+        )
+        return float(total)
+
+
+class MovimientoCajaV1Serializer(serializers.ModelSerializer):
+    tipo_label = serializers.CharField(source='get_tipo_display', read_only=True)
+    categoria_label = serializers.CharField(source='get_categoria_display', read_only=True)
+    metodo_label = serializers.CharField(source='get_metodo_display', read_only=True)
+    moneda_label = serializers.CharField(source='get_moneda_display', read_only=True)
+    monto = serializers.FloatField()
+    pedido_id = serializers.IntegerField(read_only=True)
+    proveedor_id = serializers.IntegerField(read_only=True)
+    proveedor_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MovimientoCaja
+        fields = (
+            'id',
+            'tipo',
+            'tipo_label',
+            'categoria',
+            'categoria_label',
+            'monto',
+            'moneda',
+            'moneda_label',
+            'metodo',
+            'metodo_label',
+            'concepto',
+            'fecha',
+            'pedido_id',
+            'proveedor_id',
+            'proveedor_nombre',
+        )
+
+    def get_proveedor_nombre(self, obj):
+        return obj.proveedor.nombre if obj.proveedor_id else ''

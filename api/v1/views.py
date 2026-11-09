@@ -4,7 +4,14 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q, Count, Sum, F, IntegerField
+from django.db.models import (
+    Q,
+    Count,
+    Sum,
+    F,
+    IntegerField,
+    ProtectedError,
+)
 from django.db.models.functions import Cast
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -27,7 +34,15 @@ from core.models import Parametro
 from finanzas.models import MovimientoCaja
 from finanzas.services import ServicioFinanzas
 from inventario.models import Material, MovimientoInventario
-from pedidos.models import Book, CodigoDescuento, Entrega, Estado, Pedido
+from pedidos.models import (
+    Book,
+    CodigoDescuento,
+    Entrega,
+    Estado,
+    LoteServicio,
+    Pedido,
+    ServicioExterno,
+)
 from pedidos.services import CosteadorPedido, ServicioPedido
 from proveedores.models import Proveedor
 
@@ -45,9 +60,12 @@ from .serializers import (
     EntregaListV1Serializer,
     EstadoV1Serializer,
     LibroListV1Serializer,
+    LoteServicioV1Serializer,
+    MovimientoCajaV1Serializer,
     PedidoCreateSerializer,
     PedidoDetailV1Serializer,
     PedidoListV1Serializer,
+    ProveedorV1Serializer,
     RegistrarAnticipoSerializer,
     TiendaPedidoSerializer,
 )
@@ -1431,3 +1449,361 @@ class LibroViewSetV1(viewsets.ModelViewSet):
         libro = self.get_object()
         libro.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _proveedores_queryset():
+    return Proveedor.objects.annotate(
+        deuda_total_db=Sum(
+            'servicioexterno__monto',
+            filter=Q(servicioexterno__estado__in=['SOLICITADO', 'RECIBIDO']),
+        )
+    ).order_by('nombre')
+
+
+def _lotes_queryset():
+    return LoteServicio.objects.select_related('proveedor').prefetch_related(
+        'servicios__pedido__libro',
+        'servicios__pedido__cliente',
+    )
+
+
+def _pedidos_asociados_lote(lote):
+    pedidos = {}
+
+    for servicio in lote.servicios.all():
+        pedido = servicio.pedido
+        if pedido.id not in pedidos:
+            pedidos[pedido.id] = {
+                'pedido_id': pedido.id,
+                'referencia_externa': pedido.referencia_externa,
+                'libro_titulo': pedido.libro.titulo,
+                'cantidad': pedido.cantidad,
+                'cliente_nombre': (
+                    pedido.cliente.nombre
+                    if pedido.cliente
+                    else 'Stock / Venta Directa'
+                ),
+                'monto': 0.0,
+                'servicios': 0,
+            }
+        pedidos[pedido.id]['monto'] += float(servicio.monto)
+        pedidos[pedido.id]['servicios'] += 1
+
+    return sorted(pedidos.values(), key=lambda item: item['pedido_id'])
+
+
+class ProveedorViewSetV1(viewsets.ModelViewSet):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = ProveedorV1Serializer
+    http_method_names = [
+        'get',
+        'post',
+        'put',
+        'patch',
+        'delete',
+        'head',
+        'options',
+    ]
+
+    def get_queryset(self):
+        queryset = _proveedores_queryset()
+        search = self.request.query_params.get('search', '').strip()
+        activo = self.request.query_params.get('activo', '')
+
+        if search:
+            queryset = queryset.filter(
+                Q(nombre__icontains=search) | Q(telefono__icontains=search)
+            )
+        if activo in ('1', 'true'):
+            queryset = queryset.filter(activo=True)
+        elif activo in ('0', 'false'):
+            queryset = queryset.filter(activo=False)
+
+        return queryset
+
+    def _per_page(self):
+        try:
+            valor = int(self.request.query_params.get('per_page') or 10)
+        except (TypeError, ValueError):
+            valor = 10
+        return valor if 1 <= valor <= 500 else 10
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        paginator = Paginator(queryset, self._per_page())
+        page_obj = paginator.get_page(request.query_params.get('page') or 1)
+        proveedores = ProveedorV1Serializer(
+            page_obj.object_list,
+            many=True,
+        ).data
+
+        return Response({
+            'ok': True,
+            'data': {'proveedores': proveedores},
+            'pagination': payload_paginacion(paginator, page_obj),
+            'meta': {'total_proveedores': paginator.count},
+        })
+
+    def retrieve(self, request, *args, **kwargs):
+        proveedor = self.get_object()
+        return Response({
+            'ok': True,
+            'data': ProveedorV1Serializer(proveedor).data,
+        })
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {
+                    'ok': False,
+                    'error': _primer_error_serializer(serializer.errors),
+                    'details': serializer.errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        proveedor = serializer.save()
+        return Response(
+            {
+                'ok': True,
+                'data': ProveedorV1Serializer(proveedor).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        proveedor = self.get_object()
+        serializer = self.get_serializer(
+            proveedor,
+            data=request.data,
+            partial=partial,
+        )
+        if not serializer.is_valid():
+            return Response(
+                {
+                    'ok': False,
+                    'error': _primer_error_serializer(serializer.errors),
+                    'details': serializer.errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        proveedor = serializer.save()
+        return Response({
+            'ok': True,
+            'data': ProveedorV1Serializer(proveedor).data,
+        })
+
+    def destroy(self, request, *args, **kwargs):
+        proveedor = self.get_object()
+        try:
+            proveedor.delete()
+        except ProtectedError:
+            return Response(
+                {
+                    'ok': False,
+                    'error': (
+                        'No se puede eliminar el proveedor porque tiene '
+                        'servicios o lotes asociados.'
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def proveedor_lotes(request, proveedor_id):
+    proveedor = get_object_or_404(
+        _proveedores_queryset(),
+        pk=proveedor_id,
+    )
+    lotes = _lotes_queryset().filter(proveedor=proveedor)
+    abiertos = lotes.filter(estado__in=['ABIERTO', 'CERRADO'])
+    pagados = lotes.filter(estado='PAGADO')
+
+    return Response({
+        'ok': True,
+        'data': {
+            'proveedor': ProveedorV1Serializer(proveedor).data,
+            'abiertos': LoteServicioV1Serializer(abiertos, many=True).data,
+            'pagados': LoteServicioV1Serializer(pagados, many=True).data,
+        },
+    })
+
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def proveedor_lote_pagar(request, lote_id):
+    metodo = (request.data.get('metodo') or 'EFECTIVO').strip().upper()
+    metodos_validos = dict(MovimientoCaja.METODO_CHOICES)
+    if metodo not in metodos_validos:
+        return Response(
+            {'ok': False, 'error': 'El método de pago no es válido.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        monto_cup = Decimal(str(request.data.get('monto_cup') or 0))
+        monto_usd = Decimal(str(request.data.get('monto_usd') or 0))
+    except (InvalidOperation, TypeError, ValueError):
+        return Response(
+            {'ok': False, 'error': 'Los montos del pago no son válidos.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    with transaction.atomic():
+        lote = get_object_or_404(
+            LoteServicio.objects.select_for_update().select_related('proveedor'),
+            pk=lote_id,
+        )
+
+        if lote.estado == 'PAGADO':
+            return Response(
+                {'ok': False, 'error': 'Este lote ya está pagado.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if lote.estado == 'CANCELADO':
+            return Response(
+                {'ok': False, 'error': 'No se puede pagar un lote cancelado.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        servicios = list(
+            lote.servicios.filter(
+                estado__in=['SOLICITADO', 'RECIBIDO']
+            ).select_related('pedido')
+        )
+        if not servicios:
+            return Response(
+                {
+                    'ok': False,
+                    'error': 'El lote no tiene servicios pendientes de pago.',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        total_pendiente = sum(
+            (servicio.monto for servicio in servicios),
+            Decimal('0'),
+        )
+
+        if monto_cup > 0 or monto_usd > 0:
+            try:
+                _, _, total_recibido_cup, tasa_aplicada = (
+                    ServicioFinanzas.normalizar_pago_mixto(
+                        monto_cup=monto_cup,
+                        monto_usd=monto_usd,
+                        tasa_aplicada=request.data.get('tasa_aplicada'),
+                    )
+                )
+            except ValueError as error:
+                return Response(
+                    {'ok': False, 'error': str(error)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if total_recibido_cup + Decimal('0.005') < total_pendiente:
+                faltante = total_pendiente - total_recibido_cup
+                return Response(
+                    {
+                        'ok': False,
+                        'error': (
+                            f'Faltan ${faltante:.2f} CUP para pagar el lote.'
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            vuelto_cup = max(
+                Decimal('0'),
+                total_recibido_cup - total_pendiente,
+            )
+        else:
+            total_recibido_cup = total_pendiente
+            vuelto_cup = Decimal('0')
+            tasa_aplicada = None
+
+        ahora = timezone.now()
+        movimientos = []
+
+        for servicio in servicios:
+            movimiento = MovimientoCaja.objects.create(
+                tipo='EGRESO',
+                categoria='PAGO_PROVEEDOR',
+                monto=servicio.monto,
+                metodo=metodo,
+                moneda='CUP',
+                concepto=(
+                    f'Pago {servicio.get_tipo_display()} - '
+                    f'Pedido #{servicio.pedido_id} ({lote.numero})'
+                )[:200],
+                proveedor=lote.proveedor,
+                pedido=servicio.pedido,
+            )
+            movimientos.append(movimiento)
+
+            servicio.estado = 'PAGADO'
+            servicio.fecha_pago = ahora
+            if not servicio.fecha_recepcion:
+                servicio.fecha_recepcion = ahora
+            servicio.save(
+                update_fields=[
+                    'estado',
+                    'fecha_pago',
+                    'fecha_recepcion',
+                ]
+            )
+
+        lote.estado = 'PAGADO'
+        lote.fecha_pago = ahora
+        if not lote.fecha_cierre:
+            lote.fecha_cierre = ahora
+        lote.save(update_fields=['estado', 'fecha_pago', 'fecha_cierre'])
+
+        lote_actualizado = _lotes_queryset().get(pk=lote.pk)
+        movimientos_data = MovimientoCajaV1Serializer(
+            movimientos,
+            many=True,
+        ).data
+
+        return Response({
+            'ok': True,
+            'data': {
+                'lote': LoteServicioV1Serializer(lote_actualizado).data,
+                'movimiento': (
+                    movimientos_data[0]
+                    if len(movimientos_data) == 1
+                    else None
+                ),
+                'movimientos': movimientos_data,
+                'total_pagado': float(total_pendiente),
+                'total_recibido_cup': float(total_recibido_cup),
+                'vuelto_cup': float(vuelto_cup),
+                'tasa_aplicada': (
+                    float(tasa_aplicada)
+                    if tasa_aplicada is not None
+                    else None
+                ),
+            },
+        })
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def proveedor_lote_orden(request, lote_id):
+    lote = get_object_or_404(_lotes_queryset(), pk=lote_id)
+
+    return Response({
+        'ok': True,
+        'data': {
+            'lote': LoteServicioV1Serializer(lote).data,
+            'proveedor': ProveedorV1Serializer(lote.proveedor).data,
+            'pedidos': _pedidos_asociados_lote(lote),
+        },
+    })

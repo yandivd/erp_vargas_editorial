@@ -15,6 +15,7 @@ router = DefaultRouter()
 router.register(r'clientes', views.ClienteViewSetV1, basename='clientes')
 router.register(r'libros', views.LibroViewSetV1, basename='libros')
 router.register(r'pedidos', views.PedidoViewSetV1, basename='pedidos')
+router.register(r'proveedores', views.ProveedorViewSetV1, basename='proveedores')
 
 urlpatterns = [
     path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -37,4 +38,7 @@ urlpatterns = [
     path('inventario/movimiento/', views.inventario_movimiento, name='inventario_movimiento'),
     path('inventario/<int:material_id>/historial/', views.inventario_historial, name='inventario_historial'),
     path('inventario/movimiento/<int:movimiento_id>/orden-trabajo/', views.inventario_orden_trabajo, name='inventario_orden_trabajo'),
+    path('proveedores/<int:proveedor_id>/lotes/', views.proveedor_lotes, name='proveedor_lotes'),
+    path('proveedores/lotes/<int:lote_id>/pagar/', views.proveedor_lote_pagar, name='proveedor_lote_pagar'),
+    path('proveedores/lotes/<int:lote_id>/orden/', views.proveedor_lote_orden, name='proveedor_lote_orden'),
 ] + router.urls
