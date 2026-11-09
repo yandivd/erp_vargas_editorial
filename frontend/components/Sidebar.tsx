@@ -200,7 +200,7 @@ function Brand() {
   return (
     <div className="flex shrink-0 items-center justify-center px-4 py-6">
       <Image
-        src="/img/logo1.jpg"
+        src="/img/logo.png"
         alt="Vargas Editorial"
         width={260}
         height={120}
