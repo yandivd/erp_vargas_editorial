@@ -1,5 +1,7 @@
 import { AlertTriangle, Package, SearchX } from "lucide-react";
+import HistorialModal from "@/components/inventario/HistorialModal";
 import MovimientoModal from "@/components/inventario/MovimientoModal";
+import SalidaRapidaModal from "@/components/inventario/SalidaRapidaModal";
 import InventarioFilters from "@/components/inventario/InventarioFilters";
 import {
   apiFetchEnvelope,
@@ -117,6 +119,7 @@ export default async function InventarioPage({
                   <th className={`${thClass} text-right`}>Stock Actual</th>
                   <th className={`${thClass} text-right`}>Stock Mínimo</th>
                   <th className={thClass}>Estado</th>
+                  <th className={`${thClass} text-right`}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -143,6 +146,12 @@ export default async function InventarioPage({
                         >
                           {stockBajo ? "Stock bajo" : "OK"}
                         </span>
+                      </td>
+                      <td className={`${tdClass} text-right`}>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <SalidaRapidaModal material={material} />
+                          <HistorialModal material={material} />
+                        </div>
                       </td>
                     </tr>
                   );

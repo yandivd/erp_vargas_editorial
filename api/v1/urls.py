@@ -35,4 +35,6 @@ urlpatterns = [
     path('entregas/<int:pk>/confirmar/', views.entrega_confirmar, name='entrega_confirmar'),
     path('inventario/', views.inventario, name='inventario'),
     path('inventario/movimiento/', views.inventario_movimiento, name='inventario_movimiento'),
+    path('inventario/<int:material_id>/historial/', views.inventario_historial, name='inventario_historial'),
+    path('inventario/movimiento/<int:movimiento_id>/orden-trabajo/', views.inventario_orden_trabajo, name='inventario_orden_trabajo'),
 ] + router.urls

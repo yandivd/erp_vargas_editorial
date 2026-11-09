@@ -9,6 +9,7 @@ import type {
   InventarioMaterial,
   InventarioMovimientoResponse,
 } from "@/lib/inventario";
+import type { PedidoListItem } from "@/lib/pedidos";
 
 type MovimientoModalProps = {
   materiales: InventarioMaterial[];
@@ -32,6 +33,8 @@ export default function MovimientoModal({
   const [costoUnitario, setCostoUnitario] = useState("0");
   const [proveedorId, setProveedorId] = useState("");
   const [proveedores, setProveedores] = useState<ProveedorInventario[]>([]);
+  const [pedidoId, setPedidoId] = useState("");
+  const [pedidos, setPedidos] = useState<PedidoListItem[]>([]);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
@@ -76,6 +79,36 @@ export default function MovimientoModal({
       return;
     }
 
+    let cancelado = false;
+
+    async function cargarPedidos() {
+      try {
+        const response = await apiFetch<PedidoListItem[]>(
+          "pedidos/?en_taller=true&per_page=100",
+        );
+
+        if (!cancelado) {
+          setPedidos(response);
+        }
+      } catch {
+        if (!cancelado) {
+          setPedidos([]);
+        }
+      }
+    }
+
+    void cargarPedidos();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [abierto]);
+
+  useEffect(() => {
+    if (!abierto) {
+      return;
+    }
+
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !guardando) {
         setAbierto(false);
@@ -95,6 +128,8 @@ export default function MovimientoModal({
     setCostoUnitario("0");
     setProveedorId("");
     setProveedores([]);
+    setPedidoId("");
+    setPedidos([]);
     setGuardando(false);
     setError(null);
     setExito(null);
@@ -134,6 +169,8 @@ export default function MovimientoModal({
     const costoUnitarioNumero = Number(costoUnitario || 0);
     const proveedorIdNumero =
       tipo === "ENTRADA" ? (proveedorId ? Number(proveedorId) : null) : null;
+    const pedidoIdNumero =
+      tipo === "SALIDA" ? (pedidoId ? Number(pedidoId) : null) : null;
 
     if (
       tipo === "ENTRADA" &&
@@ -158,6 +195,7 @@ export default function MovimientoModal({
             motivo: motivo.trim(),
             costo_unitario: tipo === "ENTRADA" ? costoUnitarioNumero : 0,
             proveedor_id: tipo === "ENTRADA" ? proveedorIdNumero : null,
+            pedido_id: tipo === "SALIDA" ? pedidoIdNumero : null,
           }),
         },
       );
@@ -295,6 +333,8 @@ export default function MovimientoModal({
                       if (nuevoTipo === "SALIDA") {
                         setCostoUnitario("0");
                         setProveedorId("");
+                      } else {
+                        setPedidoId("");
                       }
                     }}
                     disabled={guardando}
@@ -392,6 +432,37 @@ export default function MovimientoModal({
                       ))}
                     </select>
                   </div>
+                </div>
+              ) : null}
+
+              {tipo === "SALIDA" ? (
+                <div>
+                  <label
+                    htmlFor="inventario-movimiento-pedido"
+                    className="mb-1.5 block text-sm font-semibold text-ink"
+                  >
+                    Pedido (opcional)
+                  </label>
+                  <select
+                    id="inventario-movimiento-pedido"
+                    value={pedidoId}
+                    onChange={(event) => setPedidoId(event.target.value)}
+                    disabled={guardando}
+                    className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-50"
+                  >
+                    <option value="">Sin pedido asociado</option>
+                    {pedidos.map((pedido) => (
+                      <option key={pedido.id} value={String(pedido.id)}>
+                        {pedido.referencia_externa
+                          ? `#${pedido.referencia_externa}`
+                          : `#${pedido.id}`}
+                        {" - "}
+                        {pedido.cliente_nombre}
+                        {" - "}
+                        {pedido.libro_titulo}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               ) : null}
 

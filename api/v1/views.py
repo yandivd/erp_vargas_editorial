@@ -1,5 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q, Count, Sum, F, IntegerField
@@ -58,6 +60,26 @@ def _rol_usuario(user):
         return 'staff'
     grupo = user.groups.first()
     return grupo.name if grupo else 'usuario'
+
+
+def _nombre_usuario(user):
+    if not user:
+        return ''
+    nombre = user.get_full_name().strip()
+    return nombre or user.username
+
+
+def _nombre_por_grupo(grupos, fallback=''):
+    User = get_user_model()
+    for grupo in grupos:
+        user = (
+            User.objects.filter(groups__name__iexact=grupo)
+            .order_by('id')
+            .first()
+        )
+        if user:
+            return _nombre_usuario(user)
+    return fallback
 
 
 def _es_verdadero(value):
@@ -309,7 +331,7 @@ def inventario_movimiento(request):
         )
 
     pedido = None
-    if pedido_id is not None and str(pedido_id) != '':
+    if tipo == 'SALIDA' and pedido_id is not None and str(pedido_id) != '':
         pedido = get_object_or_404(Pedido, id=pedido_id)
 
     with transaction.atomic():
@@ -324,6 +346,7 @@ def inventario_movimiento(request):
             ),
             pedido=pedido,
             motivo=motivo,
+            usuario=request.user,
         )
 
         if tipo == 'ENTRADA' and costo_unitario > 0:
@@ -356,6 +379,116 @@ def inventario_movimiento(request):
             },
         },
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def inventario_historial(request, material_id):
+    material = get_object_or_404(Material, id=material_id)
+    movimientos = (
+        MovimientoInventario.objects.filter(material=material)
+        .select_related('pedido', 'usuario')
+        .order_by('-fecha')
+    )
+
+    data = [
+        {
+            'id': movimiento.id,
+            'fecha': movimiento.fecha.isoformat(),
+            'tipo': movimiento.tipo,
+            'tipo_label': movimiento.get_tipo_display(),
+            'cantidad': float(movimiento.cantidad),
+            'costo_unitario': float(movimiento.costo_unitario),
+            'costo_total': float(movimiento.costo_total),
+            'motivo': movimiento.motivo,
+            'pedido': (
+                {
+                    'id': movimiento.pedido_id,
+                    'referencia_externa': movimiento.pedido.referencia_externa,
+                }
+                if movimiento.pedido_id
+                else None
+            ),
+            'usuario': (
+                {
+                    'id': movimiento.usuario_id,
+                    'nombre': _nombre_usuario(movimiento.usuario),
+                }
+                if movimiento.usuario_id
+                else None
+            ),
+        }
+        for movimiento in movimientos
+    ]
+
+    return Response({
+        'ok': True,
+        'data': {
+            'material': {
+                'id': material.id,
+                'nombre': material.nombre,
+                'unidad_medida': material.unidad_medida,
+                'stock_actual': float(material.stock_actual),
+                'stock_minimo': float(material.stock_minimo),
+                'stock_bajo': bool(material.stock_bajo),
+            },
+            'movimientos': data,
+        },
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def inventario_orden_trabajo(request, movimiento_id):
+    movimiento = get_object_or_404(
+        MovimientoInventario.objects.select_related(
+            'material',
+            'pedido',
+            'usuario',
+        ),
+        id=movimiento_id,
+    )
+    solicitante = _nombre_usuario(movimiento.usuario)
+    almacenero = _nombre_por_grupo(
+        ('ALMACENERO', 'ALMACEN', 'ALMACÉN'),
+        fallback=getattr(settings, 'ALMACENERO_NOMBRE', '') or solicitante,
+    )
+    ceo = _nombre_por_grupo(
+        ('CEO', 'GERENTE', 'DIRECTOR'),
+        fallback=getattr(settings, 'CEO_NOMBRE', ''),
+    )
+
+    return Response({
+        'ok': True,
+        'data': {
+            'movimiento': {
+                'id': movimiento.id,
+                'tipo': movimiento.tipo,
+                'tipo_label': movimiento.get_tipo_display(),
+                'fecha': movimiento.fecha.isoformat(),
+                'cantidad': float(movimiento.cantidad),
+                'motivo': movimiento.motivo,
+            },
+            'material': {
+                'id': movimiento.material_id,
+                'nombre': movimiento.material.nombre,
+                'unidad_medida': movimiento.material.unidad_medida,
+            },
+            'pedido': (
+                {
+                    'id': movimiento.pedido_id,
+                    'referencia_externa': movimiento.pedido.referencia_externa,
+                }
+                if movimiento.pedido_id
+                else None
+            ),
+            'solicitante': solicitante,
+            'almacenero': almacenero,
+            'ceo': ceo,
+        },
+    })
 
 
 @api_view(['GET'])

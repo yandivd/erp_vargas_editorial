@@ -95,7 +95,8 @@ def registrar_compra_modal(request):
                 cantidad=cantidad,
                 costo_unitario=costo_unitario,
                 costo_total=costo_total,
-                motivo=f'Compra: {notas}'
+                motivo=f'Compra: {notas}',
+                usuario=request.user if request.user.is_authenticated else None,
             )
             
             # 2. Registrar salida de dinero de la caja
@@ -176,7 +177,8 @@ def registrar_ajuste(request, pk):
                 tipo='SALIDA',
                 cantidad=cantidad,
                 costo_unitario=material.costo_promedio,
-                motivo=motivo
+                motivo=motivo,
+                usuario=request.user if request.user.is_authenticated else None,
             )
             messages.success(request, f'Se registraron {cantidad} {material.unidad_medida} de merma.')
             return redirect('inventario:detalle', pk=pk)
@@ -208,7 +210,8 @@ def registrar_salida_material(request, pk):
             # Registrar el movimiento
             ServicioInventario.registrar_consumo(
                 material, cantidad, pedido,
-                motivo=motivo or f'Salida manual de {material.nombre}'
+                motivo=motivo or f'Salida manual de {material.nombre}',
+                usuario=request.user if request.user.is_authenticated else None,
             )
 
         messages.success(request, f'Se registró la salida de {cantidad} {material.unidad_medida} de {material.nombre}.')

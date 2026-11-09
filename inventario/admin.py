@@ -30,7 +30,7 @@ class MaterialAdmin(admin.ModelAdmin):
 class MovimientoInventarioAdmin(admin.ModelAdmin):
     list_display = (
         'fecha', 'tipo', 'material', 'cantidad',
-        'costo_unitario', 'costo_total', 'pedido', 'proveedor'
+        'costo_unitario', 'costo_total', 'pedido', 'proveedor', 'usuario'
     )
     list_filter = ('tipo', 'material')
     search_fields = ('material__nombre', 'motivo')

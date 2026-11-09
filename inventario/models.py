@@ -1,4 +1,6 @@
+from django.conf import settings
 from django.db import models
+from django.db.models import Sum
 from proveedores.models import Proveedor
 
 
@@ -39,6 +41,23 @@ class Material(models.Model):
     @property
     def valor_inventario(self):
         return self.stock_actual * self.costo_promedio
+
+    @property
+    def pedidos_por_unidad(self):
+        salidas = self.movimientos.filter(tipo='SALIDA')
+        total_unidades = (
+            salidas.aggregate(total=Sum('cantidad'))['total'] or 0
+        )
+        if total_unidades <= 0:
+            return 0
+
+        total_pedidos = (
+            salidas.filter(pedido__isnull=False)
+            .values('pedido_id')
+            .distinct()
+            .count()
+        )
+        return total_pedidos / float(total_unidades)
 
 
 class LoteConsumo(models.Model):
@@ -81,6 +100,13 @@ class MovimientoInventario(models.Model):
                                 null=True, blank=True, related_name='movimientos_inventario')
     proveedor = models.ForeignKey(Proveedor, on_delete=models.SET_NULL,
                                    null=True, blank=True)
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='movimientos_inventario',
+    )
     motivo = models.CharField(max_length=200, blank=True)
 
     class Meta:

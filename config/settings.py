@@ -207,6 +207,9 @@ def _env_list(nombre, default=''):
     return [item.strip() for item in os.environ.get(nombre, default).split(',') if item.strip()]
 
 
+ALMACENERO_NOMBRE = os.environ.get('ALMACENERO_NOMBRE', '')
+CEO_NOMBRE = os.environ.get('CEO_NOMBRE', '')
+
 # Orígenes permitidos para llamadas directas desde el navegador.
 # El patrón BFF hace que Next llame a Django desde el servidor, pero se
 # mantiene CORS para PDFs, depuración y la PWA/APK.
