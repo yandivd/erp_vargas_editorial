@@ -56,7 +56,7 @@ export default function LoginPage() {
       <section className="hidden min-h-screen items-center justify-center bg-slate-900 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 px-8 py-12 text-white md:flex md:w-2/5">
         <div className="max-w-sm text-center">
           <Image
-            src="/img/logo.png"
+            src="/img/logo.jpg"
             alt="Vargas Editorial"
             width={260}
             height={120}

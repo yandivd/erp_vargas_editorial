@@ -158,7 +158,7 @@ export default function CatalogoPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
       <header className="mb-8 flex flex-col items-center text-center">
         <Image
-          src="/img/logo.png"
+          src="/img/logo.jpg"
           alt="Vargas Editorial"
           width={260}
           height={120}
