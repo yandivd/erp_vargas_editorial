@@ -32,6 +32,8 @@ export type EntregaPedido = {
 };
 
 export type EntregaDetail = EntregaListItem & {
+  cliente_telefono: string;
+  cliente_direccion: string;
   notas: string;
   pedidos: EntregaPedido[];
 };

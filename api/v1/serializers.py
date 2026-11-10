@@ -702,11 +702,19 @@ class EntregaListV1Serializer(serializers.ModelSerializer):
 
 
 class EntregaDetailV1Serializer(EntregaListV1Serializer):
+    cliente_telefono = serializers.CharField(
+        source='cliente.telefono', read_only=True
+    )
+    cliente_direccion = serializers.CharField(
+        source='cliente.direccion', read_only=True
+    )
     pedidos = EntregaPedidoV1Serializer(many=True, read_only=True)
     notas = serializers.CharField(read_only=True)
 
     class Meta(EntregaListV1Serializer.Meta):
         fields = EntregaListV1Serializer.Meta.fields + (
+            'cliente_telefono',
+            'cliente_direccion',
             'notas',
             'pedidos',
         )

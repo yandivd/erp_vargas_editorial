@@ -7,6 +7,7 @@ import {
   CalendarDays,
   MapPin,
   Package,
+  Printer,
   ReceiptText,
   StickyNote,
   Truck,
@@ -110,15 +111,26 @@ export default async function EntregaDetailPage({
             </p>
           </div>
         </div>
-        {!entrega.entregado ? (
-          <ConfirmarEntrega
-            entregaId={entrega.id}
-            clienteNombre={entrega.cliente_nombre}
-            totalACobrar={Number(entrega.total_a_cobrar)}
-            saldoPedidos={Number(entrega.saldo_pedidos)}
-            costoMensajeria={Number(entrega.costo_mensajeria)}
-          />
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/entregas/${entrega.id}/ticket`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-3.5 py-2 text-sm font-semibold text-ink transition hover:border-brand hover:bg-blue-50 hover:text-brand"
+          >
+            <Printer className="h-4 w-4" aria-hidden="true" />
+            Imprimir Ticket
+          </Link>
+          {!entrega.entregado ? (
+            <ConfirmarEntrega
+              entregaId={entrega.id}
+              clienteNombre={entrega.cliente_nombre}
+              totalACobrar={Number(entrega.total_a_cobrar)}
+              saldoPedidos={Number(entrega.saldo_pedidos)}
+              costoMensajeria={Number(entrega.costo_mensajeria)}
+            />
+          ) : null}
+        </div>
       </div>
 
       <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
