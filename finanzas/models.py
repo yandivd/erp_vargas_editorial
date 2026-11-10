@@ -30,6 +30,8 @@ class MovimientoCaja(models.Model):
         ('VENTA_DIVISA', 'Venta de divisa'),
         ('GANANCIA_CAMBIARIA', 'Ganancia por diferencia cambiaria'),
         ('PERDIDA_CAMBIARIA', 'Pérdida por diferencia cambiaria'),
+        ('AJUSTE_SOBRANTE', 'Ajuste por sobrante de arqueo'),
+        ('AJUSTE_FALTANTE', 'Ajuste por faltante de arqueo'),
     ]
     METODO_CHOICES = [
         ('EFECTIVO', 'Efectivo'),
@@ -129,6 +131,10 @@ class CierreCaja(models.Model):
     saldo_sistema = models.DecimalField(max_digits=12, decimal_places=2, help_text="Lo que el ERP dice que debería haber")
     efectivo_real = models.DecimalField(max_digits=12, decimal_places=2, help_text="Lo que se contó")
     diferencia = models.DecimalField(max_digits=12, decimal_places=2, help_text="Efectivo - Sistema")
+
+    saldo_sistema_usd = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    efectivo_real_usd = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    diferencia_usd = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     
     # Desglose
     transferencia = models.DecimalField(max_digits=12, decimal_places=2, default=0)

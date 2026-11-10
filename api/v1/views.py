@@ -1,4 +1,4 @@
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -31,8 +31,14 @@ from clientes.models import Cliente
 from core.api import obtener_dashboard_data
 from core.api_utils import payload_paginacion
 from core.models import Parametro
+from core.services import (
+    CATEGORIA_VUELTO_CLIENTE,
+    Q_NO_EGRESO_OPERATIVO,
+    Q_NO_INGRESO_OPERATIVO,
+    parse_fecha,
+)
 from empleados.models import Empleado, PagoNomina
-from finanzas.models import MovimientoCaja
+from finanzas.models import CierreCaja, GastoOperativo, MovimientoCaja
 from finanzas.services import ServicioFinanzas
 from inventario.models import Material, MovimientoInventario
 from pedidos.models import (
@@ -52,6 +58,7 @@ from .serializers import (
     AnticipoV1Serializer,
     CambiarEstadoMasivoSerializer,
     CambiarEstadoSerializer,
+    CierreCajaV1Serializer,
     ClienteCreateV1Serializer,
     ClienteDetailV1Serializer,
     ClienteListV1Serializer,
@@ -71,6 +78,8 @@ from .serializers import (
     PedidoListV1Serializer,
     ProveedorV1Serializer,
     RegistrarAnticipoSerializer,
+    RegistrarArqueoSerializer,
+    RegistrarMovimientoCajaSerializer,
     TiendaPedidoSerializer,
 )
 
@@ -2039,4 +2048,295 @@ def proveedor_lote_orden(request, lote_id):
             'proveedor': ProveedorV1Serializer(lote.proveedor).data,
             'pedidos': _pedidos_asociados_lote(lote),
         },
+    })
+
+
+def _caja_queryset(request):
+    queryset = MovimientoCaja.objects.select_related(
+        'pedido',
+        'proveedor',
+        'cliente',
+    )
+    desde = parse_fecha(request.query_params.get('desde'))
+    hasta = parse_fecha(request.query_params.get('hasta'))
+    if desde and hasta and desde > hasta:
+        desde, hasta = hasta, desde
+    if desde:
+        queryset = queryset.filter(fecha__date__gte=desde)
+    if hasta:
+        queryset = queryset.filter(fecha__date__lte=hasta)
+
+    categoria = (request.query_params.get('categoria') or '').strip()
+    if categoria:
+        queryset = queryset.filter(categoria=categoria)
+
+    tipo = (request.query_params.get('tipo') or '').strip().upper()
+    if tipo in ('INGRESO', 'EGRESO'):
+        queryset = queryset.filter(tipo=tipo)
+
+    moneda = (request.query_params.get('moneda') or '').strip().upper()
+    if moneda in ('CUP', 'USD'):
+        queryset = queryset.filter(moneda=moneda)
+
+    return queryset.order_by('-fecha', '-id')
+
+
+def _per_page_caja(request):
+    try:
+        valor = int(request.query_params.get('per_page') or 10)
+    except (TypeError, ValueError):
+        valor = 10
+    return valor if 1 <= valor <= 500 else 10
+
+
+def _paginacion_caja(paginator, page_obj):
+    pagination = payload_paginacion(paginator, page_obj)
+    pagination['count'] = pagination['total']
+    return pagination
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def finanzas_caja(request):
+    queryset = _caja_queryset(request)
+    paginator = Paginator(queryset, _per_page_caja(request))
+    page_obj = paginator.get_page(request.query_params.get('page') or 1)
+    movimientos = MovimientoCajaV1Serializer(
+        page_obj.object_list,
+        many=True,
+    ).data
+
+    return Response({
+        'ok': True,
+        'data': {'movimientos': movimientos},
+        'pagination': _paginacion_caja(paginator, page_obj),
+        'meta': {
+            'categorias': [
+                {'value': value, 'label': label}
+                for value, label in MovimientoCaja.CATEGORIA_CHOICES
+            ],
+        },
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def finanzas_caja_resumen(request):
+    movimientos = _caja_queryset(request)
+    ingresos_brutos = (
+        movimientos.filter(tipo='INGRESO')
+        .exclude(Q_NO_INGRESO_OPERATIVO)
+        .aggregate(t=Sum('monto'))['t']
+        or Decimal('0')
+    )
+    vueltos = (
+        movimientos.filter(
+            tipo='EGRESO',
+            categoria=CATEGORIA_VUELTO_CLIENTE,
+        ).aggregate(t=Sum('monto'))['t']
+        or Decimal('0')
+    )
+    total_egresos = (
+        movimientos.filter(tipo='EGRESO')
+        .exclude(Q_NO_EGRESO_OPERATIVO)
+        .aggregate(t=Sum('monto'))['t']
+        or Decimal('0')
+    )
+
+    return Response({
+        'ok': True,
+        'data': {
+            'total_ingresos': float(ingresos_brutos - vueltos),
+            'total_egresos': float(total_egresos),
+            'saldo_actual_cup': float(ServicioFinanzas.saldo_caja('CUP')),
+            'saldo_actual_usd': float(ServicioFinanzas.saldo_caja('USD')),
+        },
+    })
+
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def finanzas_caja_movimiento(request):
+    serializer = RegistrarMovimientoCajaSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(
+            {
+                'ok': False,
+                'error': _primer_error_serializer(serializer.errors),
+                'details': serializer.errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    datos = serializer.validated_data
+    with transaction.atomic():
+        movimiento = MovimientoCaja.objects.create(
+            tipo=datos['tipo'],
+            categoria=datos['categoria'],
+            monto=datos['monto'],
+            moneda=datos.get('moneda', 'CUP'),
+            metodo=datos.get('metodo', 'EFECTIVO'),
+            concepto=datos['concepto'],
+        )
+        if (
+            datos['tipo'] == 'EGRESO'
+            and datos['categoria'] == 'GASTO_OPERATIVO'
+            and datos.get('moneda', 'CUP') == 'CUP'
+        ):
+            hoy = timezone.localdate()
+            GastoOperativo.objects.create(
+                concepto=datos['concepto'],
+                monto=datos['monto'],
+                fecha=hoy,
+                mes_imputacion=hoy.replace(day=1),
+            )
+
+    return Response(
+        {
+            'ok': True,
+            'data': {
+                'movimiento': MovimientoCajaV1Serializer(movimiento).data,
+            },
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def finanzas_arqueo(request):
+    serializer = RegistrarArqueoSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(
+            {
+                'ok': False,
+                'error': _primer_error_serializer(serializer.errors),
+                'details': serializer.errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    datos = serializer.validated_data
+    efectivo_cup = datos['efectivo_cup'].quantize(
+        Decimal('0.01'),
+        rounding=ROUND_HALF_UP,
+    )
+    transferencias = datos['transferencias'].quantize(
+        Decimal('0.01'),
+        rounding=ROUND_HALF_UP,
+    )
+    total_real_cup = (efectivo_cup + transferencias).quantize(
+        Decimal('0.01'),
+        rounding=ROUND_HALF_UP,
+    )
+    esperado_cup = Decimal(
+        str(ServicioFinanzas.saldo_caja('CUP'))
+    ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    esperado_usd = Decimal(
+        str(ServicioFinanzas.saldo_caja('USD'))
+    ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    diferencia_cup = (total_real_cup - esperado_cup).quantize(
+        Decimal('0.01'),
+        rounding=ROUND_HALF_UP,
+    )
+
+    efectivo_usd_dato = datos.get('efectivo_usd')
+    incluye_usd = efectivo_usd_dato is not None
+    if incluye_usd:
+        efectivo_usd = efectivo_usd_dato.quantize(
+            Decimal('0.01'),
+            rounding=ROUND_HALF_UP,
+        )
+        diferencia_usd = (efectivo_usd - esperado_usd).quantize(
+            Decimal('0.01'),
+            rounding=ROUND_HALF_UP,
+        )
+    else:
+        efectivo_usd = esperado_usd
+        diferencia_usd = Decimal('0.00')
+
+    with transaction.atomic():
+        cierre = CierreCaja.objects.create(
+            usuario=(request.user.get_username() or '')[:100],
+            saldo_sistema=esperado_cup,
+            efectivo_real=total_real_cup,
+            diferencia=diferencia_cup,
+            transferencia=transferencias,
+            saldo_sistema_usd=esperado_usd,
+            efectivo_real_usd=efectivo_usd,
+            diferencia_usd=diferencia_usd,
+            notas=datos.get('notas', ''),
+        )
+
+        ajustes = []
+        monedas_ajuste = [('CUP', diferencia_cup)]
+        if incluye_usd:
+            monedas_ajuste.append(('USD', diferencia_usd))
+
+        for moneda, diferencia in monedas_ajuste:
+            if diferencia == 0:
+                continue
+            es_sobrante = diferencia > 0
+            concepto = (
+                f'Ajuste por arqueo #{cierre.id} - '
+                f'{"Sobrante" if es_sobrante else "Faltante"} {moneda}'
+            )
+            ajustes.append(
+                MovimientoCaja.objects.create(
+                    tipo='INGRESO' if es_sobrante else 'EGRESO',
+                    categoria=(
+                        'AJUSTE_SOBRANTE'
+                        if es_sobrante
+                        else 'AJUSTE_FALTANTE'
+                    ),
+                    monto=abs(diferencia),
+                    moneda=moneda,
+                    metodo='EFECTIVO',
+                    concepto=concepto,
+                )
+            )
+
+    return Response(
+        {
+            'ok': True,
+            'data': {
+                'arqueo': CierreCajaV1Serializer(cierre).data,
+                'ajustes': MovimientoCajaV1Serializer(
+                    ajustes,
+                    many=True,
+                ).data,
+            },
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def finanzas_arqueos(request):
+    queryset = CierreCaja.objects.all().order_by('-fecha', '-id')
+    paginator = Paginator(queryset, _per_page_caja(request))
+    page_obj = paginator.get_page(request.query_params.get('page') or 1)
+    arqueos = CierreCajaV1Serializer(page_obj.object_list, many=True).data
+
+    return Response({
+        'ok': True,
+        'data': {'arqueos': arqueos},
+        'pagination': _paginacion_caja(paginator, page_obj),
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def finanzas_arqueo_detalle(request, pk):
+    cierre = get_object_or_404(CierreCaja, pk=pk)
+    return Response({
+        'ok': True,
+        'data': CierreCajaV1Serializer(cierre).data,
     })

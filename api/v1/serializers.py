@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from clientes.models import Cliente
 from empleados.models import Empleado, PagoNomina
-from finanzas.models import MovimientoCaja
+from finanzas.models import CierreCaja, MovimientoCaja
 from finanzas.services import ServicioFinanzas
 from pedidos.models import (
     Book,
@@ -21,6 +21,22 @@ from proveedores.models import Proveedor
 
 
 ESTADOS_NO_TALLER = ('Entregado', 'En Stock', 'Cancelado')
+
+CATEGORIAS_MANUALES_CAJA = {
+    'INGRESO': {
+        'INGRESO_MANUAL',
+        'PROPINA',
+        'MENSAJERIA',
+        'VENTA_DIRECTA',
+        'OTRO_INGRESO',
+    },
+    'EGRESO': {
+        'GASTO_OPERATIVO',
+        'COMPRA_MATERIAL',
+        'PAGO_PROVEEDOR',
+        'COMPRA_ACTIVO',
+    },
+}
 
 
 def estado_es_taller(estado):
@@ -904,6 +920,124 @@ class MovimientoCajaV1Serializer(serializers.ModelSerializer):
 
     def get_proveedor_nombre(self, obj):
         return obj.proveedor.nombre if obj.proveedor_id else ''
+
+
+class RegistrarMovimientoCajaSerializer(serializers.Serializer):
+    tipo = serializers.ChoiceField(choices=MovimientoCaja.TIPO_CHOICES)
+    categoria = serializers.ChoiceField(
+        choices=MovimientoCaja.CATEGORIA_CHOICES,
+        required=False,
+    )
+    monto = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal('0.01'),
+    )
+    moneda = serializers.ChoiceField(
+        choices=MovimientoCaja.MONEDA_CHOICES,
+        default='CUP',
+        required=False,
+    )
+    metodo = serializers.ChoiceField(
+        choices=MovimientoCaja.METODO_CHOICES,
+        default='EFECTIVO',
+        required=False,
+    )
+    concepto = serializers.CharField(max_length=200)
+
+    def validate_concepto(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('El concepto es obligatorio.')
+        return value
+
+    def validate(self, attrs):
+        tipo = attrs['tipo']
+        categoria = attrs.get('categoria')
+        permitidas = CATEGORIAS_MANUALES_CAJA[tipo]
+
+        if not categoria:
+            categoria = (
+                'INGRESO_MANUAL' if tipo == 'INGRESO' else 'GASTO_OPERATIVO'
+            )
+
+        if categoria not in permitidas:
+            raise serializers.ValidationError({
+                'categoria': (
+                    'La categoría seleccionada no está permitida para un '
+                    f'{tipo.lower()} manual.'
+                ),
+            })
+
+        attrs['categoria'] = categoria
+        return attrs
+
+
+class RegistrarArqueoSerializer(serializers.Serializer):
+    efectivo = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        required=False,
+    )
+    efectivo_cup = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        required=False,
+    )
+    transferencias = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        default=Decimal('0'),
+        required=False,
+    )
+    efectivo_usd = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        required=False,
+    )
+    notas = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_notas(self, value):
+        return value.strip()
+
+    def validate(self, attrs):
+        if 'efectivo' in attrs:
+            attrs['efectivo_cup'] = attrs.pop('efectivo')
+        if 'efectivo_cup' not in attrs:
+            raise serializers.ValidationError({
+                'efectivo': 'El efectivo contado es obligatorio.',
+            })
+        return attrs
+
+
+class CierreCajaV1Serializer(serializers.ModelSerializer):
+    saldo_esperado_cup = serializers.FloatField(source='saldo_sistema')
+    saldo_real_cup = serializers.FloatField(source='efectivo_real')
+    diferencia_cup = serializers.FloatField(source='diferencia')
+    saldo_esperado_usd = serializers.FloatField(source='saldo_sistema_usd')
+    saldo_real_usd = serializers.FloatField(source='efectivo_real_usd')
+    diferencia_usd = serializers.FloatField()
+    transferencia = serializers.FloatField()
+
+    class Meta:
+        model = CierreCaja
+        fields = (
+            'id',
+            'fecha',
+            'usuario',
+            'saldo_esperado_cup',
+            'saldo_real_cup',
+            'diferencia_cup',
+            'saldo_esperado_usd',
+            'saldo_real_usd',
+            'diferencia_usd',
+            'transferencia',
+            'notas',
+        )
 
 
 class PagoNominaV1Serializer(serializers.ModelSerializer):

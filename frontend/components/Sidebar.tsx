@@ -10,6 +10,7 @@ import {
   Book,
   BookOpen,
   HardDrive,
+  History,
   LayoutGrid,
   LogOut,
   Menu,
@@ -77,6 +78,7 @@ const sections: NavSection[] = [
     label: "Finanzas",
     items: [
       { href: "/finanzas/caja", label: "Caja", icon: Wallet },
+      { href: "/finanzas/arqueos", label: "Arqueos", icon: History },
       { href: "/finanzas/divisas", label: "Divisas (USD)", icon: ArrowRightLeft },
       { href: "/finanzas/reportes", label: "Reportes", icon: BarChart3 },
       { href: "/finanzas/activos", label: "Activos fijos", icon: HardDrive },

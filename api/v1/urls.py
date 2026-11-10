@@ -42,4 +42,10 @@ urlpatterns = [
     path('proveedores/<int:proveedor_id>/lotes/', views.proveedor_lotes, name='proveedor_lotes'),
     path('proveedores/lotes/<int:lote_id>/pagar/', views.proveedor_lote_pagar, name='proveedor_lote_pagar'),
     path('proveedores/lotes/<int:lote_id>/orden/', views.proveedor_lote_orden, name='proveedor_lote_orden'),
+    path('finanzas/caja/', views.finanzas_caja, name='finanzas_caja'),
+    path('finanzas/caja/resumen/', views.finanzas_caja_resumen, name='finanzas_caja_resumen'),
+    path('finanzas/caja/movimiento/', views.finanzas_caja_movimiento, name='finanzas_caja_movimiento'),
+    path('finanzas/arqueo/', views.finanzas_arqueo, name='finanzas_arqueo'),
+    path('finanzas/arqueos/', views.finanzas_arqueos, name='finanzas_arqueos'),
+    path('finanzas/arqueos/<int:pk>/', views.finanzas_arqueo_detalle, name='finanzas_arqueo_detalle'),
 ] + router.urls
