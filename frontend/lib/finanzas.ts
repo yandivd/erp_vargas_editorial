@@ -1,3 +1,4 @@
+import { apiFetch } from "./api";
 import { money, number } from "./format";
 
 export type MonedaCaja = "CUP" | "USD";
@@ -35,6 +36,20 @@ export type CajaResumen = {
   total_egresos: number;
   saldo_actual_cup: number;
   saldo_actual_usd: number;
+  tasa_usd: number;
+};
+
+export type DivisaOperacionResponse = {
+  operacion: string;
+  monto_usd: number;
+  tasa_cambio: number;
+  monto_total_cup: number;
+  lote?: {
+    id: number;
+    cantidad_disponible: number;
+    precio_compra: number;
+  };
+  ganancia?: number;
 };
 
 export type CierreCaja = {
@@ -100,4 +115,30 @@ export function moneyCaja(
   }
 
   return money(value);
+}
+
+export async function registrarCompraDivisa(payload: {
+  monto_usd: number;
+  tasa_cambio: number;
+}) {
+  return apiFetch<DivisaOperacionResponse>(
+    "finanzas/divisas/compra/",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function registrarVentaDivisa(payload: {
+  monto_usd: number;
+  tasa_cambio: number;
+}) {
+  return apiFetch<DivisaOperacionResponse>(
+    "finanzas/divisas/venta/",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
 }

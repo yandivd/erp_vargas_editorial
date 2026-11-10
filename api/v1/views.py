@@ -79,7 +79,9 @@ from .serializers import (
     ProveedorV1Serializer,
     RegistrarAnticipoSerializer,
     RegistrarArqueoSerializer,
+    RegistrarCompraDivisaSerializer,
     RegistrarMovimientoCajaSerializer,
+    RegistrarVentaDivisaSerializer,
     TiendaPedidoSerializer,
 )
 
@@ -2152,6 +2154,7 @@ def finanzas_caja_resumen(request):
             'total_egresos': float(total_egresos),
             'saldo_actual_cup': float(ServicioFinanzas.saldo_caja('CUP')),
             'saldo_actual_usd': float(ServicioFinanzas.saldo_caja('USD')),
+            'tasa_usd': float(ServicioFinanzas.obtener_tasa_usd_cup()),
         },
     })
 
@@ -2340,3 +2343,91 @@ def finanzas_arqueo_detalle(request, pk):
         'ok': True,
         'data': CierreCajaV1Serializer(cierre).data,
     })
+
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def finanzas_divisas_compra(request):
+    serializer = RegistrarCompraDivisaSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(
+            {
+                'ok': False,
+                'error': _primer_error_serializer(serializer.errors),
+                'details': serializer.errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    datos = serializer.validated_data
+    try:
+        lote = ServicioFinanzas.comprar_divisa(
+            monto_usd=datos['monto_usd'],
+            tasa_cambio=datos['tasa_cambio'],
+        )
+    except ValueError as error:
+        return Response(
+            {'ok': False, 'error': str(error)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response(
+        {
+            'ok': True,
+            'data': {
+                'operacion': 'COMPRA_DIVISA',
+                'monto_usd': float(datos['monto_usd']),
+                'tasa_cambio': float(datos['tasa_cambio']),
+                'monto_total_cup': float(datos['monto_usd'] * datos['tasa_cambio']),
+                'lote': {
+                    'id': lote.id,
+                    'cantidad_disponible': float(lote.cantidad_disponible),
+                    'precio_compra': float(lote.precio_compra),
+                },
+            },
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def finanzas_divisas_venta(request):
+    serializer = RegistrarVentaDivisaSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(
+            {
+                'ok': False,
+                'error': _primer_error_serializer(serializer.errors),
+                'details': serializer.errors,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    datos = serializer.validated_data
+    try:
+        ganancia = ServicioFinanzas.vender_divisa(
+            monto_usd=datos['monto_usd'],
+            tasa_cambio=datos['tasa_cambio'],
+        )
+    except ValueError as error:
+        return Response(
+            {'ok': False, 'error': str(error)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    return Response(
+        {
+            'ok': True,
+            'data': {
+                'operacion': 'VENTA_DIVISA',
+                'monto_usd': float(datos['monto_usd']),
+                'tasa_cambio': float(datos['tasa_cambio']),
+                'monto_total_cup': float(datos['monto_usd'] * datos['tasa_cambio']),
+                'ganancia': float(ganancia),
+            },
+        },
+        status=status.HTTP_201_CREATED,
+    )

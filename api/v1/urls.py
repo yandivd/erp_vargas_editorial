@@ -48,4 +48,6 @@ urlpatterns = [
     path('finanzas/arqueo/', views.finanzas_arqueo, name='finanzas_arqueo'),
     path('finanzas/arqueos/', views.finanzas_arqueos, name='finanzas_arqueos'),
     path('finanzas/arqueos/<int:pk>/', views.finanzas_arqueo_detalle, name='finanzas_arqueo_detalle'),
+    path('finanzas/divisas/compra/', views.finanzas_divisas_compra, name='finanzas_divisas_compra'),
+    path('finanzas/divisas/venta/', views.finanzas_divisas_venta, name='finanzas_divisas_venta'),
 ] + router.urls

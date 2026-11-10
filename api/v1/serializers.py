@@ -1014,6 +1014,36 @@ class RegistrarArqueoSerializer(serializers.Serializer):
         return attrs
 
 
+class RegistrarCompraDivisaSerializer(serializers.Serializer):
+    monto_usd = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal('0.01'),
+        required=True,
+    )
+    tasa_cambio = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        min_value=Decimal('0.0001'),
+        required=True,
+    )
+
+
+class RegistrarVentaDivisaSerializer(serializers.Serializer):
+    monto_usd = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal('0.01'),
+        required=True,
+    )
+    tasa_cambio = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        min_value=Decimal('0.0001'),
+        required=True,
+    )
+
+
 class CierreCajaV1Serializer(serializers.ModelSerializer):
     saldo_esperado_cup = serializers.FloatField(source='saldo_sistema')
     saldo_real_cup = serializers.FloatField(source='efectivo_real')
