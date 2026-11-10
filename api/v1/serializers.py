@@ -4,6 +4,7 @@ from django.db.models import Q, Sum
 from rest_framework import serializers
 
 from clientes.models import Cliente
+from empleados.models import Empleado, PagoNomina
 from finanzas.models import MovimientoCaja
 from finanzas.services import ServicioFinanzas
 from pedidos.models import (
@@ -903,3 +904,116 @@ class MovimientoCajaV1Serializer(serializers.ModelSerializer):
 
     def get_proveedor_nombre(self, obj):
         return obj.proveedor.nombre if obj.proveedor_id else ''
+
+
+class PagoNominaV1Serializer(serializers.ModelSerializer):
+    empleado_nombre = serializers.CharField(source='empleado.nombre', read_only=True)
+    tipo_label = serializers.CharField(source='get_tipo_display', read_only=True)
+    moneda_label = serializers.CharField(source='get_moneda_display', read_only=True)
+    monto_pagado = serializers.FloatField(read_only=True)
+    tasa_aplicada = serializers.FloatField(read_only=True, allow_null=True)
+
+    class Meta:
+        model = PagoNomina
+        fields = (
+            'id',
+            'empleado_id',
+            'empleado_nombre',
+            'tipo',
+            'tipo_label',
+            'fecha',
+            'mes_correspondiente',
+            'monto_pagado',
+            'moneda',
+            'moneda_label',
+            'tasa_aplicada',
+            'notas',
+            'fecha_registro',
+        )
+
+
+class EmpleadoV1Serializer(serializers.ModelSerializer):
+    cargo_label = serializers.CharField(source='get_cargo_display', read_only=True)
+    salario_base = serializers.FloatField(min_value=0)
+    pagos = PagoNominaV1Serializer(many=True, read_only=True)
+
+    class Meta:
+        model = Empleado
+        fields = (
+            'id',
+            'nombre',
+            'cargo',
+            'cargo_label',
+            'telefono',
+            'salario_base',
+            'activo',
+            'pagos',
+        )
+
+    def validate_nombre(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('El nombre es obligatorio.')
+        return value
+
+
+class PagarEmpleadoSerializer(serializers.Serializer):
+    monto = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal('0.01'),
+    )
+    moneda = serializers.ChoiceField(
+        choices=PagoNomina.MONEDA_CHOICES,
+        default='CUP',
+        required=False,
+    )
+    tasa = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=4,
+        min_value=Decimal('0.0001'),
+        required=False,
+        allow_null=True,
+    )
+    concepto = serializers.CharField(default='SALARIO', required=False)
+    metodo = serializers.ChoiceField(
+        choices=MovimientoCaja.METODO_CHOICES,
+        default='EFECTIVO',
+        required=False,
+    )
+    mes_correspondiente = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=50,
+    )
+    notas = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_concepto(self, value):
+        normalizado = str(value or 'SALARIO').strip().upper().replace(' ', '_')
+        if normalizado in ('SALARIO', 'SALARIO_FIJO'):
+            return 'SALARIO'
+        if normalizado in (
+            'UTILIDADES',
+            'RETIRO_UTILIDADES',
+            'RETIRO_DE_UTILIDADES',
+        ):
+            return 'UTILIDADES'
+        raise serializers.ValidationError(
+            'El concepto debe ser Salario o Retiro de Utilidades.'
+        )
+
+    def validate(self, attrs):
+        try:
+            monto, _, moneda, tasa = ServicioFinanzas.normalizar_pago(
+                attrs.get('monto'),
+                moneda_pago=attrs.get('moneda', 'CUP'),
+                tasa_cambio_aplicada=attrs.get('tasa'),
+            )
+        except ValueError as error:
+            raise serializers.ValidationError(str(error)) from error
+
+        attrs['monto'] = monto
+        attrs['moneda'] = moneda
+        attrs['tasa'] = tasa
+        attrs.setdefault('concepto', 'SALARIO')
+        return attrs

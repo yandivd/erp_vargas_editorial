@@ -35,10 +35,13 @@ def api_pagos(request):
             'id': p.id,
             'empleado_nombre': p.empleado.nombre,
             'tipo': p.tipo,
-            'tipo_label': p.get_tipo_pago_display(),
+            'tipo_label': p.get_tipo_display(),
             'fecha': p.fecha.strftime('%d/%m/%Y'),
             'mes_correspondiente': p.mes_correspondiente,
             'monto_pagado': float(p.monto_pagado),
+            'moneda': p.moneda,
+            'moneda_label': p.get_moneda_display(),
+            'tasa_aplicada': float(p.tasa_aplicada) if p.tasa_aplicada else None,
             'notas': p.notas or '',
         }
         for p in page_obj

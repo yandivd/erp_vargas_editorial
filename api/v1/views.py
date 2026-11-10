@@ -31,6 +31,7 @@ from clientes.models import Cliente
 from core.api import obtener_dashboard_data
 from core.api_utils import payload_paginacion
 from core.models import Parametro
+from empleados.models import Empleado, PagoNomina
 from finanzas.models import MovimientoCaja
 from finanzas.services import ServicioFinanzas
 from inventario.models import Material, MovimientoInventario
@@ -55,6 +56,7 @@ from .serializers import (
     ClienteDetailV1Serializer,
     ClienteListV1Serializer,
     ConfirmarEntregaSerializer,
+    EmpleadoV1Serializer,
     CrearEntregaSerializer,
     EntregaDetailV1Serializer,
     EntregaListV1Serializer,
@@ -62,6 +64,8 @@ from .serializers import (
     LibroListV1Serializer,
     LoteServicioV1Serializer,
     MovimientoCajaV1Serializer,
+    PagarEmpleadoSerializer,
+    PagoNominaV1Serializer,
     PedidoCreateSerializer,
     PedidoDetailV1Serializer,
     PedidoListV1Serializer,
@@ -102,6 +106,15 @@ def _nombre_por_grupo(grupos, fallback=''):
 
 def _es_verdadero(value):
     return value.strip().lower() in ('1', 'true', 'yes', 'si', 'sí')
+
+
+def _mes_actual_texto():
+    meses = (
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+    )
+    hoy = timezone.localdate()
+    return f'{meses[hoy.month - 1]} {hoy.year}'
 
 
 def _parametros_costo():
@@ -1490,6 +1503,226 @@ def _pedidos_asociados_lote(lote):
         pedidos[pedido.id]['servicios'] += 1
 
     return sorted(pedidos.values(), key=lambda item: item['pedido_id'])
+
+
+class EmpleadoViewSetV1(viewsets.ModelViewSet):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = EmpleadoV1Serializer
+    http_method_names = [
+        'get',
+        'post',
+        'put',
+        'patch',
+        'delete',
+        'head',
+        'options',
+    ]
+
+    def get_queryset(self):
+        queryset = Empleado.objects.prefetch_related('pagos').order_by(
+            'nombre', 'id'
+        )
+        search = self.request.query_params.get('search', '').strip()
+        activo = self.request.query_params.get('activo', '')
+
+        if search:
+            queryset = queryset.filter(
+                Q(nombre__icontains=search) | Q(telefono__icontains=search)
+            )
+        if activo in ('1', 'true'):
+            queryset = queryset.filter(activo=True)
+        elif activo in ('0', 'false'):
+            queryset = queryset.filter(activo=False)
+
+        return queryset
+
+    def _per_page(self):
+        try:
+            valor = int(self.request.query_params.get('per_page') or 10)
+        except (TypeError, ValueError):
+            valor = 10
+        return valor if 1 <= valor <= 500 else 10
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        paginator = Paginator(queryset, self._per_page())
+        page_obj = paginator.get_page(request.query_params.get('page') or 1)
+        empleados = EmpleadoV1Serializer(
+            page_obj.object_list,
+            many=True,
+        ).data
+
+        return Response({
+            'ok': True,
+            'data': {'empleados': empleados},
+            'pagination': payload_paginacion(paginator, page_obj),
+            'meta': {'total_empleados': paginator.count},
+        })
+
+    def retrieve(self, request, *args, **kwargs):
+        empleado = self.get_object()
+        return Response({
+            'ok': True,
+            'data': EmpleadoV1Serializer(empleado).data,
+        })
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {
+                    'ok': False,
+                    'error': _primer_error_serializer(serializer.errors),
+                    'details': serializer.errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        empleado = serializer.save()
+        return Response(
+            {
+                'ok': True,
+                'data': EmpleadoV1Serializer(empleado).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        empleado = self.get_object()
+        serializer = self.get_serializer(
+            empleado,
+            data=request.data,
+            partial=partial,
+        )
+        if not serializer.is_valid():
+            return Response(
+                {
+                    'ok': False,
+                    'error': _primer_error_serializer(serializer.errors),
+                    'details': serializer.errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        empleado = serializer.save()
+        return Response({
+            'ok': True,
+            'data': EmpleadoV1Serializer(empleado).data,
+        })
+
+    def destroy(self, request, *args, **kwargs):
+        empleado = self.get_object()
+        try:
+            empleado.delete()
+        except ProtectedError:
+            return Response(
+                {
+                    'ok': False,
+                    'error': (
+                        'No se puede eliminar el empleado porque tiene '
+                        'pagos registrados.'
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['get'], url_path='utilidades-disponibles')
+    def utilidades_disponibles(self, request):
+        disponible = ServicioFinanzas.calcular_utilidades_disponibles()
+        data = {
+            'disponible_cup': float(disponible['disponible_cup']),
+            'disponible_usd': float(disponible['disponible_usd']),
+            'tasa_actual': float(disponible['tasa_actual']),
+            'saldo_cup': float(disponible['saldo_cup']),
+            'saldo_usd': float(disponible['saldo_usd']),
+            'anticipos': float(disponible['anticipos']),
+            'deudas': float(disponible['deudas']),
+            'pasivos': float(disponible['pasivos']),
+            'mensaje': disponible['mensaje'],
+            'fecha_calculo': disponible['fecha_calculo'].isoformat(),
+        }
+        return Response({'ok': True, 'data': data})
+
+    @action(detail=True, methods=['post'], url_path='pagar')
+    def pagar(self, request, pk=None):
+        empleado = self.get_object()
+        serializer = PagarEmpleadoSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {
+                    'ok': False,
+                    'error': _primer_error_serializer(serializer.errors),
+                    'details': serializer.errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        datos = serializer.validated_data
+        monto = datos['monto']
+        moneda = datos['moneda']
+        tipo = datos.get('concepto', 'SALARIO')
+
+        if tipo == 'UTILIDADES':
+            disponible = ServicioFinanzas.calcular_utilidades_disponibles()
+            limite = (
+                disponible['disponible_cup']
+                if moneda == 'CUP'
+                else disponible['disponible_usd']
+            )
+            if monto > limite:
+                return Response(
+                    {
+                        'ok': False,
+                        'error': (
+                            'No hay suficientes utilidades disponibles en '
+                            f'{moneda}. Disponible: {limite} {moneda}.'
+                        ),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        categoria = (
+            'RETIRO_UTILIDADES' if tipo == 'UTILIDADES' else 'PAGO_NOMINA'
+        )
+        etiqueta = (
+            'Retiro de utilidades' if tipo == 'UTILIDADES' else 'Pago de salario'
+        )
+        mes = datos.get('mes_correspondiente') or _mes_actual_texto()
+        concepto_caja = f'{etiqueta} - {empleado.nombre}'
+        if moneda == 'USD' and datos.get('tasa'):
+            concepto_caja += f' (tasa {datos["tasa"]} CUP/USD)'
+
+        with transaction.atomic():
+            pago = PagoNomina.objects.create(
+                empleado=empleado,
+                tipo=tipo,
+                fecha=timezone.localdate(),
+                mes_correspondiente=mes,
+                monto_pagado=monto,
+                moneda=moneda,
+                tasa_aplicada=datos.get('tasa'),
+                notas=datos.get('notas', ''),
+            )
+            movimiento = MovimientoCaja.objects.create(
+                tipo='EGRESO',
+                categoria=categoria,
+                monto=monto,
+                moneda=moneda,
+                metodo=datos.get('metodo', 'EFECTIVO'),
+                concepto=concepto_caja,
+            )
+
+        return Response(
+            {
+                'ok': True,
+                'data': {
+                    'pago': PagoNominaV1Serializer(pago).data,
+                    'movimiento': MovimientoCajaV1Serializer(movimiento).data,
+                },
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class ProveedorViewSetV1(viewsets.ModelViewSet):

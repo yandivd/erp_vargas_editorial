@@ -32,3 +32,5 @@ pedidos/migrations/0012_pedido_es_historico.py
 /frontend/node_modules
 frontend/.env.local
 *.tsbuildinfo
+empleados/__pycache__/models.cpython-315.pyc
+empleados/__pycache__/models.cpython-315.pyc

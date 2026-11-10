@@ -762,6 +762,47 @@ class ServicioFinanzas:
         return resultado
 
     @staticmethod
+    def calcular_utilidades_disponibles(fondo_reserva=50000, porcentaje_seguridad=0.5):
+        """
+        Devuelve el máximo retirable por moneda según el efectivo real en caja.
+
+        - CUP: saldo físico CUP menos pasivos operativos (anticipos y deudas).
+        - USD: saldo físico USD, sin convertir CUP ni descontar pasivos.
+        """
+        from core.services import pasivos_operativos
+
+        saldo_cup = Decimal(str(ServicioFinanzas.saldo_caja('CUP')))
+        saldo_usd = Decimal(str(ServicioFinanzas.saldo_caja('USD')))
+        pasivos_data = pasivos_operativos()
+        anticipos = Decimal(str(pasivos_data['anticipos']))
+        deudas = Decimal(str(pasivos_data['servicios_impagos']))
+        pasivos = Decimal(str(pasivos_data['total']))
+
+        disponible_cup = max(Decimal('0'), saldo_cup - pasivos)
+        disponible_cup = disponible_cup.quantize(Decimal('0.01'))
+
+        # Los pagos en USD se registran en enteros, por eso el máximo retirable
+        # en esa moneda también se expresa sin centavos.
+        disponible_usd = Decimal(int(max(Decimal('0'), saldo_usd)))
+
+        return {
+            'saldo_caja': saldo_cup,
+            'saldo_cup': saldo_cup,
+            'saldo_usd': saldo_usd,
+            'tasa_actual': ServicioFinanzas.obtener_tasa_usd_cup(),
+            'anticipos': anticipos,
+            'deudas': deudas,
+            'pasivos': pasivos,
+            'disponible_cup': disponible_cup,
+            'disponible_usd': disponible_usd,
+            'mensaje': (
+                'El disponible en CUP descuenta los pasivos operativos. '
+                'El disponible en USD es el efectivo físico en esa moneda.'
+            ),
+            'fecha_calculo': timezone.localtime(timezone.now()),
+        }
+
+    @staticmethod
     def comprar_divisa(monto_usd, tasa_cambio):
         monto_usd = Decimal(str(monto_usd))
         tasa_cambio = Decimal(str(tasa_cambio))
