@@ -31,22 +31,29 @@
         <table class="table table-hover mb-0 align-middle datatable">
             <thead class="table-light">
                 <tr>
-                    <th>Activo</th>
-                    <th>Fecha Compra</th>
-                    <th>Valor Original</th>
+                    <th>Nombre</th>
+                    <th>Costo</th>
                     <th>Depreciación Acumulada</th>
-                    <th>Valor Actual</th>
+                    <th>Valor en Libros</th>
+                    <th>Estado</th>
                     <th>Dep. Mensual</th>
                 </tr>
             </thead>
             <tbody>
                 {% for a in activos %}
                 <tr>
-                    <td><strong>{{ a.nombre }}</strong></td>
-                    <td>{{ a.fecha_compra|date:"d/m/Y" }}</td>
+                    <td>
+                        <strong>{{ a.nombre }}</strong>
+                        <div class="text-muted small">{{ a.fecha_compra|date:"d/m/Y" }}</div>
+                    </td>
                     <td>${{ a.valor_compra|floatformat:2 }}</td>
-                    <td class="text-danger">-${{ a.depreciacion_acumulada|floatformat:2 }}</td>
-                    <td class="fw-bold text-success">${{ a.valor_actual|floatformat:2 }}</td>
+                    <td class="text-danger">-${{ a.depreciacion_acumulada_calculada|floatformat:2 }}</td>
+                    <td class="fw-bold text-success">${{ a.valor_en_libros|floatformat:2 }}</td>
+                    <td>
+                        <span class="badge {% if a.activo %}bg-success{% else %}bg-secondary{% endif %}">
+                            {% if a.activo %}Activo{% else %}Inactivo{% endif %}
+                        </span>
+                    </td>
                     <td>${{ a.depreciacion_mensual|floatformat:2 }}</td>
                 </tr>
                 {% empty %}

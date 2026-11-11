@@ -50,9 +50,20 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
           valueClassName="text-emerald-600"
         />
         <KpiCard
-          label="Gastos CUP"
-          value={money(kpis.gastos_cup)}
-          sub={`USD: ${money(kpis.gastos_usd, "USD")}`}
+          label="Gastos totales CUP"
+          value={money(kpis.gastos_totales_cup)}
+          sub={
+            <>
+              <div>
+                Reales CUP: {money(kpis.gastos_cup)} · USD:{" "}
+                {money(kpis.gastos_usd, "USD")}
+              </div>
+              <div>
+                Depreciación de Activos:{" "}
+                {money(kpis.depreciacion_activos_cup)}
+              </div>
+            </>
+          }
           tone="red"
           valueClassName="text-red-500"
         />
@@ -64,9 +75,14 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
           valueClassName="text-brand"
         />
         <KpiCard
-          label="Margen operativo"
+          label="Margen neto con depreciación"
           value={`${Number(kpis.margen ?? 0).toFixed(1)}%`}
-          sub={`Flujo caja: ${money(kpis.flujo_neto_cup)}`}
+          sub={
+            <>
+              <div>Operativo: {Number(kpis.margen_operativo ?? 0).toFixed(1)}%</div>
+              <div>Flujo caja: {money(kpis.flujo_neto_cup)}</div>
+            </>
+          }
           tone="amber"
         />
       </div>

@@ -16,6 +16,7 @@ from .services import (
     CATEGORIA_VUELTO_CLIENTE,
     Q_NO_EGRESO_OPERATIVO,
     Q_NO_INGRESO_OPERATIVO,
+    depreciacion_activos_mensual,
     exportar_rentabilidad_para_ia,
 )
 
@@ -29,7 +30,7 @@ def dashboard(request):
     hasta_str = request.GET.get('hasta', '')
 
     # Clave de caché: si no hay fechas, la clave es "todo"
-    cache_key = f'dashboard_{desde_str or "todo"}_{hasta_str or "todo"}'
+    cache_key = f'dashboard_v2_{desde_str or "todo"}_{hasta_str or "todo"}'
     context = cache.get(cache_key)
 
     if context is None:
@@ -63,8 +64,18 @@ def dashboard(request):
             categoria__in=CATEGORIAS_TRANSFERENCIA
         ).aggregate(t=Sum('monto'))['t'] or 0
 
+        depreciacion_activos = depreciacion_activos_mensual()
         saldo_neto = ingresos - gastos
-        margen = (saldo_neto / ingresos * 100) if ingresos > 0 else 0
+        saldo_neto_contable = saldo_neto - depreciacion_activos
+        gastos_totales = gastos + depreciacion_activos
+        margen_operativo = (
+            (saldo_neto / ingresos * 100) if ingresos > 0 else 0
+        )
+        margen = (
+            (saldo_neto_contable / ingresos * 100)
+            if ingresos > 0
+            else 0
+        )
 
         total_pedidos = pedidos_qs.count()
         clientes_unicos = pedidos_qs.values('cliente').distinct().count()
@@ -365,7 +376,11 @@ def dashboard(request):
         # ==========================================
         context = {
             'desde': desde_str, 'hasta': hasta_str,
-            'ingresos': ingresos, 'gastos': gastos, 'saldo_neto': saldo_neto, 'margen': margen,
+            'ingresos': ingresos, 'gastos': gastos, 'saldo_neto': saldo_neto,
+            'depreciacion_activos': depreciacion_activos,
+            'gastos_totales': gastos_totales,
+            'saldo_neto_contable': saldo_neto_contable,
+            'margen': margen, 'margen_operativo': margen_operativo,
             'total_pedidos': total_pedidos, 'clientes_unicos': clientes_unicos, 'ventas': ventas,
             'ganancia_promedio': ganancia_promedio, 'ganancia_promedio_entregados': ganancia_promedio,
             'desglose_ingresos': desglose_ingresos_data, 'costo_unitario': costo_unitario_data, 'categorias_ingreso': desglose_ingresos_data,

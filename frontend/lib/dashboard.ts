@@ -15,6 +15,7 @@ export type ResumenKpis = {
   vuelto_clientes_cup: number;
   ingresos_cup: number;
   gastos_cup: number;
+  gastos_totales_cup: number;
   saldo_neto_cup: number;
   flujo_neto_cup: number;
   ingresos_brutos_usd: number;
@@ -27,13 +28,17 @@ export type ResumenKpis = {
   vuelto_clientes_equiv_cup: number;
   ingresos_equiv_cup: number;
   gastos_equiv_cup: number;
+  gastos_totales_equiv_cup: number;
+  depreciacion_activos_cup: number;
   saldo_neto_equiv_cup: number;
+  saldo_neto_contable_cup: number;
   saldo_neto_equiv_usd: number;
   saldo_caja_cup: number;
   saldo_caja_usd: number;
   saldo_caja_equiv_cup: number;
   saldo_caja_equiv_usd: number;
   margen: number;
+  margen_operativo: number;
   total_pedidos: number;
   clientes_unicos: number;
   ventas: number;

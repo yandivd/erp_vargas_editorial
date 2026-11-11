@@ -150,7 +150,7 @@ export default async function CajaPage({ searchParams }: PageProps) {
         </div>
       ) : null}
 
-      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard
           label="Ingresos del período"
           value={resumen ? moneyCaja(resumen.total_ingresos, "CUP") : "—"}
@@ -174,6 +174,16 @@ export default async function CajaPage({ searchParams }: PageProps) {
           value={resumen ? moneyCaja(resumen.saldo_actual_usd, "USD") : "—"}
           sub="Efectivo disponible en caja"
           tone="cyan"
+        />
+        <KpiCard
+          label="Depreciación de activos"
+          value={
+            resumen
+              ? moneyCaja(resumen.depreciacion_activos_mensual, "CUP")
+              : "—"
+          }
+          sub="Gasto contable del mes, no afecta caja"
+          tone="amber"
         />
       </div>
 

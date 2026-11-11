@@ -21,7 +21,7 @@ import DesgloseCostos from "@/components/ui/DesgloseCostos";
 import SelectBuscador, {
   type SelectBuscadorOption,
 } from "@/components/ui/SelectBuscador";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiFetchEnvelope } from "@/lib/api";
 import {
   calcularCostoPorUnidad,
   redondear2,
@@ -71,6 +71,26 @@ type MonedaAnticipo = "CUP" | "USD";
 
 function mensajeError(error: unknown): string {
   return error instanceof Error ? error.message : "Error desconocido.";
+}
+
+async function cargarTodosLosClientes(): Promise<Cliente[]> {
+  const clientes: Cliente[] = [];
+  let page = 1;
+
+  while (true) {
+    const envelope = await apiFetchEnvelope<{ clientes: Cliente[] }>(
+      `clientes/?per_page=500&page=${page}`,
+    );
+    clientes.push(...envelope.data.clientes);
+
+    if (!envelope.pagination?.has_next) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return clientes;
 }
 
 export default function NuevoPedidoModal() {
@@ -188,7 +208,7 @@ export default function NuevoPedidoModal() {
     try {
       const [clientesResult, librosResult, codigosResult, parametrosResult] =
         await Promise.all([
-          apiFetch<{ clientes: Cliente[] }>("clientes/?per_page=50"),
+          cargarTodosLosClientes(),
           apiFetch<Libro[]>("libros/"),
           apiFetch<{ codigos: CodigoDescuento[] }>(
             "pedidos/codigos-vigentes/",
@@ -198,7 +218,7 @@ export default function NuevoPedidoModal() {
           ),
         ]);
       setCatalogosError(null);
-      setClientes(clientesResult.clientes);
+      setClientes(clientesResult);
       setLibros(librosResult);
       setCodigos(codigosResult.codigos);
       setParametros(parametrosResult.parametros);
@@ -206,38 +226,6 @@ export default function NuevoPedidoModal() {
       setCatalogosError(mensajeError(error));
     }
   }, [cargarTasaCambio]);
-
-  useEffect(() => {
-    let cancelado = false;
-
-    Promise.all([
-      apiFetch<{ clientes: Cliente[] }>("clientes/?per_page=500"),
-      apiFetch<Libro[]>("libros/"),
-      apiFetch<{ codigos: CodigoDescuento[] }>("pedidos/codigos-vigentes/"),
-      apiFetch<{ parametros: ParametrosCosto }>(
-        "pedidos/parametros-costo/",
-      ),
-    ])
-      .then(([clientesResult, librosResult, codigosResult, parametrosResult]) => {
-        if (cancelado) {
-          return;
-        }
-        setCatalogosError(null);
-        setClientes(clientesResult.clientes);
-        setLibros(librosResult);
-        setCodigos(codigosResult.codigos);
-        setParametros(parametrosResult.parametros);
-      })
-      .catch((error: unknown) => {
-        if (!cancelado) {
-          setCatalogosError(mensajeError(error));
-        }
-      });
-
-    return () => {
-      cancelado = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (!abierto) {

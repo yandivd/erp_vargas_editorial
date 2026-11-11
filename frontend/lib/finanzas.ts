@@ -37,6 +37,7 @@ export type CajaResumen = {
   saldo_actual_cup: number;
   saldo_actual_usd: number;
   tasa_usd: number;
+  depreciacion_activos_mensual: number;
 };
 
 export type DivisaOperacionResponse = {

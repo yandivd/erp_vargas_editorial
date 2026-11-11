@@ -110,12 +110,22 @@
             ' · Vuelto: ' + fmt.money(k.vuelto_clientes_cup) +
             ' · USD: ' + fmt.money(k.ingresos_usd, 'USD')
         );
-        setText('kpiGastosCup', fmt.money(k.gastos_cup));
-        setText('kpiGastosUsd', 'USD: ' + fmt.money(k.gastos_usd, 'USD'));
+        const gastosTotales = k.gastos_totales_cup !== undefined ? k.gastos_totales_cup : k.gastos_cup;
+        setText('kpiGastosCup', fmt.money(gastosTotales));
+        setText(
+            'kpiGastosUsd',
+            'Reales CUP: ' + fmt.money(k.gastos_cup) +
+            ' · USD: ' + fmt.money(k.gastos_usd, 'USD') +
+            ' · Depreciación: ' + fmt.money(k.depreciacion_activos_cup)
+        );
         setText('kpiSaldoCup', fmt.money(k.saldo_neto_cup));
         setText('kpiSaldoUsd', 'USD: ' + fmt.money(k.saldo_neto_usd, 'USD'));
         setText('kpiMargen', Number(k.margen || 0).toFixed(1) + '%');
-        setText('kpiFlujoCup', 'Flujo caja CUP: ' + fmt.money(k.flujo_neto_cup));
+        setText(
+            'kpiFlujoCup',
+            'Operativo: ' + Number(k.margen_operativo || 0).toFixed(1) +
+            '% · Flujo caja CUP: ' + fmt.money(k.flujo_neto_cup)
+        );
         setText('kpiPedidos', fmt.integer(k.total_pedidos));
         setText('kpiClientes', fmt.integer(k.clientes_unicos));
         setText('kpiVentas', fmt.money(k.ventas));

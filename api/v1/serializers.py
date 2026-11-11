@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from clientes.models import Cliente
 from empleados.models import Empleado, PagoNomina
-from finanzas.models import CierreCaja, MovimientoCaja
+from finanzas.models import ActivoFijo, CierreCaja, MovimientoCaja
 from finanzas.services import ServicioFinanzas
 from pedidos.models import (
     Book,
@@ -920,6 +920,50 @@ class MovimientoCajaV1Serializer(serializers.ModelSerializer):
 
     def get_proveedor_nombre(self, obj):
         return obj.proveedor.nombre if obj.proveedor_id else ''
+
+
+class ActivoFijoV1Serializer(serializers.ModelSerializer):
+    valor_compra = serializers.FloatField()
+    valor_residual = serializers.FloatField()
+    total_depreciable = serializers.FloatField(read_only=True)
+    depreciacion_mensual = serializers.SerializerMethodField()
+    depreciacion_acumulada = serializers.SerializerMethodField()
+    valor_en_libros = serializers.SerializerMethodField()
+    meses_transcurridos = serializers.SerializerMethodField()
+    estado_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ActivoFijo
+        fields = (
+            'id',
+            'nombre',
+            'fecha_compra',
+            'valor_compra',
+            'vida_util_meses',
+            'valor_residual',
+            'total_depreciable',
+            'depreciacion_mensual',
+            'depreciacion_acumulada',
+            'valor_en_libros',
+            'meses_transcurridos',
+            'activo',
+            'estado_label',
+        )
+
+    def get_depreciacion_mensual(self, obj):
+        return float(obj.depreciacion_mensual)
+
+    def get_depreciacion_acumulada(self, obj):
+        return float(obj.depreciacion_acumulada_calculada)
+
+    def get_valor_en_libros(self, obj):
+        return float(obj.valor_en_libros)
+
+    def get_meses_transcurridos(self, obj):
+        return obj.meses_transcurridos
+
+    def get_estado_label(self, obj):
+        return 'Activo' if obj.activo else 'Inactivo'
 
 
 class RegistrarMovimientoCajaSerializer(serializers.Serializer):

@@ -6,7 +6,7 @@ from django.db.models.functions import ExtractHour, ExtractWeekDay, TruncMonth, 
 from django.utils import timezone
 
 from clientes.models import Cliente
-from finanzas.models import LoteDivisa, MovimientoCaja
+from finanzas.models import ActivoFijo, LoteDivisa, MovimientoCaja
 from inventario.models import Material, MovimientoInventario
 from pedidos.models import Pedido, ServicioExterno
 from pedidos.services import CosteadorPedido, obtener_ganancia_promedio
@@ -158,6 +158,20 @@ def _saldo_caja(moneda):
     return ServicioFinanzas.saldo_caja(moneda)
 
 
+def depreciacion_activos_mensual():
+    """Gasto contable virtual del mes, sin crear MovimientoCaja."""
+    total = Decimal('0')
+    for activo in ActivoFijo.objects.filter(activo=True):
+        pendiente = (
+            activo.total_depreciable
+            - activo.depreciacion_acumulada_calculada
+        )
+        if pendiente <= 0:
+            continue
+        total += min(activo.depreciacion_mensual, pendiente)
+    return total.quantize(Decimal('0.01'))
+
+
 def _sumar_vuelto(qs):
     return (
         qs.filter(tipo='EGRESO', categoria=CATEGORIA_VUELTO_CLIENTE)
@@ -236,9 +250,21 @@ def dashboard_resumen(desde=None, hasta=None):
     ventas = pedidos.aggregate(t=Sum('precio_venta'))['t'] or Decimal('0')
 
     saldo_operativo_cup = Decimal(str(monedas['equivalente']['saldo_neto_cup']))
+    gastos_equiv_cup = Decimal(str(monedas['equivalente']['gastos_cup']))
+    depreciacion_activos_cup = depreciacion_activos_mensual()
+    saldo_contable_cup = saldo_operativo_cup - depreciacion_activos_cup
     ganancia_promedio_cup = obtener_ganancia_promedio()
     ingresos_equiv = Decimal(str(monedas['equivalente']['ingresos_cup']))
-    margen = (saldo_operativo_cup / ingresos_equiv * 100) if ingresos_equiv > 0 else Decimal('0')
+    margen_operativo = (
+        saldo_operativo_cup / ingresos_equiv * 100
+        if ingresos_equiv > 0
+        else Decimal('0')
+    )
+    margen = (
+        saldo_contable_cup / ingresos_equiv * 100
+        if ingresos_equiv > 0
+        else Decimal('0')
+    )
 
     movs = movimientos_financieros(desde, hasta)
 
@@ -425,11 +451,19 @@ def dashboard_resumen(desde=None, hasta=None):
             'titulo': 'Margen saludable',
             'texto': f'Tu margen operativo es {margen:.1f}%. Vas por buen camino.',
         })
-    if ingresos_equiv > 0 and (gastos_equiv := Decimal(str(monedas['equivalente']['gastos_cup']))) / ingresos_equiv > Decimal('0.7'):
+    gastos_totales_equiv = gastos_equiv_cup + depreciacion_activos_cup
+    if (
+        ingresos_equiv > 0
+        and gastos_totales_equiv / ingresos_equiv > Decimal('0.7')
+    ):
         consejos.append({
             'tipo': 'warning',
             'titulo': 'Gastos elevados',
-            'texto': f'Tus gastos representan el {(gastos_equiv / ingresos_equiv * 100):.1f}% de los ingresos netos.',
+            'texto': (
+                'Tus gastos totales representan el '
+                f'{(gastos_totales_equiv / ingresos_equiv * 100):.1f}% '
+                'de los ingresos netos.'
+            ),
         })
 
     atrasados = Pedido.objects.filter(
@@ -466,6 +500,9 @@ def dashboard_resumen(desde=None, hasta=None):
         'vuelto_clientes_cup': monedas['CUP']['vuelto_clientes'],
         'ingresos_cup': monedas['CUP']['ingresos'],
         'gastos_cup': monedas['CUP']['gastos'],
+        'gastos_totales_cup': float(
+            Decimal(str(monedas['CUP']['gastos'])) + depreciacion_activos_cup
+        ),
         'saldo_neto_cup': monedas['CUP']['saldo_neto_operativo'],
         'flujo_neto_cup': monedas['CUP']['flujo_neto'],
         'ingresos_brutos_usd': monedas['USD']['ingresos_brutos'],
@@ -478,13 +515,19 @@ def dashboard_resumen(desde=None, hasta=None):
         'vuelto_clientes_equiv_cup': monedas['equivalente']['vuelto_clientes_cup'],
         'ingresos_equiv_cup': monedas['equivalente']['ingresos_cup'],
         'gastos_equiv_cup': monedas['equivalente']['gastos_cup'],
+        'gastos_totales_equiv_cup': float(
+            gastos_equiv_cup + depreciacion_activos_cup
+        ),
+        'depreciacion_activos_cup': float(depreciacion_activos_cup),
         'saldo_neto_equiv_cup': monedas['equivalente']['saldo_neto_cup'],
+        'saldo_neto_contable_cup': float(saldo_contable_cup),
         'saldo_neto_equiv_usd': monedas['equivalente']['saldo_neto_usd'],
         'saldo_caja_cup': monedas['CUP']['saldo_caja'],
         'saldo_caja_usd': monedas['USD']['saldo_caja'],
         'saldo_caja_equiv_cup': monedas['equivalente']['saldo_caja_cup'],
         'saldo_caja_equiv_usd': monedas['equivalente']['saldo_caja_usd'],
         'margen': float(margen),
+        'margen_operativo': float(margen_operativo),
         'total_pedidos': total_pedidos,
         'clientes_unicos': clientes_unicos,
         'ventas': float(ventas),

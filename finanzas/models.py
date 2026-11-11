@@ -1,4 +1,8 @@
+from decimal import Decimal, ROUND_HALF_UP
+
 from django.db import models
+from django.utils import timezone
+
 from proveedores.models import Proveedor
 from clientes.models import Cliente
 from pedidos.models import Pedido
@@ -81,16 +85,56 @@ class ActivoFijo(models.Model):
     def __str__(self):
         return self.nombre
 
+    @staticmethod
+    def _redondear_dinero(valor):
+        return Decimal(str(valor)).quantize(
+            Decimal('0.01'),
+            rounding=ROUND_HALF_UP,
+        )
+
+    @property
+    def total_depreciable(self):
+        return max(
+            Decimal('0'),
+            self.valor_compra - self.valor_residual,
+        )
+
     @property
     def depreciacion_mensual(self):
-        base = self.valor_compra - self.valor_residual
-        if self.vida_util_meses == 0:
+        if self.vida_util_meses <= 0:
+            return Decimal('0.00')
+        return self._redondear_dinero(
+            self.total_depreciable / Decimal(self.vida_util_meses)
+        )
+
+    @property
+    def meses_transcurridos(self):
+        hoy = timezone.localdate()
+        if not self.fecha_compra or self.fecha_compra > hoy:
             return 0
-        return base / self.vida_util_meses
+        meses = (
+            (hoy.year - self.fecha_compra.year) * 12
+            + (hoy.month - self.fecha_compra.month)
+        )
+        return max(0, meses)
+
+    @property
+    def depreciacion_acumulada_calculada(self):
+        total = self.total_depreciable
+        if total <= 0:
+            return Decimal('0.00')
+        acumulada = self.depreciacion_mensual * self.meses_transcurridos
+        return self._redondear_dinero(min(acumulada, total))
+
+    @property
+    def valor_en_libros(self):
+        return self._redondear_dinero(
+            self.valor_compra - self.depreciacion_acumulada_calculada
+        )
 
     @property
     def valor_actual(self):
-        return self.valor_compra - self.depreciacion_acumulada
+        return self.valor_en_libros
 
 
 class Depreciacion(models.Model):

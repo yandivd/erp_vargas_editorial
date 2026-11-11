@@ -35,10 +35,11 @@ from core.services import (
     CATEGORIA_VUELTO_CLIENTE,
     Q_NO_EGRESO_OPERATIVO,
     Q_NO_INGRESO_OPERATIVO,
+    depreciacion_activos_mensual,
     parse_fecha,
 )
 from empleados.models import Empleado, PagoNomina
-from finanzas.models import CierreCaja, GastoOperativo, MovimientoCaja
+from finanzas.models import ActivoFijo, CierreCaja, GastoOperativo, MovimientoCaja
 from finanzas.services import ServicioFinanzas
 from inventario.models import Material, MovimientoInventario
 from pedidos.models import (
@@ -55,6 +56,7 @@ from proveedores.models import Proveedor
 
 from .serializers import (
     ESTADOS_NO_TALLER,
+    ActivoFijoV1Serializer,
     AnticipoV1Serializer,
     CambiarEstadoMasivoSerializer,
     CambiarEstadoSerializer,
@@ -2155,7 +2157,68 @@ def finanzas_caja_resumen(request):
             'saldo_actual_cup': float(ServicioFinanzas.saldo_caja('CUP')),
             'saldo_actual_usd': float(ServicioFinanzas.saldo_caja('USD')),
             'tasa_usd': float(ServicioFinanzas.obtener_tasa_usd_cup()),
+            'depreciacion_activos_mensual': float(
+                depreciacion_activos_mensual()
+            ),
         },
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def finanzas_activos(request):
+    queryset = ActivoFijo.objects.all().order_by('-fecha_compra', '-id')
+    estado = request.query_params.get('estado', '').strip().lower()
+    if estado == 'activos':
+        queryset = queryset.filter(activo=True)
+    elif estado == 'inactivos':
+        queryset = queryset.filter(activo=False)
+
+    activos = list(queryset)
+    resumen = {
+        'cantidad': len(activos),
+        'cantidad_activos': sum(1 for activo in activos if activo.activo),
+        'total_valor_compra': float(
+            sum((activo.valor_compra for activo in activos), Decimal('0'))
+        ),
+        'total_depreciacion_mensual': float(
+            sum(
+                (activo.depreciacion_mensual for activo in activos),
+                Decimal('0'),
+            )
+        ),
+        'total_depreciacion_acumulada': float(
+            sum(
+                (
+                    activo.depreciacion_acumulada_calculada
+                    for activo in activos
+                ),
+                Decimal('0'),
+            )
+        ),
+        'total_valor_en_libros': float(
+            sum((activo.valor_en_libros for activo in activos), Decimal('0'))
+        ),
+    }
+
+    return Response({
+        'ok': True,
+        'data': {
+            'activos': ActivoFijoV1Serializer(activos, many=True).data,
+            'resumen': resumen,
+        },
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def finanzas_activo_detalle(request, pk):
+    activo = get_object_or_404(ActivoFijo, pk=pk)
+    return Response({
+        'ok': True,
+        'data': ActivoFijoV1Serializer(activo).data,
     })
 
 

@@ -15,6 +15,7 @@ from core.services import (
     FECHA_CORTE_FINANCIERO,
     Q_NO_EGRESO_OPERATIVO,
     Q_NO_INGRESO_OPERATIVO,
+    depreciacion_activos_mensual,
     movimientos_financieros,
     parse_fecha,
 )
@@ -77,6 +78,7 @@ def caja(request):
         'hasta': hasta,
         'categoria_actual': categoria,
         'valor_inventario': valor_inventario,
+        'depreciacion_activos_mensual': depreciacion_activos_mensual(),
     }
     return render(request, 'finanzas/caja.html', context)
 
@@ -200,7 +202,7 @@ from .models import ActivoFijo
 from .services_depreciacion import ServicioDepreciacion
 
 def lista_activos(request):
-    activos = ActivoFijo.objects.filter(activo=True).order_by('-fecha_compra')
+    activos = ActivoFijo.objects.all().order_by('-fecha_compra')
     
     # Calculamos el total del valor en libros
     valor_total = sum(a.valor_actual for a in activos)
