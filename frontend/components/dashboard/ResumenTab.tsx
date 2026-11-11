@@ -11,8 +11,9 @@ import type { DashboardResumen } from "@/lib/dashboard";
 import { integer, money, number } from "@/lib/format";
 import {
   IncomeBreakdownChart,
-  ProjectionChart,
-  TrendChart,
+  MonthlyFinanceChart,
+  TrendProjectionChart,
+  WeekdayIncomeChart,
   WeeklyChart,
 } from "./charts";
 import {
@@ -33,69 +34,60 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
 
   return (
     <>
-      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
+      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 xl:grid-cols-4">
         <KpiCard
-          label="Ingresos netos CUP"
-          value={money(kpis.ingresos_cup)}
-          sub={
-            <>
-              <div>
-                Bruto: {money(kpis.ingresos_brutos_cup)} · Vuelto:{" "}
-                {money(kpis.vuelto_clientes_cup)}
-              </div>
-              <div>USD neto: {money(kpis.ingresos_usd, "USD")}</div>
-            </>
-          }
+          label="Total ingresos"
+          value={money(kpis.total_ingresos)}
+          sub={`USD neto: ${money(kpis.ingresos_usd, "USD")}`}
           tone="emerald"
           valueClassName="text-emerald-600"
         />
         <KpiCard
-          label="Gastos totales CUP"
-          value={money(kpis.gastos_totales_cup)}
-          sub={
-            <>
-              <div>
-                Reales CUP: {money(kpis.gastos_cup)} · USD:{" "}
-                {money(kpis.gastos_usd, "USD")}
-              </div>
-              <div>
-                Depreciación de Activos:{" "}
-                {money(kpis.depreciacion_activos_cup)}
-              </div>
-            </>
-          }
+          label="Gastos operativos"
+          value={money(kpis.total_gastos_operativos)}
+          sub={`Depreciación: ${money(kpis.depreciacion_activos_cup)}`}
           tone="red"
           valueClassName="text-red-500"
         />
         <KpiCard
-          label="Saldo operativo CUP"
-          value={money(kpis.saldo_neto_cup)}
-          sub={`USD: ${money(kpis.saldo_neto_usd, "USD")}`}
+          label="Utilidades"
+          value={money(kpis.utilidades)}
+          sub="Ingresos - gastos operativos"
           tone="blue"
           valueClassName="text-brand"
         />
         <KpiCard
-          label="Margen neto con depreciación"
-          value={`${Number(kpis.margen ?? 0).toFixed(1)}%`}
-          sub={
-            <>
-              <div>Operativo: {Number(kpis.margen_operativo ?? 0).toFixed(1)}%</div>
-              <div>Flujo caja: {money(kpis.flujo_neto_cup)}</div>
-            </>
-          }
+          label="Margen operativo"
+          value={`${Number(kpis.margen_operativo ?? 0).toFixed(1)}%`}
+          sub={`Margen neto: ${Number(kpis.margen ?? 0).toFixed(1)}%`}
           tone="amber"
         />
-      </div>
-
-      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
         <KpiCard
-          label="Pedidos"
+          label="Total recaudado por ventas"
+          value={money(kpis.total_recaudado_ventas)}
+          sub="Anticipos + saldos de pedidos entregados"
+          tone="emerald"
+        />
+        <KpiCard
+          label="Ganancia promedio / pedido"
+          value={money(kpis.ganancia_promedio_pedido)}
+          sub="Solo pedidos entregados"
+          tone="orange"
+        />
+        <KpiCard
+          label="Pasivos activos"
+          value={money(kpis.pasivos_activos)}
+          sub={`Anticipos ${money(kpis.anticipos_cup)} + servicios ${money(kpis.servicios_impagos_cup)}`}
+          valueClassName="text-amber-500"
+        />
+        <KpiCard
+          label="Total pedidos"
           value={integer(kpis.total_pedidos)}
           sub="Desde el corte"
           tone="violet"
         />
         <KpiCard
-          label="Clientes"
+          label="Clientes únicos"
           value={integer(kpis.clientes_unicos)}
           sub="Con pedidos desde el corte"
           tone="cyan"
@@ -107,70 +99,33 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
           tone="pink"
         />
         <KpiCard
-          label="Ganancia promedio / pedido"
-          value={money(kpis.ganancia_promedio_cup)}
-          sub={money(kpis.ganancia_promedio_usd, "USD")}
-          tone="orange"
-        />
-      </div>
-
-      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
-        <KpiCard label="Saldo caja CUP" value={money(kpis.saldo_caja_cup)} />
-        <KpiCard label="Saldo caja USD" value={money(kpis.saldo_caja_usd, "USD")} />
-        <KpiCard
-          label="Total equivalente CUP"
+          label="Saldo caja equivalente"
           value={money(kpis.saldo_caja_equiv_cup)}
-          sub={`Tasa: ${number(meta?.tasa_cambio ?? 0)}`}
-        />
-        <KpiCard
-          label="Pasivos activos"
-          value={money(kpis.pasivos_cup)}
-          sub={`Anticipos ${money(kpis.anticipos_cup)} + servicios ${money(kpis.servicios_impagos_cup)}`}
-          valueClassName="text-amber-500"
+          sub={`Tasa: ${number(meta?.tasa_cambio ?? 0)} · CUP ${money(kpis.saldo_caja_cup)}`}
+          tone="neutral"
         />
       </div>
 
       <div className="mb-4 grid gap-3 md:grid-cols-2">
         <SectionCard
-          title="Desglose bruto por Tipo de Ingreso"
+          title="Categorías de Ingreso"
           icon={<PieChart className="h-5 w-5 text-emerald-600" aria-hidden="true" />}
         >
           <div className="h-[180px] w-full md:h-[220px]">
-            <IncomeBreakdownChart data={data.desglose_ingresos} />
+            <IncomeBreakdownChart data={data.categorias_ingresos} />
           </div>
         </SectionCard>
 
         <SectionCard
-          title="Categorías de Ingreso"
-          icon={<BarChart3 className="h-5 w-5 text-brand" aria-hidden="true" />}
+          title="Categorías de Gasto"
+          icon={<PieChart className="h-5 w-5 text-red-500" aria-hidden="true" />}
         >
-          <div className={tableWrapClass}>
-            <table className={tableClass}>
-              <thead>
-                <tr>
-                  <th className={thClass}>Categoría</th>
-                  <th className={`${thClass} text-right`}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.desglose_ingresos.length ? (
-                  data.desglose_ingresos.map((item) => (
-                    <tr key={item.categoria} className={tableRowClass}>
-                      <td className={tdClass}>{item.categoria}</td>
-                      <td className={`${tdClass} text-right`}>{money(item.total)}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <EmptyTableRow colSpan={2}>Sin ingresos operativos</EmptyTableRow>
-                )}
-              </tbody>
-            </table>
+          <div className="h-[180px] w-full md:h-[220px]">
+            <IncomeBreakdownChart
+              data={data.categorias_gastos}
+              emptyMessage="Sin gastos operativos"
+            />
           </div>
-          <p className="mt-3 text-xs text-muted">
-            Los cobros se muestran brutos. El ingreso neto descuenta{" "}
-            {money(kpis.vuelto_clientes_cup)} de vueltos:{" "}
-            <strong>{money(kpis.ingresos_cup)}</strong>.
-          </p>
         </SectionCard>
       </div>
 
@@ -219,24 +174,31 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
         </div>
       </SectionCard>
 
-      <div className="mb-4 grid gap-3 md:grid-cols-7">
+      <SectionCard
+        title="Tendencia Mensual y Proyección a 6 Meses"
+        icon={<TrendingUp className="h-5 w-5 text-brand" aria-hidden="true" />}
+      >
+        <div className="h-[240px] w-full md:h-[300px]">
+          <TrendProjectionChart data={data.tendencia_mensual} />
+        </div>
+      </SectionCard>
+
+      <div className="mb-4 grid gap-3 md:grid-cols-2">
         <SectionCard
-          className="md:col-span-4"
-          title="Tendencia Mensual"
-          icon={<TrendingUp className="h-5 w-5 text-brand" aria-hidden="true" />}
+          title="Ingresos vs Gastos por Mes"
+          icon={<BarChart3 className="h-5 w-5 text-emerald-600" aria-hidden="true" />}
         >
           <div className="h-[220px] w-full md:h-[280px]">
-            <TrendChart data={data.tendencia} />
+            <MonthlyFinanceChart data={data.ingresos_vs_gastos} />
           </div>
         </SectionCard>
 
         <SectionCard
-          className="md:col-span-3"
-          title="Proyección"
-          icon={<TrendingUp className="h-5 w-5 text-cyan-600" aria-hidden="true" />}
+          title="Ingresos por Día de la Semana"
+          icon={<BarChart3 className="h-5 w-5 text-cyan-600" aria-hidden="true" />}
         >
           <div className="h-[220px] w-full md:h-[280px]">
-            <ProjectionChart data={data.proyeccion} />
+            <WeekdayIncomeChart data={data.mapa_calor_dias} />
           </div>
         </SectionCard>
       </div>

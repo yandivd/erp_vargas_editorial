@@ -39,12 +39,18 @@ export type ResumenKpis = {
   saldo_caja_equiv_usd: number;
   margen: number;
   margen_operativo: number;
+  total_ingresos: number;
+  total_gastos_operativos: number;
+  utilidades: number;
+  total_recaudado_ventas: number;
+  ganancia_promedio_pedido: number;
   total_pedidos: number;
   clientes_unicos: number;
   ventas: number;
   ganancia_promedio_cup: number;
   ganancia_promedio_usd: number;
   pasivos_cup: number;
+  pasivos_activos: number;
   anticipos_cup: number;
   servicios_impagos_cup: number;
   pedidos_activos: number;
@@ -75,6 +81,21 @@ export type ProyeccionMes = {
   mes: string;
   ingresos: number;
   gastos: number;
+};
+
+export type IngresoGastoMes = {
+  mes: string;
+  ingresos: number;
+  gastos: number;
+};
+
+export type TendenciaMensual = IngresoGastoMes & {
+  tipo: "real" | "proyeccion" | "sin_datos";
+};
+
+export type MapaCalorDia = {
+  dia: string;
+  total: number;
 };
 
 export type SemanaMovimiento = {
@@ -124,10 +145,15 @@ export type DashboardResumen = {
   kpis: ResumenKpis;
   desglose_ingresos: DesgloseIngreso[];
   categorias_ingreso: DesgloseIngreso[];
+  categorias_ingresos: DesgloseIngreso[];
+  categorias_gastos: DesgloseIngreso[];
   costo_unitario: CostoUnitario[];
   tendencia: TendenciaMes[];
+  ingresos_vs_gastos: IngresoGastoMes[];
+  tendencia_mensual: TendenciaMensual[];
   proyeccion: ProyeccionMes[];
   semanal: SemanaMovimiento[];
+  mapa_calor_dias: MapaCalorDia[];
   calor: Calor;
   transacciones: Transaccion[];
   analisis_categorias: AnalisisCategoria[];
@@ -170,11 +196,27 @@ export type PedidosMesSerie = {
   data: number[];
 };
 
+export type ComportamientoPedidoMes = {
+  mes: string;
+  pedidos: number;
+  entregados: number;
+  ventas: number;
+};
+
+export type TiempoEstado = {
+  estado: string;
+  color: string;
+  promedio_horas: number;
+  pedidos: number;
+};
+
 export type DashboardProduccion = {
   kpis: ProduccionKpis;
   top10_data: TopLibro[];
   ranking_data: RankingLibro[];
   recientes_data: LibroReciente[];
+  comportamiento_pedidos_mes: ComportamientoPedidoMes[];
+  tiempos_por_estado: TiempoEstado[];
   pedidos_mes_data: {
     labels: string[];
     series: PedidosMesSerie[];

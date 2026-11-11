@@ -7,7 +7,12 @@ import {
 } from "lucide-react";
 import type { DashboardProduccion } from "@/lib/dashboard";
 import { integer, money } from "@/lib/format";
-import { MonthlyOrdersChart, TopBooksChart } from "./charts";
+import {
+  MonthlyOrdersChart,
+  OrderBehaviorChart,
+  StateTimesChart,
+  TopBooksChart,
+} from "./charts";
 import {
   EmptyTableRow,
   KpiCard,
@@ -62,6 +67,26 @@ export default function ProduccionTab({ data }: { data: DashboardProduccion }) {
               labels={data.pedidos_mes_data.labels}
               series={data.pedidos_mes_data.series}
             />
+          </div>
+        </SectionCard>
+      </div>
+
+      <div className="mb-4 grid gap-3 md:grid-cols-2">
+        <SectionCard
+          title="Comportamiento de Pedidos por Mes"
+          icon={<TrendingUp className="h-5 w-5 text-brand" aria-hidden="true" />}
+        >
+          <div className="h-[220px] w-full md:h-[280px]">
+            <OrderBehaviorChart data={data.comportamiento_pedidos_mes} />
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Tiempo Promedio por Estado"
+          icon={<Clock className="h-5 w-5 text-amber-500" aria-hidden="true" />}
+        >
+          <div className="h-[220px] w-full md:h-[280px]">
+            <StateTimesChart data={data.tiempos_por_estado} />
           </div>
         </SectionCard>
       </div>

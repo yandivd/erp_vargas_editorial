@@ -8,7 +8,7 @@ from django.utils import timezone
 from clientes.models import Cliente
 from finanzas.models import ActivoFijo, LoteDivisa, MovimientoCaja
 from inventario.models import Material, MovimientoInventario
-from pedidos.models import Pedido, ServicioExterno
+from pedidos.models import HistorialEstado, Pedido, ServicioExterno
 from pedidos.services import CosteadorPedido, obtener_ganancia_promedio
 
 
@@ -43,6 +43,15 @@ Q_NO_INGRESO_OPERATIVO = Q(categoria__in=CATEGORIAS_NO_INGRESO) | Q_APERTURA
 Q_NO_EGRESO_OPERATIVO = Q(categoria__in=CATEGORIAS_NO_EGRESO_OPERATIVO)
 
 ESTADOS_PEDIDO_INACTIVO = ['Borrador', 'Cancelado', 'En Stock']
+
+ESTADOS_TIEMPO_ORDEN = [
+    'Impreso',
+    'Pegado',
+    'Pendiente a Portada',
+    'Pendiente a Carátula',
+    'Pendiente a Encuadernado',
+    'Listo para Entregar',
+]
 
 
 def parse_fecha(valor):
@@ -249,6 +258,35 @@ def dashboard_resumen(desde=None, hasta=None):
     clientes_unicos = pedidos.values('cliente').distinct().count()
     ventas = pedidos.aggregate(t=Sum('precio_venta'))['t'] or Decimal('0')
 
+    pedidos_entregados = list(
+        pedidos.filter(estado__nombre='Entregado').select_related('libro', 'estado')
+    )
+    anticipos_total = Decimal(
+        str(pedidos.aggregate(t=Sum('anticipo_recibido'))['t'] or 0)
+    )
+    saldo_entregados = sum(
+        (
+            Decimal(str(pedido.precio_venta))
+            - Decimal(str(pedido.anticipo_recibido or 0))
+        )
+        for pedido in pedidos_entregados
+    )
+    total_recaudado_ventas = anticipos_total + saldo_entregados
+
+    costo_produccion_entregados = Decimal('0')
+    ganancia_entregados = Decimal('0')
+    for pedido in pedidos_entregados:
+        costo = Decimal(
+            str(CosteadorPedido(pedido).calcular()['costo_total'])
+        )
+        costo_produccion_entregados += costo
+        ganancia_entregados += Decimal(str(pedido.precio_venta)) - costo
+    ganancia_promedio_pedido = (
+        ganancia_entregados / len(pedidos_entregados)
+        if pedidos_entregados
+        else Decimal('0')
+    )
+
     saldo_operativo_cup = Decimal(str(monedas['equivalente']['saldo_neto_cup']))
     gastos_equiv_cup = Decimal(str(monedas['equivalente']['gastos_cup']))
     depreciacion_activos_cup = depreciacion_activos_mensual()
@@ -281,6 +319,23 @@ def dashboard_resumen(desde=None, hasta=None):
             'total': float(d['total'] or 0),
         }
         for d in desglose
+    ]
+
+    gastos_desglose = (
+        movs.filter(tipo='EGRESO', moneda='CUP')
+        .exclude(Q_NO_EGRESO_OPERATIVO)
+        .values('categoria')
+        .annotate(total=Sum('monto'))
+        .order_by('-total')
+    )
+    categorias_gastos_data = [
+        {
+            'categoria': dict(MovimientoCaja.CATEGORIA_CHOICES).get(
+                d['categoria'], d['categoria']
+            ),
+            'total': float(d['total'] or 0),
+        }
+        for d in gastos_desglose
     ]
 
     consumos = MovimientoInventario.objects.filter(tipo='SALIDA')
@@ -352,6 +407,54 @@ def dashboard_resumen(desde=None, hasta=None):
             'gastos': round(promedio_gastos * (1 + 0.03 * i), 2),
         })
 
+    ingresos_vs_gastos_data = [
+        {
+            'mes': t['mes'],
+            'ingresos': t['ingresos'],
+            'gastos': t['gastos'],
+        }
+        for t in tendencia_data
+    ]
+
+    real_por_mes = {t['mes']: t for t in tendencia_data}
+    proyeccion_por_mes = {p['mes']: p for p in proyeccion}
+    tendencia_mensual_data = []
+    for mes_num in range(1, 13):
+        etiqueta = date(hoy.year, mes_num, 1).strftime('%b %Y')
+        if etiqueta in real_por_mes:
+            item = real_por_mes[etiqueta]
+            tendencia_mensual_data.append({
+                'mes': etiqueta,
+                'ingresos': item['ingresos'],
+                'gastos': item['gastos'],
+                'tipo': 'real',
+            })
+        elif etiqueta in proyeccion_por_mes:
+            item = proyeccion_por_mes[etiqueta]
+            tendencia_mensual_data.append({
+                'mes': etiqueta,
+                'ingresos': item['ingresos'],
+                'gastos': item['gastos'],
+                'tipo': 'proyeccion',
+            })
+        else:
+            tendencia_mensual_data.append({
+                'mes': etiqueta,
+                'ingresos': 0,
+                'gastos': 0,
+                'tipo': 'sin_datos',
+            })
+
+    etiquetas_tendencia = {t['mes'] for t in tendencia_mensual_data}
+    for item in proyeccion:
+        if item['mes'] not in etiquetas_tendencia:
+            tendencia_mensual_data.append({
+                'mes': item['mes'],
+                'ingresos': item['ingresos'],
+                'gastos': item['gastos'],
+                'tipo': 'proyeccion',
+            })
+
     semanal = (
         movs.filter(moneda='CUP')
         .annotate(semana=TruncWeek('fecha'))
@@ -383,6 +486,30 @@ def dashboard_resumen(desde=None, hasta=None):
             'gastos': float(s['gastos'] or 0),
         }
         for s in semanal
+    ]
+
+    ingresos_por_dia = (
+        movs.filter(moneda='CUP', tipo='INGRESO')
+        .exclude(Q_NO_INGRESO_OPERATIVO)
+        .annotate(dia=ExtractWeekDay('fecha'))
+        .values('dia')
+        .annotate(total=Sum('monto'))
+    )
+    totales_por_dia = {
+        fila['dia']: float(fila['total'] or 0)
+        for fila in ingresos_por_dia
+    }
+    mapa_calor_dias_data = [
+        {'dia': nombre, 'total': totales_por_dia.get(numero, 0)}
+        for nombre, numero in (
+            ('Lun', 2),
+            ('Mar', 3),
+            ('Mié', 4),
+            ('Jue', 5),
+            ('Vie', 6),
+            ('Sáb', 7),
+            ('Dom', 1),
+        )
     ]
 
     calor = (
@@ -528,12 +655,18 @@ def dashboard_resumen(desde=None, hasta=None):
         'saldo_caja_equiv_usd': monedas['equivalente']['saldo_caja_usd'],
         'margen': float(margen),
         'margen_operativo': float(margen_operativo),
+        'total_ingresos': float(ingresos_equiv),
+        'total_gastos_operativos': float(gastos_equiv_cup),
+        'utilidades': float(saldo_operativo_cup),
+        'total_recaudado_ventas': float(total_recaudado_ventas),
+        'ganancia_promedio_pedido': float(ganancia_promedio_pedido),
         'total_pedidos': total_pedidos,
         'clientes_unicos': clientes_unicos,
         'ventas': float(ventas),
         'ganancia_promedio_cup': float(ganancia_promedio_cup),
         'ganancia_promedio_usd': float(convertir_cup_a_usd(ganancia_promedio_cup, tasa)),
         'pasivos_cup': pasivos['total'],
+        'pasivos_activos': pasivos['total'],
         'anticipos_cup': pasivos['anticipos'],
         'servicios_impagos_cup': pasivos['servicios_impagos'],
         'pedidos_activos': pasivos['pedidos_activos'],
@@ -552,10 +685,15 @@ def dashboard_resumen(desde=None, hasta=None):
         'kpis': kpis,
         'desglose_ingresos': desglose_data,
         'categorias_ingreso': desglose_data,
+        'categorias_ingresos': desglose_data,
+        'categorias_gastos': categorias_gastos_data,
         'costo_unitario': costo_unitario,
         'tendencia': tendencia_data,
+        'ingresos_vs_gastos': ingresos_vs_gastos_data,
+        'tendencia_mensual': tendencia_mensual_data,
         'proyeccion': proyeccion,
         'semanal': semanal_data,
+        'mapa_calor_dias': mapa_calor_dias_data,
         'calor': calor_data,
         'transacciones': transacciones_data,
         'analisis_categorias': analisis_data,
@@ -632,6 +770,78 @@ def dashboard_produccion(desde=None, hasta=None):
         for l in recientes
     ]
 
+    comportamiento = (
+        pedidos.annotate(mes=TruncMonth('fecha_pedido'))
+        .values('mes')
+        .annotate(
+            total_pedidos=Count('id'),
+            entregados=Count('id', filter=Q(estado__nombre='Entregado')),
+            ventas=Sum('precio_venta'),
+        )
+        .order_by('mes')
+    )
+    comportamiento_data = [
+        {
+            'mes': c['mes'].strftime('%b %Y'),
+            'pedidos': c['total_pedidos'],
+            'entregados': c['entregados'],
+            'ventas': float(c['ventas'] or 0),
+        }
+        for c in comportamiento
+        if c['mes']
+    ]
+
+    fechas_entrega = dict(pedidos.values_list('id', 'fecha_entrega_real'))
+    historial = (
+        HistorialEstado.objects.filter(pedido__in=pedidos)
+        .select_related('estado_nuevo')
+        .order_by('pedido_id', 'fecha')
+    )
+    historial_por_pedido = {}
+    for evento in historial:
+        historial_por_pedido.setdefault(evento.pedido_id, []).append(evento)
+
+    tiempos_acumulados = {}
+    for pedido_id, eventos in historial_por_pedido.items():
+        for indice, evento in enumerate(eventos):
+            if indice + 1 < len(eventos):
+                siguiente = eventos[indice + 1].fecha
+            else:
+                siguiente = fechas_entrega.get(pedido_id)
+            if not siguiente:
+                continue
+            horas = (siguiente - evento.fecha).total_seconds() / 3600
+            if horas <= 0:
+                continue
+            estado = evento.estado_nuevo
+            if estado.nombre not in ESTADOS_TIEMPO_ORDEN:
+                continue
+            acumulado = tiempos_acumulados.setdefault(
+                estado.nombre,
+                {
+                    'estado': estado.nombre,
+                    'color': estado.color,
+                    'total_horas': 0.0,
+                    'pedidos': 0,
+                },
+            )
+            acumulado['total_horas'] += horas
+            acumulado['pedidos'] += 1
+
+    tiempos_data = []
+    for nombre in ESTADOS_TIEMPO_ORDEN:
+        item = tiempos_acumulados.get(nombre)
+        if not item:
+            continue
+        tiempos_data.append({
+            'estado': item['estado'],
+            'color': item['color'],
+            'promedio_horas': round(
+                item['total_horas'] / item['pedidos'], 1
+            ) if item['pedidos'] else 0,
+            'pedidos': item['pedidos'],
+        })
+
     top10_ids = [
         l['libro']
         for l in pedidos.values('libro').annotate(total=Count('id')).order_by('-total')[:10]
@@ -662,6 +872,8 @@ def dashboard_produccion(desde=None, hasta=None):
         'top10_data': top10_data,
         'ranking_data': ranking_data,
         'recientes_data': recientes_data,
+        'comportamiento_pedidos_mes': comportamiento_data,
+        'tiempos_por_estado': tiempos_data,
         'pedidos_mes_data': {
             'labels': [m.strftime('%b %Y') for m in meses],
             'series': [

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Area,
   AreaChart,
@@ -18,12 +19,17 @@ import {
   YAxis,
 } from "recharts";
 import type {
+  ComportamientoPedidoMes,
   DesgloseIngreso,
   FrecuenciaData,
+  IngresoGastoMes,
+  MapaCalorDia,
   PedidosMesSerie,
   ProyeccionMes,
   SemanaMovimiento,
   TendenciaMes,
+  TendenciaMensual,
+  TiempoEstado,
   TipoCliente,
   TopLibro,
 } from "@/lib/dashboard";
@@ -56,9 +62,15 @@ function tooltipMoney(value: unknown) {
   return money(Number(value ?? 0));
 }
 
-export function IncomeBreakdownChart({ data }: { data: DesgloseIngreso[] }) {
+export function IncomeBreakdownChart({
+  data,
+  emptyMessage = "Sin ingresos operativos",
+}: {
+  data: DesgloseIngreso[];
+  emptyMessage?: string;
+}) {
   if (!data.length) {
-    return <EmptyChart message="Sin ingresos operativos" />;
+    return <EmptyChart message={emptyMessage} />;
   }
 
   return (
@@ -175,6 +187,235 @@ export function WeeklyChart({ data }: { data: SemanaMovimiento[] }) {
         <Bar dataKey="gastos" name="Gastos" fill="#ef4444" radius={[3, 3, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
+  );
+}
+
+export function MonthlyFinanceChart({ data }: { data: IngresoGastoMes[] }) {
+  if (!data.length) {
+    return <EmptyChart />;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="mes" tick={axisTick} />
+        <YAxis tick={axisTick} width={70} tickFormatter={(value) => money(Number(value))} />
+        <Tooltip formatter={tooltipMoney} />
+        <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
+        <Bar dataKey="ingresos" name="Ingresos" fill="#10b981" radius={[3, 3, 0, 0]} />
+        <Bar dataKey="gastos" name="Gastos" fill="#ef4444" radius={[3, 3, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function TrendProjectionChart({ data }: { data: TendenciaMensual[] }) {
+  if (!data.length) {
+    return <EmptyChart />;
+  }
+
+  const chartData = data.map((item) => {
+    const isProjected = item.tipo === "proyeccion";
+    return {
+      mes: item.mes,
+      ingresos: isProjected ? null : item.ingresos,
+      gastos: isProjected ? null : item.gastos,
+      ingresos_proyectados: isProjected ? item.ingresos : null,
+      gastos_proyectados: isProjected ? item.gastos : null,
+    };
+  });
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="mes" tick={axisTick} />
+        <YAxis tick={axisTick} width={70} tickFormatter={(value) => money(Number(value))} />
+        <Tooltip formatter={tooltipMoney} />
+        <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
+        <Line
+          type="monotone"
+          dataKey="ingresos"
+          name="Ingresos"
+          stroke="#10b981"
+          strokeWidth={2}
+          connectNulls
+          dot={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="gastos"
+          name="Gastos"
+          stroke="#ef4444"
+          strokeWidth={2}
+          connectNulls
+          dot={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="ingresos_proyectados"
+          name="Ingresos proyectados"
+          stroke="#10b981"
+          strokeWidth={2}
+          strokeDasharray="6 4"
+          connectNulls
+          dot={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="gastos_proyectados"
+          name="Gastos proyectados"
+          stroke="#ef4444"
+          strokeWidth={2}
+          strokeDasharray="6 4"
+          connectNulls
+          dot={false}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function WeekdayIncomeChart({ data }: { data: MapaCalorDia[] }) {
+  if (!data.length) {
+    return <EmptyChart />;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="dia" tick={axisTick} />
+        <YAxis tick={axisTick} width={70} tickFormatter={(value) => money(Number(value))} />
+        <Tooltip formatter={tooltipMoney} />
+        <Bar dataKey="total" name="Ingresos" fill="#3b82f6" radius={[3, 3, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function OrderBehaviorChart({
+  data,
+}: {
+  data: ComportamientoPedidoMes[];
+}) {
+  if (!data.length) {
+    return <EmptyChart />;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="mes" tick={axisTick} />
+        <YAxis tick={axisTick} width={40} allowDecimals={false} />
+        <Tooltip />
+        <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
+        <Bar dataKey="pedidos" name="Pedidos" fill="#3b82f6" radius={[3, 3, 0, 0]} />
+        <Bar dataKey="entregados" name="Entregados" fill="#10b981" radius={[3, 3, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+type TimeUnit = "horas" | "dias" | "semanas";
+
+const timeUnits: Record<
+  TimeUnit,
+  { label: string; shortLabel: string; hours: number }
+> = {
+  horas: { label: "Horas", shortLabel: "h", hours: 1 },
+  dias: { label: "Días", shortLabel: "d", hours: 24 },
+  semanas: { label: "Semanas", shortLabel: "sem", hours: 168 },
+};
+
+export function StateTimesChart({ data }: { data: TiempoEstado[] }) {
+  const [unit, setUnit] = useState<TimeUnit>("horas");
+
+  if (!data.length) {
+    return <EmptyChart />;
+  }
+
+  const selectedUnit = timeUnits[unit];
+  const chartData = data.map((item) => ({
+    ...item,
+    promedio: item.promedio_horas / selectedUnit.hours,
+  }));
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="mb-2 flex flex-wrap items-center gap-1">
+        {(Object.keys(timeUnits) as TimeUnit[]).map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => setUnit(option)}
+            className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition ${
+              unit === option
+                ? "border-brand bg-brand text-white"
+                : "border-line bg-white text-muted hover:border-brand hover:bg-blue-50 hover:text-brand"
+            }`}
+          >
+            {timeUnits[option].label}
+          </button>
+        ))}
+      </div>
+      <div className="min-h-0 flex-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={chartData}
+            layout="vertical"
+            margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+            <XAxis
+              type="number"
+              tick={axisTick}
+              tickFormatter={(value) => {
+                const number = Number(value ?? 0);
+                return unit === "horas"
+                  ? String(Math.round(number))
+                  : number.toFixed(1);
+              }}
+            />
+            <YAxis
+              dataKey="estado"
+              type="category"
+              width={150}
+              tick={axisTick}
+              tickFormatter={(value: string) =>
+                value.length > 24 ? `${value.slice(0, 24)}…` : value
+              }
+            />
+            <Tooltip
+              formatter={(value, _name, item) => {
+                const row = item?.payload as
+                  | { pedidos?: number; promedio_horas?: number }
+                  | undefined;
+                const suffix =
+                  row?.pedidos !== undefined
+                    ? ` (${row.pedidos} pedidos)`
+                    : "";
+                return `${Number(value ?? 0).toFixed(1)} ${selectedUnit.shortLabel}${suffix}`;
+              }}
+            />
+            <Bar
+              dataKey="promedio"
+              name={`Promedio (${selectedUnit.shortLabel})`}
+              radius={[0, 4, 4, 0]}
+            >
+              {chartData.map((entry, index) => (
+                <Cell
+                  key={`${entry.estado}-${index}`}
+                  fill={entry.color || chartColors[index % chartColors.length]}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
   );
 }
 
