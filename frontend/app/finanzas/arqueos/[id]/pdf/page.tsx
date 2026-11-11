@@ -60,6 +60,16 @@ export default async function ArqueoPdfPage({ params }: PageProps) {
   const arqueo = result.data;
   const hayDiferencia =
     arqueo.diferencia_cup !== 0 || arqueo.diferencia_usd !== 0;
+  const cantidades = Object.entries(arqueo.cantidades ?? {})
+    .map(([denominacion, cantidad]) => ({
+      denominacion: Number(denominacion),
+      cantidad: Number(cantidad),
+    }))
+    .filter(
+      ({ denominacion, cantidad }) =>
+        Number.isFinite(denominacion) && cantidad > 0,
+    )
+    .sort((a, b) => b.denominacion - a.denominacion);
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-8 print:min-h-0 print:bg-white print:p-0">
@@ -171,6 +181,47 @@ export default async function ArqueoPdfPage({ params }: PageProps) {
             {moneyCaja(arqueo.transferencia, "CUP")}
           </span>
         </div>
+
+        <section className="mt-6">
+          <h2 className="border-b border-line pb-2 text-xs font-bold uppercase tracking-wider text-muted">
+            Desglose de billetes contados
+          </h2>
+          <table className="mt-3 w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="border-b border-line px-2 py-2 text-left text-xs font-bold uppercase tracking-wide text-muted">
+                  Denominación
+                </th>
+                <th className="border-b border-line px-2 py-2 text-right text-xs font-bold uppercase tracking-wide text-muted">
+                  Cantidad
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {cantidades.length > 0 ? (
+                cantidades.map(({ denominacion, cantidad }) => (
+                  <tr key={denominacion}>
+                    <td className="border-b border-line px-2 py-2 text-slate-900">
+                      ${denominacion}
+                    </td>
+                    <td className="border-b border-line px-2 py-2 text-right text-slate-900">
+                      {cantidad}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={2}
+                    className="border-b border-line px-2 py-2 text-center text-muted"
+                  >
+                    Sin billetes registrados.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </section>
 
         <section className="mt-8">
           <h2 className="border-b border-line pb-2 text-xs font-bold uppercase tracking-wider text-muted">

@@ -1096,6 +1096,17 @@ class CierreCajaV1Serializer(serializers.ModelSerializer):
     saldo_real_usd = serializers.FloatField(source='efectivo_real_usd')
     diferencia_usd = serializers.FloatField()
     transferencia = serializers.FloatField()
+    cantidades = serializers.SerializerMethodField()
+
+    def get_cantidades(self, obj):
+        denominaciones = (
+            20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 1,
+        )
+        return {
+            str(denominacion): cantidad
+            for denominacion in denominaciones
+            if (cantidad := getattr(obj, f'b_{denominacion}', 0)) > 0
+        }
 
     class Meta:
         model = CierreCaja
@@ -1110,6 +1121,7 @@ class CierreCajaV1Serializer(serializers.ModelSerializer):
             'saldo_real_usd',
             'diferencia_usd',
             'transferencia',
+            'cantidades',
             'notas',
         )
 

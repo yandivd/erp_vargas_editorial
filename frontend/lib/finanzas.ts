@@ -64,6 +64,7 @@ export type CierreCaja = {
   saldo_real_usd: number;
   diferencia_usd: number;
   transferencia: number;
+  cantidades?: Record<string, number>;
   notas: string;
 };
 
