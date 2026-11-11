@@ -68,7 +68,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
       )
     : null;
   const precioVenta = Number(libro.precio);
-  const margen = costo ? precioVenta - costo.costo_total : null;
+  const gananciaNeta = costo ? precioVenta - costo.costo_total : null;
 
   return (
     <div>
@@ -152,31 +152,55 @@ export default async function LibroDetailPage({ params }: PageProps) {
         </SectionCard>
 
         <SectionCard
-          title="Precio y margen"
+          title="Costo y ganancia"
           icon={<Wallet className="h-5 w-5 text-brand" aria-hidden="true" />}
         >
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-4">
-            <Info label="Precio de venta" value={money(libro.precio)} />
-            <Info
-              label="Precio sugerido por unidad"
-              value={costo ? money(costo.precio_sugerido) : "—"}
-            />
-            <Info
-              label="Costo total de producción"
-              value={costo ? money(costo.costo_total) : "—"}
-            />
-            <Info
-              label="Margen bruto por unidad"
-              value={margen === null ? "—" : money(margen)}
-              valueClassName={
-                margen === null
-                  ? ""
-                  : margen >= 0
-                    ? "text-emerald-600"
-                    : "text-red-600"
-              }
-            />
-          </dl>
+          <div className="space-y-3">
+            <div className="rounded-lg border border-line bg-slate-50 p-3">
+              <div className="text-[0.7rem] font-bold uppercase tracking-wide text-muted">
+                Costo de producción por unidad
+              </div>
+              <div className="mt-1 text-xl font-extrabold text-ink">
+                {costo ? money(costo.costo_total) : "—"}
+              </div>
+            </div>
+
+            <div
+              className={`rounded-lg border p-3 ${
+                gananciaNeta === null
+                  ? "border-line bg-slate-50"
+                  : gananciaNeta >= 0
+                    ? "border-emerald-200 bg-emerald-50"
+                    : "border-red-200 bg-red-50"
+              }`}
+            >
+              <div className="text-[0.7rem] font-bold uppercase tracking-wide text-muted">
+                Ganancia neta por unidad
+              </div>
+              <div
+                className={`mt-1 text-xl font-extrabold ${
+                  gananciaNeta === null
+                    ? "text-ink"
+                    : gananciaNeta >= 0
+                      ? "text-emerald-700"
+                      : "text-red-700"
+                }`}
+              >
+                {gananciaNeta === null ? "—" : money(gananciaNeta)}
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                Precio de venta menos costo de producción.
+              </p>
+            </div>
+
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-4">
+              <Info label="Precio de venta" value={money(libro.precio)} />
+              <Info
+                label="Precio sugerido por unidad"
+                value={costo ? money(costo.precio_sugerido) : "—"}
+              />
+            </dl>
+          </div>
         </SectionCard>
       </div>
     </div>
