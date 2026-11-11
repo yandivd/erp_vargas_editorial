@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   ArrowRightLeft,
-  BarChart3,
   Book,
   BookOpen,
   HardDrive,
@@ -16,7 +15,6 @@ import {
   Menu,
   Package,
   Settings,
-  ShoppingCart,
   Store,
   Truck,
   UserRound,
@@ -70,7 +68,6 @@ const sections: NavSection[] = [
       { href: "/libros", label: "Libros", icon: BookOpen },
       { href: "/inventario", label: "Inventario", icon: Package },
       { href: "/proveedores", label: "Proveedores", icon: Truck },
-      { href: "/compras", label: "Compras", icon: ShoppingCart },
       { href: "/empleados", label: "Nómina", icon: UserRound },
     ],
   },
@@ -80,7 +77,6 @@ const sections: NavSection[] = [
       { href: "/finanzas/caja", label: "Caja", icon: Wallet },
       { href: "/finanzas/arqueos", label: "Arqueos", icon: History },
       { href: "/finanzas/divisas", label: "Divisas (USD)", icon: ArrowRightLeft },
-      { href: "/finanzas/reportes", label: "Reportes", icon: BarChart3 },
       { href: "/finanzas/activos", label: "Activos fijos", icon: HardDrive },
     ],
   },
@@ -223,9 +219,19 @@ export default function Sidebar() {
 
     fetch("/api/bff/auth/me", { headers: { Accept: "application/json" } })
       .then((response) => (response.ok ? response.json() : null))
-      .then((payload: { ok?: boolean; data?: Usuario } | null) => {
-        if (!cancelled && payload?.ok && payload.data) {
-          setUsuario(payload.data);
+      .then((payload: unknown) => {
+        if (cancelled || !payload || typeof payload !== "object") {
+          return;
+        }
+
+        const data = (
+          "data" in payload
+            ? (payload as { data?: Usuario }).data
+            : (payload as Usuario)
+        ) as Usuario | undefined;
+
+        if (data?.username) {
+          setUsuario(data);
         }
       })
       .catch(() => undefined);

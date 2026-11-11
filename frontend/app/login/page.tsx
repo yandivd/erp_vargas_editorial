@@ -63,7 +63,6 @@ export default function LoginPage() {
             priority
             className="h-auto max-h-40 w-full object-contain"
           />
-          <h1 className="mt-6 text-3xl font-extrabold">Vargas Editorial</h1>
           <p className="mt-4 text-sm text-slate-300">
             Gestión editorial y encuadernación.
           </p>
@@ -73,9 +72,14 @@ export default function LoginPage() {
       <section className="flex min-h-screen w-full items-center justify-center bg-slate-50 px-4 py-12 md:w-3/5">
         <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-xl">
           <div className="mb-8 text-center md:text-left">
-            <p className="text-sm font-semibold uppercase tracking-widest text-blue-600">
-              Vargas ERP
-            </p>
+            <Image
+              src="/img/logo.jpg"
+              alt="Vargas Editorial"
+              width={200}
+              height={108}
+              priority
+              className="mx-auto mb-4 h-auto w-40 object-contain md:hidden"
+            />
             <h1 className="mt-2 text-2xl font-bold text-slate-900">Iniciar sesión</h1>
             <p className="mt-2 text-sm text-slate-600">Accede con tu usuario del sistema.</p>
           </div>

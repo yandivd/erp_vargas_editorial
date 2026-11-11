@@ -266,9 +266,6 @@
             <a href="{% url 'proveedores:lista' %}" class="sidebar-link {% if request.resolver_match.namespace == 'proveedores' %}active{% endif %}">
                 <i class="bi bi-truck"></i> Proveedores
             </a>
-            <a href="{% url 'compras:lista' %}" class="sidebar-link {% if request.resolver_match.namespace == 'compras' %}active{% endif %}">
-                <i class="bi bi-cart-check"></i> Compras
-            </a>
             <a href="{% url 'empleados:lista' %}" class="sidebar-link {% if request.resolver_match.namespace == 'empleados' %}active{% endif %}">
                 <i class="bi bi-person-badge"></i> Nómina
             </a>
@@ -279,9 +276,6 @@
             </a>
             <a href="{% url 'finanzas:gestionar_divisas' %}" class="sidebar-link {% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'gestionar_divisas' %}active{% endif %}">
                 <i class="bi bi-currency-exchange"></i> Divisas (USD)
-            </a>
-            <a href="{% url 'finanzas:reportes' %}" class="sidebar-link {% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'reportes' %}active{% endif %}">
-                <i class="bi bi-graph-up-arrow"></i> Reportes
             </a>
             <a href="{% url 'agente_analista:chat' %}" class="sidebar-link {% if request.resolver_match.namespace == 'agente_analista' %}active{% endif %}">
                 <i class="bi bi-robot"></i> Analista Financiero
@@ -335,12 +329,10 @@
                 <div class="menu-label">Operaciones</div>
                 <a href="{% url 'inventario:lista' %}" class="sidebar-link {% if request.resolver_match.namespace == 'inventario' %}active{% endif %}"><i class="bi bi-box-seam"></i> Inventario</a>
                 <a href="{% url 'proveedores:lista' %}" class="sidebar-link {% if request.resolver_match.namespace == 'proveedores' %}active{% endif %}"><i class="bi bi-truck"></i> Proveedores</a>
-                <a href="{% url 'compras:lista' %}" class="sidebar-link {% if request.resolver_match.namespace == 'compras' %}active{% endif %}"><i class="bi bi-cart-check"></i> Compras</a>
                 <a href="{% url 'empleados:lista' %}" class="sidebar-link {% if request.resolver_match.namespace == 'empleados' %}active{% endif %}"><i class="bi bi-person-badge"></i> Nómina</a>
                 <div class="menu-label">Finanzas</div>
                 <a href="{% url 'finanzas:caja' %}" class="sidebar-link {% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'caja' %}active{% endif %}"><i class="bi bi-cash-stack"></i> Caja</a>
                 <a href="{% url 'finanzas:gestionar_divisas' %}" class="sidebar-link {% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'gestionar_divisas' %}active{% endif %}"><i class="bi bi-currency-exchange"></i> Divisas (USD)</a>
-                <a href="{% url 'finanzas:reportes' %}" class="sidebar-link {% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'reportes' %}active{% endif %}"><i class="bi bi-graph-up-arrow"></i> Reportes</a>
                 <a href="{% url 'agente_analista:chat' %}" class="sidebar-link {% if request.resolver_match.namespace == 'agente_analista' %}active{% endif %}"><i class="bi bi-robot"></i> Analista Financiero</a>
                 <a href="{% url 'finanzas:activos' %}" class="sidebar-link {% if request.resolver_match.namespace == 'finanzas' and request.resolver_match.url_name == 'activos' %}active{% endif %}"><i class="bi bi-hdd-stack"></i> Activos fijos</a>
                 <div class="menu-label">Sistema</div>
