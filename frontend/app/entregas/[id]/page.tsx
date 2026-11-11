@@ -112,15 +112,15 @@ export default async function EntregaDetailPage({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/entregas/${entrega.id}/ticket`}
+          <a
+            href={`https://vargaserp.pythonanywhere.com/pedidos/entregas/${entrega.id}/comprobante-carta/`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-3.5 py-2 text-sm font-semibold text-ink transition hover:border-brand hover:bg-blue-50 hover:text-brand"
           >
             <Printer className="h-4 w-4" aria-hidden="true" />
-            Imprimir Ticket
-          </Link>
+            Imprimir Comprobante
+          </a>
           {!entrega.entregado ? (
             <ConfirmarEntrega
               entregaId={entrega.id}
