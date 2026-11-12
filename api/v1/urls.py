@@ -23,6 +23,11 @@ urlpatterns = [
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('auth/me/', views.me, name='me'),
+    path(
+        'fidelidad/publica/<uuid:token>/',
+        views.fidelidad_publica,
+        name='fidelidad_publica',
+    ),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('dashboard/resumen/', views.dashboard, {'tab': 'resumen'}, name='dashboard_resumen'),
     path('dashboard/produccion/', views.dashboard, {'tab': 'produccion'}, name='dashboard_produccion'),

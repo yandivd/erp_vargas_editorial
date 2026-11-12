@@ -6,7 +6,12 @@ const ACCESS_COOKIE =
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
-  if (pathname === "/login" || pathname === "/catalogo" || pathname.startsWith("/api/")) {
+  if (
+    pathname === "/login" ||
+    pathname === "/catalogo" ||
+    pathname.startsWith("/fidelidad/") ||
+    pathname.startsWith("/api/")
+  ) {
     return NextResponse.next();
   }
 

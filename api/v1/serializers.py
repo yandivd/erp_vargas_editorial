@@ -4,6 +4,7 @@ from django.db.models import Q, Sum
 from rest_framework import serializers
 
 from clientes.models import Cliente
+from clientes.services import ServicioFidelidad
 from empleados.models import Empleado, PagoNomina
 from finanzas.models import ActivoFijo, CierreCaja, MovimientoCaja
 from finanzas.services import ServicioFinanzas
@@ -219,6 +220,7 @@ class ClienteListV1Serializer(serializers.ModelSerializer):
     total_libros = serializers.SerializerMethodField()
     dias_sin_comprar = serializers.SerializerMethodField()
     badge = serializers.SerializerMethodField()
+    fidelidad = serializers.SerializerMethodField()
 
     class Meta:
         model = Cliente
@@ -234,6 +236,7 @@ class ClienteListV1Serializer(serializers.ModelSerializer):
             'total_libros',
             'dias_sin_comprar',
             'badge',
+            'fidelidad',
         )
 
     def get_pedidos(self, obj):
@@ -259,6 +262,9 @@ class ClienteListV1Serializer(serializers.ModelSerializer):
     def get_badge(self, obj):
         return obj.badge
 
+    def get_fidelidad(self, obj):
+        return ServicioFidelidad.estado(obj)
+
 
 class ClienteCreateV1Serializer(serializers.ModelSerializer):
     class Meta:
@@ -270,6 +276,29 @@ class ClienteCreateV1Serializer(serializers.ModelSerializer):
         if not value:
             raise serializers.ValidationError('El nombre es obligatorio.')
         return value
+
+
+class AjusteFidelidadSerializer(serializers.Serializer):
+    sellos = serializers.IntegerField(
+        min_value=0,
+        required=False,
+        allow_null=True,
+    )
+    bono_saldo = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        min_value=Decimal('0'),
+        required=False,
+        allow_null=True,
+    )
+    motivo = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        if attrs.get('sellos') is None and attrs.get('bono_saldo') is None:
+            raise serializers.ValidationError(
+                'Indica la cantidad de sellos o el saldo del bono.'
+            )
+        return attrs
 
 
 class LibroListV1Serializer(serializers.ModelSerializer):
@@ -309,7 +338,12 @@ class PedidoCreateSerializer(serializers.Serializer):
     cantidad = serializers.IntegerField(default=1, min_value=1)
     lleva_scotch = serializers.BooleanField(default=False)
     lleva_esquineros = serializers.BooleanField(default=False)
-    precio_venta = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
+    precio_venta = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=True,
+        min_value=Decimal('0'),
+    )
     anticipo_requerido = serializers.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -338,7 +372,20 @@ class PedidoCreateSerializer(serializers.Serializer):
     )
     notas = serializers.CharField(required=False, allow_blank=True)
     codigo_descuento = serializers.CharField(required=False, allow_blank=True)
-    descuento_aplicado = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0)
+    descuento_aplicado = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        default=0,
+        min_value=Decimal('0'),
+    )
+    bono_fidelidad_aplicado = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        default=0,
+        min_value=Decimal('0'),
+    )
 
     def validate(self, attrs):
         if not attrs.get('cliente_id') and not attrs.get('cliente_nombre'):
@@ -347,6 +394,10 @@ class PedidoCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError('Debes seleccionar un libro o crear uno nuevo.')
         if not attrs.get('libro_id') and not attrs.get('libro_paginas'):
             raise serializers.ValidationError('Si creas un libro nuevo, debes indicar las páginas.')
+        if attrs.get('bono_fidelidad_aplicado') and not attrs.get('cliente_id'):
+            raise serializers.ValidationError(
+                'El bono de fidelidad solo aplica a clientes registrados.'
+            )
 
         monto_anticipo = attrs.get('monto_anticipo')
         if monto_anticipo is None:
@@ -541,6 +592,7 @@ class PedidoDetailV1Serializer(PedidoListV1Serializer):
             'telefono_entrega',
             'notas',
             'descuento_aplicado',
+            'bono_fidelidad_aplicado',
             'horas_invertidas',
             'cliente_telefono',
             'libro_paginas',

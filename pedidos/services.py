@@ -312,6 +312,10 @@ class ServicioPedido:
 
                 ServicioPedido.cobrar_saldo(pedido)
 
+            from clientes.services import ServicioFidelidad
+
+            ServicioFidelidad.registrar_compra(pedido)
+
         return pedido
 
     @staticmethod

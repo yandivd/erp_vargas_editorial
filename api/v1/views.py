@@ -27,7 +27,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from clientes.models import Cliente
+from clientes.models import Cliente, TarjetaFidelidad
+from clientes.services import ServicioFidelidad
 from core.api import obtener_dashboard_data
 from core.api_utils import payload_paginacion
 from core.models import Parametro
@@ -57,6 +58,7 @@ from proveedores.models import Proveedor
 from .serializers import (
     ESTADOS_NO_TALLER,
     ActivoFijoV1Serializer,
+    AjusteFidelidadSerializer,
     AnticipoV1Serializer,
     CambiarEstadoMasivoSerializer,
     CambiarEstadoSerializer,
@@ -214,6 +216,26 @@ def me(request):
         'is_staff': user.is_staff,
         'is_superuser': user.is_superuser,
         'groups': list(user.groups.values_list('name', flat=True)),
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def fidelidad_publica(request, token):
+    tarjeta = get_object_or_404(
+        TarjetaFidelidad.objects.select_related('cliente'),
+        token=token,
+    )
+    estado = ServicioFidelidad.estado(tarjeta.cliente)
+
+    return Response({
+        'ok': True,
+        'data': {
+            'cliente_nombre': tarjeta.cliente.nombre,
+            'fecha_actualizacion': tarjeta.fecha_actualizacion,
+            **estado,
+        },
     })
 
 
@@ -933,6 +955,7 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                     telefono=data.get('cliente_telefono') or '',
                     direccion=data.get('cliente_direccion') or '',
                 )
+                ServicioFidelidad.obtener_tarjeta(cliente)
 
             libro = None
             if data.get('libro_id'):
@@ -961,6 +984,23 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
+            bono_solicitado = Decimal(
+                str(data.get('bono_fidelidad_aplicado') or 0)
+            )
+            if bono_solicitado > 0:
+                tarjeta = ServicioFidelidad.obtener_tarjeta(cliente)
+                if tarjeta is None or bono_solicitado > tarjeta.bono_saldo:
+                    return Response(
+                        {
+                            'ok': False,
+                            'error': (
+                                'El cliente no tiene saldo suficiente en su '
+                                'bono de fidelidad.'
+                            ),
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
             siguiente_ref = _siguiente_referencia()
             estado_inicial = Estado.objects.get(nombre='Pendiente a impresión')
             anticipo = Decimal(str(data.get('anticipo_requerido') or 0))
@@ -975,6 +1015,7 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                 lleva_esquineros=bool(data.get('lleva_esquineros')),
                 precio_venta=Decimal(str(data.get('precio_venta') or 0)),
                 descuento_aplicado=descuento,
+                bono_fidelidad_aplicado=bono_solicitado,
                 codigo_descuento=cod_obj,
                 anticipo_requerido=anticipo,
                 estado=estado_inicial,
@@ -982,6 +1023,24 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                 referencia_externa=siguiente_ref,
             )
             pedido.calcular_fecha_entrega()
+
+            if bono_solicitado > 0:
+                descuento_bono = ServicioFidelidad.aplicar_bono(
+                    cliente,
+                    bono_solicitado,
+                )
+                if descuento_bono != bono_solicitado:
+                    transaction.set_rollback(True)
+                    return Response(
+                        {
+                            'ok': False,
+                            'error': (
+                                'No se pudo aplicar el bono de fidelidad. '
+                                'El saldo pudo haber cambiado.'
+                            ),
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
             if cod_obj:
                 cod_obj.usos_actuales += 1
@@ -1325,7 +1384,7 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
     ESTADOS_EXCLUIDOS = ('Entregado', 'Cancelado')
 
     def get_queryset(self):
-        return Cliente.objects.annotate(
+        return Cliente.objects.select_related('tarjeta_fidelidad').annotate(
             pedidos_totales=Count(
                 'pedidos',
                 distinct=True,
@@ -1399,6 +1458,7 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
         serializer = ClienteCreateV1Serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         cliente = serializer.save()
+        ServicioFidelidad.obtener_tarjeta(cliente)
         return Response(
             {
                 'ok': True,
@@ -1406,6 +1466,31 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    @action(detail=True, methods=['post'], url_path='ajustar-fidelidad')
+    def ajustar_fidelidad(self, request, pk=None):
+        cliente = self.get_object()
+        serializer = AjusteFidelidadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        datos = serializer.validated_data
+
+        tarjeta = ServicioFidelidad.ajustar(
+            cliente,
+            sellos=datos.get('sellos'),
+            bono_saldo=datos.get('bono_saldo'),
+        )
+
+        return Response({
+            'ok': True,
+            'data': {
+                'fidelidad': ServicioFidelidad.estado(tarjeta.cliente),
+                'tarjeta': {
+                    'id': tarjeta.id,
+                    'sellos': tarjeta.sellos,
+                    'bono_saldo': float(tarjeta.bono_saldo),
+                },
+            },
+        })
 
 
 class LibroViewSetV1(viewsets.ModelViewSet):

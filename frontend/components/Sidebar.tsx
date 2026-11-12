@@ -8,6 +8,7 @@ import {
   ArrowRightLeft,
   Book,
   BookOpen,
+  Gift,
   HardDrive,
   History,
   LayoutGrid,
@@ -60,6 +61,7 @@ const sections: NavSection[] = [
       { href: "/entregas", label: "Entregas", icon: Truck },
       { href: "/catalogo", label: "Catálogo", icon: Book, isExternal: true },
       { href: "/clientes", label: "Clientes", icon: Users },
+      { href: "/fidelidad", label: "Fidelidad", icon: Gift },
     ],
   },
   {

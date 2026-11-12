@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   BookOpen,
+  Gift,
   Loader2,
   Plus,
   UserRound,
@@ -29,11 +30,13 @@ import {
   type ParametrosCosto,
 } from "@/lib/costos";
 import { integer, money, number } from "@/lib/format";
+import type { FidelidadCliente } from "@/lib/clientes";
 
 type Cliente = {
   id: number;
   nombre: string;
   telefono: string;
+  fidelidad?: FidelidadCliente | null;
 };
 
 type Libro = {
@@ -131,6 +134,10 @@ export default function NuevoPedidoModal() {
   const [descuentoActivo, setDescuentoActivo] = useState(false);
   const [descuentoInfo, setDescuentoInfo] = useState<string | null>(null);
   const [descuentoError, setDescuentoError] = useState<string | null>(null);
+  const [bonoActivo, setBonoActivo] = useState(false);
+  const [bonoMonto, setBonoMonto] = useState("0");
+  const [bonoInfo, setBonoInfo] = useState<string | null>(null);
+  const [bonoError, setBonoError] = useState<string | null>(null);
   const [precioOriginal, setPrecioOriginal] = useState<string | null>(null);
   const [anticipoOriginal, setAnticipoOriginal] = useState<string | null>(null);
 
@@ -185,6 +192,17 @@ export default function NuevoPedidoModal() {
       codigoOptions.find((option) => option.value === codigoDescuento) ?? null,
     [codigoOptions, codigoDescuento],
   );
+
+  const clienteSeleccionadoObj = useMemo(
+    () => clientes.find((cliente) => String(cliente.id) === clienteId) ?? null,
+    [clientes, clienteId],
+  );
+
+  const fidelidad = clienteSeleccionadoObj?.fidelidad ?? null;
+  const bonoDisponible =
+    fidelidad && Number(fidelidad.bono_saldo) > 0
+      ? Number(fidelidad.bono_saldo)
+      : 0;
 
   const cargarTasaCambio = useCallback(async () => {
     try {
@@ -348,6 +366,10 @@ export default function NuevoPedidoModal() {
     setDescuentoActivo(false);
     setDescuentoInfo(null);
     setDescuentoError(null);
+    setBonoActivo(false);
+    setBonoMonto("0");
+    setBonoInfo(null);
+    setBonoError(null);
     setPrecioOriginal(null);
     setAnticipoOriginal(null);
     setPrecioEditadoManualmente(false);
@@ -361,6 +383,10 @@ export default function NuevoPedidoModal() {
     setDescuentoActivo(false);
     setDescuentoInfo(null);
     setDescuentoError(null);
+    setBonoActivo(false);
+    setBonoMonto("0");
+    setBonoInfo(null);
+    setBonoError(null);
 
     if (precioOriginal !== null) {
       setPrecioVenta(precioOriginal);
@@ -376,14 +402,23 @@ export default function NuevoPedidoModal() {
   }
 
   function handleClienteChange(value: string) {
+    if (value !== clienteId) {
+      resetDescuento();
+    }
     setClienteId(value);
   }
 
   function handleModoClienteExistente() {
+    if (modoCliente !== "existente") {
+      resetDescuento();
+    }
     setModoCliente("existente");
   }
 
   function handleModoClienteNuevo() {
+    if (modoCliente !== "nuevo") {
+      resetDescuento();
+    }
     setModoCliente("nuevo");
   }
 
@@ -546,6 +581,51 @@ export default function NuevoPedidoModal() {
     setMonedaAnticipo("CUP");
   }
 
+  function aplicarBono() {
+    setBonoError(null);
+
+    if (modoCliente !== "existente" || !clienteId) {
+      setBonoError("Selecciona un cliente registrado para usar el bono.");
+      return;
+    }
+    if (bonoDisponible <= 0) {
+      setBonoError("Este cliente no tiene un bono de fidelidad disponible.");
+      return;
+    }
+
+    const precioActual = Number(precioVenta || 0);
+    if (precioActual <= 0) {
+      setBonoError("El precio de venta debe ser mayor a 0.");
+      return;
+    }
+
+    if (descuentoActivo) {
+      setBonoError("Quita el descuento aplicado antes de usar el bono.");
+      return;
+    }
+
+    const monto = redondear2(Math.min(bonoDisponible, precioActual));
+    if (monto <= 0) {
+      setBonoError("El bono no puede aplicarse a este pedido.");
+      return;
+    }
+
+    const nuevoPrecio = redondear2(precioActual - monto);
+    setBonoMonto(String(monto));
+    setBonoActivo(true);
+    setPrecioOriginal(precioVenta);
+    setAnticipoOriginal(anticipoRequerido);
+    setPrecioVenta(String(nuevoPrecio));
+    setAnticipoRequerido(anticipoSugeridoEnMoneda(nuevoPrecio / 2));
+    setPrecioEditadoManualmente(true);
+    setAnticipoEditado(true);
+    setBonoInfo(
+      `Bono de fidelidad aplicado: ${money(monto)} — Precio final: ${money(
+        nuevoPrecio,
+      )}`,
+    );
+  }
+
   async function aplicarDescuento() {
     setDescuentoError(null);
 
@@ -557,6 +637,11 @@ export default function NuevoPedidoModal() {
     const precioActual = Number(precioVenta || 0);
     if (precioActual <= 0) {
       setDescuentoError("El precio de venta debe ser mayor a 0.");
+      return;
+    }
+
+    if (bonoActivo) {
+      setDescuentoError("Quita el bono de fidelidad antes de aplicar un descuento.");
       return;
     }
 
@@ -668,6 +753,7 @@ export default function NuevoPedidoModal() {
           descuento_aplicado: descuentoActivo
             ? Number(descuentoAplicado || 0)
             : 0,
+          bono_fidelidad_aplicado: bonoActivo ? Number(bonoMonto || 0) : 0,
         }),
       });
 
@@ -1209,6 +1295,63 @@ export default function NuevoPedidoModal() {
                     </p>
                   ) : null}
                 </section>
+
+                {modoCliente === "existente" && clienteId ? (
+                  <section className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="flex items-center gap-2 text-base font-bold text-ink">
+                        <Gift className="h-4 w-4 text-brand" aria-hidden="true" />
+                        Bono de fidelidad
+                      </h3>
+                      {bonoActivo ? (
+                        <button
+                          type="button"
+                          onClick={resetDescuento}
+                          disabled={saving}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-line px-4 py-2 text-sm font-semibold text-muted transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Quitar bono
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={aplicarBono}
+                          disabled={
+                            saving || bonoDisponible <= 0 || descuentoActivo
+                          }
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Aplicar bono
+                        </button>
+                      )}
+                    </div>
+                    {bonoDisponible > 0 ? (
+                      <p className="text-sm text-muted">
+                        Bono disponible:{" "}
+                        <span className="font-semibold text-ink">
+                          {money(bonoDisponible)}
+                        </span>
+                        {fidelidad
+                          ? ` · ${fidelidad.sellos}/${fidelidad.meta} sellos`
+                          : ""}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-muted">
+                        Este cliente no tiene un bono disponible.
+                      </p>
+                    )}
+                    {bonoInfo ? (
+                      <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                        {bonoInfo}
+                      </p>
+                    ) : null}
+                    {bonoError ? (
+                      <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        {bonoError}
+                      </p>
+                    ) : null}
+                  </section>
+                ) : null}
 
                 <section>
                   <label

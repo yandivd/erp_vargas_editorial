@@ -209,6 +209,14 @@ class Pedido(models.Model):
         max_digits=10, decimal_places=2, default=0,
         verbose_name='Descuento aplicado'
     )
+    bono_fidelidad_aplicado = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Bono de fidelidad aplicado'
+    )
+    sellos_fidelidad_otorgados = models.BooleanField(
+        default=False,
+        verbose_name='Sellos de fidelidad otorgados'
+    )
     # En pedidos/models.py
     es_historico = models.BooleanField(default=False, help_text="Pedidos anteriores al uso del ERP")
 

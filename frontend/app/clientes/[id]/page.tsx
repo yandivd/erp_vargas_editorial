@@ -2,12 +2,14 @@ import {
   AlertTriangle,
   ArrowLeft,
   CalendarDays,
+  Gift,
   MapPin,
   Phone,
   ReceiptText,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
+import FidelidadCard from "@/components/fidelidad/FidelidadCard";
 import {
   KpiCard,
   SectionCard,
@@ -126,6 +128,26 @@ export default async function ClienteDetailPage({ params }: PageProps) {
           }
         />
       </div>
+
+      <SectionCard
+        title="Tarjeta de fidelidad"
+        icon={<Gift className="h-5 w-5 text-brand" aria-hidden="true" />}
+      >
+        {cliente.fidelidad ? (
+          <FidelidadCard
+            nombre={cliente.nombre}
+            sellos={cliente.fidelidad.sellos}
+            meta={cliente.fidelidad.meta}
+            bonoSaldo={cliente.fidelidad.bono_saldo}
+            faltantes={cliente.fidelidad.faltantes}
+            publicHref={`/fidelidad/${cliente.fidelidad.token}`}
+          />
+        ) : (
+          <p className="text-sm text-muted">
+            Este cliente todavía no tiene una tarjeta de fidelidad.
+          </p>
+        )}
+      </SectionCard>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <SectionCard

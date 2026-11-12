@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.utils import timezone
 from django.db.models import Sum
@@ -72,3 +74,35 @@ class Cliente(models.Model):
             return {'label': 'Cliente nuevo', 'emoji': '🆕', 'color': 'dark'}
         
         return None # Si no tiene pedidos, no tiene badge
+
+
+class TarjetaFidelidad(models.Model):
+    cliente = models.OneToOneField(
+        Cliente,
+        on_delete=models.CASCADE,
+        related_name='tarjeta_fidelidad',
+        verbose_name='Cliente',
+    )
+    sellos = models.PositiveIntegerField(default=0, verbose_name='Sellos')
+    bono_saldo = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name='Saldo del bono',
+    )
+    token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        verbose_name='Token público',
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Tarjeta de fidelidad'
+        verbose_name_plural = 'Tarjetas de fidelidad'
+        ordering = ['cliente__nombre']
+
+    def __str__(self):
+        return f'{self.cliente.nombre} - {self.sellos} sellos'
