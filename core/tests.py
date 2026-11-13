@@ -67,14 +67,45 @@ class DashboardFidelidadTests(TestCase):
         self.assertEqual(kpis['bono_pendiente_total'], 2500.0)
         self.assertEqual(kpis['sellos_promedio'], 7.5)
         self.assertEqual(kpis['sellos_totales'], 15)
-        self.assertEqual(kpis['pedidos_fidelizados'], 1)
-        self.assertEqual(kpis['pedidos_no_fidelizados'], 1)
-        self.assertEqual(kpis['ticket_medio_fidelizado'], 1000.0)
-        self.assertEqual(kpis['ticket_medio_no_fidelizado'], 2000.0)
-        self.assertEqual(kpis['ingresos_fidelizados'], 1000.0)
-        self.assertEqual(kpis['ingresos_no_fidelizados'], 2000.0)
+        self.assertEqual(kpis['pedidos_activos'], 1)
+        self.assertEqual(kpis['pedidos_inactivos'], 1)
+        self.assertEqual(kpis['ticket_medio_activo'], 1000.0)
+        self.assertEqual(kpis['ticket_medio_inactivo'], 2000.0)
+        self.assertEqual(kpis['ingresos_activos'], 1000.0)
+        self.assertEqual(kpis['ingresos_inactivos'], 2000.0)
         self.assertEqual(kpis['bono_canjeado_total'], 500.0)
         self.assertEqual(kpis['pedidos_con_bono'], 1)
+        self.assertEqual(
+            data['composicion_ingresos'],
+            [
+                {'tipo': 'Activos', 'total': 1000.0},
+                {'tipo': 'Inactivos', 'total': 2000.0},
+            ],
+        )
+
+    def test_cliente_con_bono_sin_sellos_es_activo(self):
+        cliente = Cliente.objects.create(nombre='Cliente Con Bono')
+        TarjetaFidelidad.objects.create(
+            cliente=cliente,
+            sellos=0,
+            bono_saldo=Decimal('1000'),
+            fecha_ultima_compra=timezone.now(),
+        )
+        Pedido.objects.create(
+            cliente=cliente,
+            libro=self.libro,
+            estado=self.estado,
+            cantidad=1,
+            precio_venta=Decimal('3000'),
+        )
+
+        data = dashboard_fidelidad()
+
+        self.assertEqual(data['kpis']['tarjetas_activas'], 3)
+        self.assertEqual(data['kpis']['pedidos_activos'], 2)
+        self.assertEqual(data['kpis']['pedidos_inactivos'], 1)
+        self.assertEqual(data['kpis']['ingresos_activos'], 4000.0)
+        self.assertEqual(data['kpis']['ingresos_inactivos'], 2000.0)
 
     def test_sin_datos_no_divide_por_cero(self):
         Pedido.objects.all().delete()

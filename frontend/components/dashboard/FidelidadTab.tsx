@@ -135,8 +135,9 @@ export default function FidelidadTab({ data }: { data: DashboardFidelidad }) {
       <div className="mb-4 rounded-lg border border-line bg-white px-4 py-3 text-sm text-slate-700">
         <strong className="text-brand">Fidelidad:</strong> los indicadores de
         pedidos, ingresos del período y bonos canjeados respetan el filtro de
-        fechas. Las ventanas de 30/90 días son fijas y los datos de tarjetas
-        (adopción, sellos y saldo) son una foto actual.{" "}
+        fechas. Se comparan clientes activos (con sellos o bono) contra
+        inactivos (tarjeta vacía). Las ventanas de 30/90 días son fijas y los
+        datos de tarjetas (adopción, sellos y saldo) son una foto actual.{" "}
         <Link
           href="/fidelidad"
           className="font-semibold text-brand hover:underline"
@@ -196,26 +197,26 @@ export default function FidelidadTab({ data }: { data: DashboardFidelidad }) {
           valueClassName="text-amber-600"
         />
         <KpiCard
-          label="Ticket fidelizado"
-          value={money(kpis.ticket_medio_fidelizado)}
-          sub={`${integer(kpis.pedidos_fidelizados)} pedidos`}
+          label="Ticket clientes activos"
+          value={money(kpis.ticket_medio_activo)}
+          sub={`${integer(kpis.pedidos_activos)} pedidos`}
           tone="emerald"
         />
         <KpiCard
-          label="Ticket no fidelizado"
-          value={money(kpis.ticket_medio_no_fidelizado)}
-          sub={`${integer(kpis.pedidos_no_fidelizados)} pedidos`}
+          label="Ticket clientes inactivos"
+          value={money(kpis.ticket_medio_inactivo)}
+          sub={`${integer(kpis.pedidos_inactivos)} pedidos`}
           tone="neutral"
         />
         <KpiCard
-          label="Ingresos 30 días"
-          value={money(kpis.ingresos_fidelizados_30d)}
+          label="Ingresos activos 30 días"
+          value={money(kpis.ingresos_activos_30d)}
           sub="Ventana fija de 30 días"
           tone="emerald"
         />
         <KpiCard
-          label="Ingresos 90 días"
-          value={money(kpis.ingresos_fidelizados_90d)}
+          label="Ingresos activos 90 días"
+          value={money(kpis.ingresos_activos_90d)}
           sub="Ventana fija de 90 días"
           tone="blue"
         />
@@ -240,7 +241,7 @@ export default function FidelidadTab({ data }: { data: DashboardFidelidad }) {
 
         <SectionCard
           className="md:col-span-5"
-          title="Ingresos: fidelizados vs no fidelizados"
+          title="Ingresos: clientes activos vs inactivos"
           icon={<PieChart className="h-5 w-5 text-emerald-600" aria-hidden="true" />}
         >
           <div className="h-[200px] w-full md:h-[240px]">
@@ -252,7 +253,7 @@ export default function FidelidadTab({ data }: { data: DashboardFidelidad }) {
       <div className="mb-4 grid gap-3 md:grid-cols-12">
         <SectionCard
           className="md:col-span-5"
-          title="Ticket medio por tipo de cliente"
+          title="Ticket medio: clientes activos vs inactivos"
           icon={<TrendingUp className="h-5 w-5 text-amber-500" aria-hidden="true" />}
         >
           <div className="h-[200px] w-full md:h-[240px]">

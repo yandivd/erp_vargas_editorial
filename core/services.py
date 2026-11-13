@@ -1002,7 +1002,9 @@ def dashboard_fidelidad(desde=None, hasta=None):
     sellos_totales = agregados['sellos_totales'] or 0
     bono_pendiente = agregados['bono_pendiente'] or 0
 
-    tarjetas_activas = tarjetas_qs.filter(sellos__gt=0).count()
+    tarjetas_activas = tarjetas_qs.filter(
+        Q(sellos__gt=0) | Q(bono_saldo__gt=0)
+    ).count()
     tarjetas_completas = tarjetas_qs.filter(sellos__gte=meta).count()
     clientes_con_bono = tarjetas_qs.filter(bono_saldo__gt=0).count()
 
@@ -1072,46 +1074,46 @@ def dashboard_fidelidad(desde=None, hasta=None):
     if hasta:
         pedidos_base = pedidos_base.filter(fecha_pedido__date__lte=hasta)
 
-    pedidos_fidelizados = pedidos_base.filter(
-        cliente__tarjeta_fidelidad__isnull=False
+    q_clientes_activos = (
+        Q(cliente__tarjeta_fidelidad__sellos__gt=0)
+        | Q(cliente__tarjeta_fidelidad__bono_saldo__gt=0)
     )
-    pedidos_no_fidelizados = pedidos_base.filter(
-        cliente__tarjeta_fidelidad__isnull=True
-    )
+    pedidos_activos = pedidos_base.filter(q_clientes_activos)
+    pedidos_inactivos = pedidos_base.exclude(q_clientes_activos)
 
-    ticket_fidelizado = (
-        pedidos_fidelizados.aggregate(total=Avg('precio_venta'))['total'] or 0
+    ticket_activo = (
+        pedidos_activos.aggregate(total=Avg('precio_venta'))['total'] or 0
     )
-    ticket_no_fidelizado = (
-        pedidos_no_fidelizados.aggregate(total=Avg('precio_venta'))['total'] or 0
+    ticket_inactivo = (
+        pedidos_inactivos.aggregate(total=Avg('precio_venta'))['total'] or 0
     )
-    ingresos_fidelizados = (
-        pedidos_fidelizados.aggregate(total=Sum('precio_venta'))['total'] or 0
+    ingresos_activos = (
+        pedidos_activos.aggregate(total=Sum('precio_venta'))['total'] or 0
     )
-    ingresos_no_fidelizados = (
-        pedidos_no_fidelizados.aggregate(total=Sum('precio_venta'))['total'] or 0
+    ingresos_inactivos = (
+        pedidos_inactivos.aggregate(total=Sum('precio_venta'))['total'] or 0
     )
     bono_canjeado = (
         pedidos_base.aggregate(total=Sum('bono_fidelidad_aplicado'))['total'] or 0
     )
     pedidos_con_bono = pedidos_base.filter(bono_fidelidad_aplicado__gt=0).count()
-    total_pedidos_fidelizados = pedidos_fidelizados.count()
-    total_pedidos_no_fidelizados = pedidos_no_fidelizados.count()
+    total_pedidos_activos = pedidos_activos.count()
+    total_pedidos_inactivos = pedidos_inactivos.count()
 
     def _ingresos_ultimos(dias):
         inicio = hoy - timedelta(days=dias)
         return (
             Pedido.objects.filter(
+                q_clientes_activos,
                 cliente__isnull=False,
-                cliente__tarjeta_fidelidad__isnull=False,
                 fecha_pedido__date__gte=inicio,
             )
             .exclude(estado__nombre='Cancelado')
             .aggregate(total=Sum('precio_venta'))['total'] or 0
         )
 
-    ingresos_fidelizados_30d = _ingresos_ultimos(30)
-    ingresos_fidelizados_90d = _ingresos_ultimos(90)
+    ingresos_activos_30d = _ingresos_ultimos(30)
+    ingresos_activos_90d = _ingresos_ultimos(90)
 
     def _serie_ingresos(queryset):
         filas = (
@@ -1129,14 +1131,14 @@ def dashboard_fidelidad(desde=None, hasta=None):
             if fila['mes']
         }
 
-    serie_fidelizados = _serie_ingresos(pedidos_fidelizados)
-    serie_no_fidelizados = _serie_ingresos(pedidos_no_fidelizados)
-    meses = sorted(set(serie_fidelizados) | set(serie_no_fidelizados))
+    serie_activos = _serie_ingresos(pedidos_activos)
+    serie_inactivos = _serie_ingresos(pedidos_inactivos)
+    meses = sorted(set(serie_activos) | set(serie_inactivos))
     tendencia_mensual = [
         {
             'mes': mes,
-            'fidelizados': serie_fidelizados.get(mes, {}).get('ingresos', 0.0),
-            'no_fidelizados': serie_no_fidelizados.get(mes, {}).get('ingresos', 0.0),
+            'activos': serie_activos.get(mes, {}).get('ingresos', 0.0),
+            'inactivos': serie_inactivos.get(mes, {}).get('ingresos', 0.0),
         }
         for mes in meses
     ]
@@ -1213,14 +1215,14 @@ def dashboard_fidelidad(desde=None, hasta=None):
             'meta_sellos': meta,
             'bono_monto': float(bono_monto),
             'dias_expiracion': dias_expiracion,
-            'ticket_medio_fidelizado': float(ticket_fidelizado),
-            'ticket_medio_no_fidelizado': float(ticket_no_fidelizado),
-            'pedidos_fidelizados': total_pedidos_fidelizados,
-            'pedidos_no_fidelizados': total_pedidos_no_fidelizados,
-            'ingresos_fidelizados': float(ingresos_fidelizados),
-            'ingresos_no_fidelizados': float(ingresos_no_fidelizados),
-            'ingresos_fidelizados_30d': float(ingresos_fidelizados_30d),
-            'ingresos_fidelizados_90d': float(ingresos_fidelizados_90d),
+            'ticket_medio_activo': float(ticket_activo),
+            'ticket_medio_inactivo': float(ticket_inactivo),
+            'pedidos_activos': total_pedidos_activos,
+            'pedidos_inactivos': total_pedidos_inactivos,
+            'ingresos_activos': float(ingresos_activos),
+            'ingresos_inactivos': float(ingresos_inactivos),
+            'ingresos_activos_30d': float(ingresos_activos_30d),
+            'ingresos_activos_90d': float(ingresos_activos_90d),
             'bono_canjeado_total': float(bono_canjeado),
             'pedidos_con_bono': pedidos_con_bono,
             'clientes_en_riesgo': clientes_en_riesgo,
@@ -1228,19 +1230,19 @@ def dashboard_fidelidad(desde=None, hasta=None):
         },
         'distribucion_sellos': distribucion_sellos,
         'composicion_ingresos': [
-            {'tipo': 'Fidelizados', 'total': float(ingresos_fidelizados)},
-            {'tipo': 'No fidelizados', 'total': float(ingresos_no_fidelizados)},
+            {'tipo': 'Activos', 'total': float(ingresos_activos)},
+            {'tipo': 'Inactivos', 'total': float(ingresos_inactivos)},
         ],
         'ticket_medio_data': [
             {
-                'tipo': 'Fidelizados',
-                'ticket': float(ticket_fidelizado),
-                'pedidos': total_pedidos_fidelizados,
+                'tipo': 'Activos',
+                'ticket': float(ticket_activo),
+                'pedidos': total_pedidos_activos,
             },
             {
-                'tipo': 'No fidelizados',
-                'ticket': float(ticket_no_fidelizado),
-                'pedidos': total_pedidos_no_fidelizados,
+                'tipo': 'Inactivos',
+                'ticket': float(ticket_inactivo),
+                'pedidos': total_pedidos_inactivos,
             },
         ],
         'tendencia_mensual': tendencia_mensual,

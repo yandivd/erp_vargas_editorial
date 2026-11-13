@@ -278,14 +278,14 @@ export type FidelidadKpis = {
   meta_sellos: number;
   bono_monto: number;
   dias_expiracion: number;
-  ticket_medio_fidelizado: number;
-  ticket_medio_no_fidelizado: number;
-  pedidos_fidelizados: number;
-  pedidos_no_fidelizados: number;
-  ingresos_fidelizados: number;
-  ingresos_no_fidelizados: number;
-  ingresos_fidelizados_30d: number;
-  ingresos_fidelizados_90d: number;
+  ticket_medio_activo: number;
+  ticket_medio_inactivo: number;
+  pedidos_activos: number;
+  pedidos_inactivos: number;
+  ingresos_activos: number;
+  ingresos_inactivos: number;
+  ingresos_activos_30d: number;
+  ingresos_activos_90d: number;
   bono_canjeado_total: number;
   pedidos_con_bono: number;
   clientes_en_riesgo: number;
@@ -310,8 +310,8 @@ export type TicketMedioFidelidad = {
 
 export type TendenciaFidelidad = {
   mes: string;
-  fidelizados: number;
-  no_fidelizados: number;
+  activos: number;
+  inactivos: number;
 };
 
 export type ClienteFidelidadRiesgo = {

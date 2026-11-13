@@ -559,6 +559,16 @@ function formatMesCorto(value: unknown): string {
   return `${month}/${year.slice(2)}`;
 }
 
+function segmentoLabel(tipo: string): string {
+  if (tipo === "Activos") {
+    return "Clientes Activos";
+  }
+  if (tipo === "Inactivos") {
+    return "Clientes Inactivos";
+  }
+  return tipo;
+}
+
 export function DistribucionSellosChart({
   data,
 }: {
@@ -591,9 +601,13 @@ export function ComposicionIngresosChart({
 }: {
   data: ComposicionIngresos[];
 }) {
-  const total = data.reduce((acc, item) => acc + Number(item.total || 0), 0);
+  const chartData = data.map((item) => ({
+    ...item,
+    tipo: segmentoLabel(item.tipo),
+  }));
+  const total = chartData.reduce((acc, item) => acc + Number(item.total || 0), 0);
 
-  if (!data.length || total <= 0) {
+  if (!chartData.length || total <= 0) {
     return <EmptyChart message="Sin ingresos en el período" />;
   }
 
@@ -601,14 +615,14 @@ export function ComposicionIngresosChart({
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
         <Pie
-          data={data}
+          data={chartData}
           dataKey="total"
           nameKey="tipo"
           innerRadius={55}
           outerRadius={90}
           paddingAngle={2}
         >
-          {data.map((entry, index) => (
+          {chartData.map((entry, index) => (
             <Cell
               key={`${entry.tipo}-${index}`}
               fill={chartColors[index % chartColors.length]}
@@ -627,13 +641,21 @@ export function TicketMedioFidelidadChart({
 }: {
   data: TicketMedioFidelidad[];
 }) {
-  if (!data.length) {
+  const chartData = data.map((item) => ({
+    ...item,
+    tipo: segmentoLabel(item.tipo),
+  }));
+
+  if (!chartData.length) {
     return <EmptyChart />;
   }
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+      <BarChart
+        data={chartData}
+        margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
+      >
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
         <XAxis dataKey="tipo" tick={axisTick} />
         <YAxis
@@ -643,7 +665,7 @@ export function TicketMedioFidelidadChart({
         />
         <Tooltip formatter={tooltipMoney} />
         <Bar dataKey="ticket" name="Ticket medio" radius={[3, 3, 0, 0]}>
-          {data.map((entry, index) => (
+          {chartData.map((entry, index) => (
             <Cell
               key={`${entry.tipo}-${index}`}
               fill={chartColors[index % chartColors.length]}
@@ -678,16 +700,16 @@ export function TendenciaFidelidadChart({
         <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
         <Line
           type="monotone"
-          dataKey="fidelizados"
-          name="Fidelizados"
+          dataKey="activos"
+          name="Clientes Activos"
           stroke="#10b981"
           strokeWidth={2}
           dot={false}
         />
         <Line
           type="monotone"
-          dataKey="no_fidelizados"
-          name="No fidelizados"
+          dataKey="inactivos"
+          name="Clientes Inactivos"
           stroke="#3b82f6"
           strokeWidth={2}
           dot={false}
