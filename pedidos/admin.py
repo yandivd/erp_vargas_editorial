@@ -4,6 +4,7 @@ from .models import (
     CodigoDescuento, Entrega, Pedido, HistorialEstado, ServicioExterno, Book, Estado, LoteServicio
 )
 from .services import ServicioPedido
+from clientes.services import ServicioFidelidad
 
 
 # ==========================================
@@ -102,15 +103,19 @@ class PedidoAdmin(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         """Detecta si cambió el estado y ejecuta la lógica."""
-        if change:
-            anterior = Pedido.objects.get(pk=obj.pk)
-            if anterior.estado != obj.estado:
-                super().save_model(request, obj, form, change)
-                ServicioPedido.cambiar_estado(
-                    obj, obj.estado.nombre, usuario=request.user.username,
-                    notas='Cambio desde admin'
-                )
-                return
+        if not change:
+            super().save_model(request, obj, form, change)
+            ServicioFidelidad.registrar_compra(obj)
+            return
+
+        anterior = Pedido.objects.get(pk=obj.pk)
+        if anterior.estado != obj.estado:
+            super().save_model(request, obj, form, change)
+            ServicioPedido.cambiar_estado(
+                obj, obj.estado.nombre, usuario=request.user.username,
+                notas='Cambio desde admin'
+            )
+            return
         super().save_model(request, obj, form, change)
 
 

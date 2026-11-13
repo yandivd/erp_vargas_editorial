@@ -216,6 +216,10 @@ class ServicioPedido:
                 notas=notas or 'Venta en tienda',
             )
 
+            from clientes.services import ServicioFidelidad
+
+            ServicioFidelidad.registrar_compra(pedido)
+
         return resultado
 
     @staticmethod
@@ -311,10 +315,6 @@ class ServicioPedido:
                     entrega.pedidos.remove(pedido)
 
                 ServicioPedido.cobrar_saldo(pedido)
-
-            from clientes.services import ServicioFidelidad
-
-            ServicioFidelidad.registrar_compra(pedido)
 
         return pedido
 

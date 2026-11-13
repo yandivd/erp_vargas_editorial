@@ -1042,6 +1042,8 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
+            ServicioFidelidad.registrar_compra(pedido)
+
             if cod_obj:
                 cod_obj.usos_actuales += 1
                 cod_obj.save(update_fields=['usos_actuales'])

@@ -57,6 +57,18 @@ class ServicioFidelidad:
         return True
 
     @classmethod
+    def expirar_tarjetas_inactivas(cls):
+        limite = timezone.now() - timedelta(days=cls._dias_expiracion())
+        return TarjetaFidelidad.objects.filter(
+            sellos__gt=0,
+            fecha_ultima_compra__isnull=False,
+            fecha_ultima_compra__lte=limite,
+        ).update(
+            sellos=0,
+            fecha_actualizacion=timezone.now(),
+        )
+
+    @classmethod
     def obtener_tarjeta(cls, cliente, crear=True):
         if cliente is None:
             return None
