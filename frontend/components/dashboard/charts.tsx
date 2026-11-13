@@ -20,15 +20,19 @@ import {
 } from "recharts";
 import type {
   ComportamientoPedidoMes,
+  ComposicionIngresos,
   DesgloseIngreso,
+  DistribucionSellos,
   FrecuenciaData,
   IngresoGastoMes,
   MapaCalorDia,
   PedidosMesSerie,
   ProyeccionMes,
   SemanaMovimiento,
+  TendenciaFidelidad,
   TendenciaMes,
   TendenciaMensual,
+  TicketMedioFidelidad,
   TiempoEstado,
   TipoCliente,
   TopLibro,
@@ -543,6 +547,152 @@ export function ClientFrequencyChart({ data }: { data: FrecuenciaData }) {
         <Tooltip />
         <Bar dataKey="clientes" name="Clientes" fill="#10b981" radius={[3, 3, 0, 0]} />
       </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function formatMesCorto(value: unknown): string {
+  const [year, month] = String(value ?? "").split("-");
+  if (!year || !month) {
+    return String(value ?? "");
+  }
+  return `${month}/${year.slice(2)}`;
+}
+
+export function DistribucionSellosChart({
+  data,
+}: {
+  data: DistribucionSellos[];
+}) {
+  if (!data.length) {
+    return <EmptyChart />;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="sellos" tick={axisTick} />
+        <YAxis tick={axisTick} width={40} allowDecimals={false} />
+        <Tooltip />
+        <Bar
+          dataKey="cantidad"
+          name="Tarjetas"
+          fill="#3b82f6"
+          radius={[3, 3, 0, 0]}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function ComposicionIngresosChart({
+  data,
+}: {
+  data: ComposicionIngresos[];
+}) {
+  const total = data.reduce((acc, item) => acc + Number(item.total || 0), 0);
+
+  if (!data.length || total <= 0) {
+    return <EmptyChart message="Sin ingresos en el período" />;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <PieChart>
+        <Pie
+          data={data}
+          dataKey="total"
+          nameKey="tipo"
+          innerRadius={55}
+          outerRadius={90}
+          paddingAngle={2}
+        >
+          {data.map((entry, index) => (
+            <Cell
+              key={`${entry.tipo}-${index}`}
+              fill={chartColors[index % chartColors.length]}
+            />
+          ))}
+        </Pie>
+        <Tooltip formatter={tooltipMoney} />
+        <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function TicketMedioFidelidadChart({
+  data,
+}: {
+  data: TicketMedioFidelidad[];
+}) {
+  if (!data.length) {
+    return <EmptyChart />;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="tipo" tick={axisTick} />
+        <YAxis
+          tick={axisTick}
+          width={70}
+          tickFormatter={(value) => money(Number(value))}
+        />
+        <Tooltip formatter={tooltipMoney} />
+        <Bar dataKey="ticket" name="Ticket medio" radius={[3, 3, 0, 0]}>
+          {data.map((entry, index) => (
+            <Cell
+              key={`${entry.tipo}-${index}`}
+              fill={chartColors[index % chartColors.length]}
+            />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function TendenciaFidelidadChart({
+  data,
+}: {
+  data: TendenciaFidelidad[];
+}) {
+  if (!data.length) {
+    return <EmptyChart />;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="mes" tick={axisTick} tickFormatter={formatMesCorto} />
+        <YAxis
+          tick={axisTick}
+          width={70}
+          tickFormatter={(value) => money(Number(value))}
+        />
+        <Tooltip formatter={tooltipMoney} />
+        <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
+        <Line
+          type="monotone"
+          dataKey="fidelizados"
+          name="Fidelizados"
+          stroke="#10b981"
+          strokeWidth={2}
+          dot={false}
+        />
+        <Line
+          type="monotone"
+          dataKey="no_fidelizados"
+          name="No fidelizados"
+          stroke="#3b82f6"
+          strokeWidth={2}
+          dot={false}
+        />
+      </LineChart>
     </ResponsiveContainer>
   );
 }

@@ -1,4 +1,5 @@
-import { AlertTriangle, Gift } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, BarChart3, Gift } from "lucide-react";
 import FidelidadAdminTable from "@/components/fidelidad/FidelidadAdminTable";
 import { apiFetchEnvelope } from "@/lib/api";
 import type { ClienteListItem } from "@/lib/clientes";
@@ -48,6 +49,13 @@ export default async function FidelidadPage() {
             Administra los sellos y bonos de cada cliente.
           </p>
         </div>
+        <Link
+          href="/?tab=fidelidad"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-white px-4 py-2 text-sm font-semibold text-brand transition hover:bg-blue-50"
+        >
+          <BarChart3 className="h-4 w-4" aria-hidden="true" />
+          Ver KPIs
+        </Link>
       </div>
 
       {result.error ? (

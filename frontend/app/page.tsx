@@ -1,6 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import ClientesTab from "@/components/dashboard/ClientesTab";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import FidelidadTab from "@/components/dashboard/FidelidadTab";
 import ProduccionTab from "@/components/dashboard/ProduccionTab";
 import ResumenTab from "@/components/dashboard/ResumenTab";
 import { apiFetch } from "@/lib/api";
@@ -8,6 +9,7 @@ import {
   isDashboardTab,
   type DashboardClientes,
   type DashboardData,
+  type DashboardFidelidad,
   type DashboardProduccion,
   type DashboardResumen,
   type DashboardTab,
@@ -86,6 +88,10 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
       {data && tab === "clientes" ? (
         <ClientesTab data={data as DashboardClientes} />
+      ) : null}
+
+      {data && tab === "fidelidad" ? (
+        <FidelidadTab data={data as DashboardFidelidad} />
       ) : null}
     </div>
   );

@@ -1,4 +1,8 @@
-export type DashboardTab = "resumen" | "produccion" | "clientes";
+export type DashboardTab =
+  | "resumen"
+  | "produccion"
+  | "clientes"
+  | "fidelidad";
 
 export type DashboardMeta = {
   desde: string;
@@ -261,17 +265,111 @@ export type DashboardClientes = {
   clientes_riesgo_lista: ClienteResumen[];
 };
 
+export type FidelidadKpis = {
+  total_clientes: number;
+  tarjetas_total: number;
+  adopcion_tarjeta: number;
+  tarjetas_activas: number;
+  tarjetas_completas: number;
+  clientes_con_bono: number;
+  bono_pendiente_total: number;
+  sellos_promedio: number;
+  sellos_totales: number;
+  meta_sellos: number;
+  bono_monto: number;
+  dias_expiracion: number;
+  ticket_medio_fidelizado: number;
+  ticket_medio_no_fidelizado: number;
+  pedidos_fidelizados: number;
+  pedidos_no_fidelizados: number;
+  ingresos_fidelizados: number;
+  ingresos_no_fidelizados: number;
+  ingresos_fidelizados_30d: number;
+  ingresos_fidelizados_90d: number;
+  bono_canjeado_total: number;
+  pedidos_con_bono: number;
+  clientes_en_riesgo: number;
+  clientes_por_expirar: number;
+};
+
+export type DistribucionSellos = {
+  sellos: number;
+  cantidad: number;
+};
+
+export type ComposicionIngresos = {
+  tipo: string;
+  total: number;
+};
+
+export type TicketMedioFidelidad = {
+  tipo: string;
+  ticket: number;
+  pedidos: number;
+};
+
+export type TendenciaFidelidad = {
+  mes: string;
+  fidelizados: number;
+  no_fidelizados: number;
+};
+
+export type ClienteFidelidadRiesgo = {
+  id: number;
+  nombre: string;
+  telefono: string;
+  sellos: number;
+  ultima_compra: string;
+  dias_restantes: number;
+  urgencia: "alta" | "media" | "baja";
+};
+
+export type TarjetaFidelidadResumen = {
+  id: number;
+  nombre: string;
+  telefono: string;
+  sellos: number;
+  bono_saldo: number;
+  ultima_compra: string;
+  meta: number;
+};
+
+export type KpiFidelidadNoDisponible = {
+  id: string;
+  label: string;
+  motivo: string;
+};
+
+export type DashboardFidelidad = {
+  kpis: FidelidadKpis;
+  distribucion_sellos: DistribucionSellos[];
+  composicion_ingresos: ComposicionIngresos[];
+  ticket_medio_data: TicketMedioFidelidad[];
+  tendencia_mensual: TendenciaFidelidad[];
+  clientes_riesgo_lista: ClienteFidelidadRiesgo[];
+  tarjetas_destacadas: TarjetaFidelidadResumen[];
+  bonos_pendientes_lista: TarjetaFidelidadResumen[];
+  no_disponibles: KpiFidelidadNoDisponible[];
+};
+
 export type DashboardData =
   | DashboardResumen
   | DashboardProduccion
-  | DashboardClientes;
+  | DashboardClientes
+  | DashboardFidelidad;
 
 export const DASHBOARD_TABS: { id: DashboardTab; label: string }[] = [
   { id: "resumen", label: "Resumen" },
   { id: "produccion", label: "Producción" },
   { id: "clientes", label: "Clientes" },
+  { id: "fidelidad", label: "Fidelidad" },
 ];
 
 export function isDashboardTab(value: string | undefined): value is DashboardTab {
-  return value === "resumen" || value === "produccion" || value === "clientes";
+  return (
+    value === "resumen" ||
+    value === "produccion" ||
+    value === "clientes" ||
+    value === "fidelidad"
+  );
 }

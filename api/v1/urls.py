@@ -32,6 +32,7 @@ urlpatterns = [
     path('dashboard/resumen/', views.dashboard, {'tab': 'resumen'}, name='dashboard_resumen'),
     path('dashboard/produccion/', views.dashboard, {'tab': 'produccion'}, name='dashboard_produccion'),
     path('dashboard/clientes/', views.dashboard, {'tab': 'clientes'}, name='dashboard_clientes'),
+    path('dashboard/fidelidad/', views.dashboard, {'tab': 'fidelidad'}, name='dashboard_fidelidad'),
     path('catalogo/', views.catalogo, name='catalogo'),
     path('tienda/', views.tienda, name='tienda'),
     path('tienda/<int:pk>/vender/', views.tienda_vender, name='tienda_vender'),
