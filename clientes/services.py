@@ -1,6 +1,8 @@
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
+from django.utils import timezone
 
 from core.models import Parametro
 
@@ -10,6 +12,7 @@ from .models import TarjetaFidelidad
 class ServicioFidelidad:
     META_DEFAULT = 10
     BONO_DEFAULT = Decimal('5000.00')
+    DIAS_EXPIRACION_DEFAULT = 90
 
     @classmethod
     def _meta(cls):
@@ -24,6 +27,34 @@ class ServicioFidelidad:
             return Decimal(str(Parametro.get('fidelidad_bono_monto', cls.BONO_DEFAULT)))
         except (InvalidOperation, TypeError, ValueError):
             return cls.BONO_DEFAULT
+
+    @classmethod
+    def _dias_expiracion(cls):
+        try:
+            return max(
+                1,
+                int(
+                    Parametro.get(
+                        'fidelidad_dias_expiracion',
+                        cls.DIAS_EXPIRACION_DEFAULT,
+                    )
+                ),
+            )
+        except (TypeError, ValueError):
+            return cls.DIAS_EXPIRACION_DEFAULT
+
+    @classmethod
+    def _expirar_sellos(cls, tarjeta):
+        if tarjeta.sellos <= 0 or tarjeta.fecha_ultima_compra is None:
+            return False
+
+        limite = timezone.now() - timedelta(days=cls._dias_expiracion())
+        if tarjeta.fecha_ultima_compra > limite:
+            return False
+
+        tarjeta.sellos = 0
+        tarjeta.save(update_fields=['sellos', 'fecha_actualizacion'])
+        return True
 
     @classmethod
     def obtener_tarjeta(cls, cliente, crear=True):
@@ -42,6 +73,8 @@ class ServicioFidelidad:
         tarjeta = cls.obtener_tarjeta(cliente)
         if tarjeta is None:
             return None
+
+        cls._expirar_sellos(tarjeta)
 
         meta = cls._meta()
         faltantes = max(0, meta - tarjeta.sellos)
@@ -73,13 +106,21 @@ class ServicioFidelidad:
                 cliente_id=pedido.cliente_id,
             )
 
+            cls._expirar_sellos(tarjeta)
+
+            tarjeta.fecha_ultima_compra = timezone.now()
             if tarjeta.sellos < meta:
                 tarjeta.sellos = min(meta, tarjeta.sellos + cantidad)
                 if tarjeta.sellos >= meta:
                     tarjeta.bono_saldo = tarjeta.bono_saldo + bono
-                tarjeta.save(
-                    update_fields=['sellos', 'bono_saldo', 'fecha_actualizacion'],
-                )
+            tarjeta.save(
+                update_fields=[
+                    'sellos',
+                    'bono_saldo',
+                    'fecha_ultima_compra',
+                    'fecha_actualizacion',
+                ],
+            )
 
             pedido.sellos_fidelidad_otorgados = True
             pedido.save(update_fields=['sellos_fidelidad_otorgados'])
@@ -124,11 +165,17 @@ class ServicioFidelidad:
 
             if sellos is not None:
                 tarjeta.sellos = max(0, min(meta, int(sellos)))
+                tarjeta.fecha_ultima_compra = timezone.now()
             if bono_saldo is not None:
                 tarjeta.bono_saldo = max(Decimal('0'), Decimal(str(bono_saldo)))
 
             tarjeta.save(
-                update_fields=['sellos', 'bono_saldo', 'fecha_actualizacion'],
+                update_fields=[
+                    'sellos',
+                    'bono_saldo',
+                    'fecha_ultima_compra',
+                    'fecha_actualizacion',
+                ],
             )
 
         return tarjeta

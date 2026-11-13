@@ -11,6 +11,17 @@ class ClienteAdmin(admin.ModelAdmin):
 
 @admin.register(TarjetaFidelidad)
 class TarjetaFidelidadAdmin(admin.ModelAdmin):
-    list_display = ('cliente', 'sellos', 'bono_saldo', 'fecha_actualizacion')
+    list_display = (
+        'cliente',
+        'sellos',
+        'bono_saldo',
+        'fecha_ultima_compra',
+        'fecha_actualizacion',
+    )
     search_fields = ('cliente__nombre', 'cliente__telefono')
-    readonly_fields = ('token', 'fecha_creacion', 'fecha_actualizacion')
+    readonly_fields = (
+        'token',
+        'fecha_ultima_compra',
+        'fecha_creacion',
+        'fecha_actualizacion',
+    )

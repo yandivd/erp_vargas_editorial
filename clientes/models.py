@@ -96,6 +96,11 @@ class TarjetaFidelidad(models.Model):
         editable=False,
         verbose_name='Token público',
     )
+    fecha_ultima_compra = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Última compra',
+    )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
