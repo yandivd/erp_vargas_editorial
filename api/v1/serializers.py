@@ -763,6 +763,9 @@ class EntregaListV1Serializer(serializers.ModelSerializer):
     total_a_cobrar = serializers.DecimalField(
         max_digits=12, decimal_places=2, read_only=True
     )
+    total_pendiente = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
     estado = serializers.SerializerMethodField()
 
     class Meta:
@@ -783,6 +786,7 @@ class EntregaListV1Serializer(serializers.ModelSerializer):
             'saldo_pedidos',
             'costo_mensajeria',
             'total_a_cobrar',
+            'total_pendiente',
         )
 
     def get_estado(self, obj):

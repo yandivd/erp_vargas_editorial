@@ -1,3 +1,4 @@
+from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
 
@@ -449,6 +450,10 @@ class Entrega(models.Model):
     @property
     def total_a_cobrar(self):
         return self.saldo_pedidos + self.costo_mensajeria
+
+    @property
+    def total_pendiente(self):
+        return Decimal('0.00') if self.entregado else self.total_a_cobrar
 
     @property
     def cantidad_pedidos(self):

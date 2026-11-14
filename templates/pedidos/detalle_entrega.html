@@ -24,6 +24,10 @@
                 <i class="bi bi-check-lg"></i> Marcar entregada
             </button>
         </form>
+        {% else %}
+        <span class="badge bg-success align-self-center">
+            <i class="bi bi-check-circle"></i> Entregada
+        </span>
         {% endif %}
     </div>
 </div>
@@ -51,7 +55,8 @@
     <div class="col-6 col-md-3">
         <div class="card card-kpi p-3 h-100">
             <small class="text-muted">Total a cobrar</small>
-            <h4 class="mb-0 text-danger">${{ entrega.total_a_cobrar|floatformat:2 }}</h4>
+            <h4 class="mb-0 {% if entrega.entregado %}text-success{% else %}text-danger{% endif %}">${{ entrega.total_pendiente|floatformat:2 }}</h4>
+            {% if entrega.entregado %}<small class="text-success">Entregada</small>{% endif %}
         </div>
     </div>
 </div>

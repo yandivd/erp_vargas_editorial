@@ -70,12 +70,12 @@
         </div>
         <div class="fila">
             <span>MENSAJERÍA:</span>
-            <span>${{ entrega.costo_mensajeria|floatformat:0 }}</span>
+            <span>{% if entrega.entregado %}ENTREGADA{% else %}${{ entrega.costo_mensajeria|floatformat:0 }}{% endif %}</span>
         </div>
         
         <div class="fila total-final" style="color: #c0392b;">
             <span>TOTAL A COBRAR:</span>
-            <span>${{ entrega.total_a_cobrar|floatformat:2 }}</span>
+            <span>${{ entrega.total_pendiente|floatformat:2 }}</span>
         </div>
     </div>
 
