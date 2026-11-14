@@ -1,8 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  accessCookieOptions,
+  clearedCookieOptions,
+} from "@/lib/authCookies";
+import { isTokenExpired, refreshAccessToken } from "@/lib/authTokens";
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
 };
+
+type AccessResult =
+  | { status: "ok"; token: string; refreshed: boolean }
+  | { status: "unauthorized"; invalidRefresh: boolean };
 
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
@@ -11,6 +22,46 @@ const HOP_BY_HOP_HEADERS = new Set([
   "host",
   "authorization",
 ]);
+
+async function resolveAccessToken(
+  request: NextRequest,
+): Promise<AccessResult> {
+  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
+
+  if (accessToken && !isTokenExpired(accessToken)) {
+    return { status: "ok", token: accessToken, refreshed: false };
+  }
+
+  const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
+
+  if (!refreshToken) {
+    return { status: "unauthorized", invalidRefresh: false };
+  }
+
+  const outcome = await refreshAccessToken(refreshToken);
+
+  if (outcome.status !== "ok") {
+    return {
+      status: "unauthorized",
+      invalidRefresh: outcome.status === "invalid",
+    };
+  }
+
+  return { status: "ok", token: outcome.access, refreshed: true };
+}
+
+function unauthorized(invalidRefresh: boolean): NextResponse {
+  const response = NextResponse.json(
+    { ok: false, error: "No autenticado." },
+    { status: 401 },
+  );
+
+  if (invalidRefresh) {
+    response.cookies.set(REFRESH_COOKIE, "", clearedCookieOptions());
+  }
+
+  return response;
+}
 
 async function forwardRequest(
   request: NextRequest,
@@ -25,15 +76,10 @@ async function forwardRequest(
     );
   }
 
-  const cookieName =
-    process.env.JWT_ACCESS_COOKIE_NAME ?? "erp_access";
-  const token = request.cookies.get(cookieName)?.value;
+  const access = await resolveAccessToken(request);
 
-  if (!token) {
-    return NextResponse.json(
-      { ok: false, error: "No autenticado." },
-      { status: 401 },
-    );
+  if (access.status === "unauthorized") {
+    return unauthorized(access.invalidRefresh);
   }
 
   const { path } = await context.params;
@@ -53,7 +99,7 @@ async function forwardRequest(
     }
   });
 
-  headers.set("Authorization", `Bearer ${token}`);
+  headers.set("Authorization", `Bearer ${access.token}`);
   headers.set("Accept", "application/json");
 
   const baseUrl = djangoApiUrl.replace(/\/+$/, "");
@@ -81,7 +127,17 @@ async function forwardRequest(
   }
 
   if (djangoResponse.status === 204) {
-    return new NextResponse(null, { status: 204 });
+    const response = new NextResponse(null, { status: 204 });
+
+    if (access.refreshed) {
+      response.cookies.set(
+        ACCESS_COOKIE,
+        access.token,
+        accessCookieOptions(),
+      );
+    }
+
+    return response;
   }
 
   const responseBody = await djangoResponse.arrayBuffer();
@@ -99,10 +155,16 @@ async function forwardRequest(
     responseHeaders.set("Content-Disposition", contentDisposition);
   }
 
-  return new NextResponse(responseBody, {
+  const response = new NextResponse(responseBody, {
     status: djangoResponse.status,
     headers: responseHeaders,
   });
+
+  if (access.refreshed) {
+    response.cookies.set(ACCESS_COOKIE, access.token, accessCookieOptions());
+  }
+
+  return response;
 }
 
 export async function GET(

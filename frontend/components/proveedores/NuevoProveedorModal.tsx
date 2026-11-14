@@ -76,7 +76,7 @@ export default function NuevoProveedorModal() {
     setError(null);
 
     try {
-      const proveedor = await apiFetch<Proveedor>("proveedores/", {
+      const proveedor = await apiFetch<Proveedor>("proveedores", {
         method: "POST",
         body: JSON.stringify({
           nombre: nombre.trim(),

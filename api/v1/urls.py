@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import (
 )
 
 from . import views
+from .auth import AccessTokenRefreshView
 
 
 app_name = 'api_v1'
@@ -21,12 +22,23 @@ router.register(r'proveedores', views.ProveedorViewSetV1, basename='proveedores'
 urlpatterns = [
     path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path(
+        'auth/refresh-access/',
+        AccessTokenRefreshView.as_view(),
+        name='token_refresh_access',
+    ),
     path('auth/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('auth/me/', views.me, name='me'),
+    path(
+        'fidelidad/publica/<uuid:token>/',
+        views.fidelidad_publica,
+        name='fidelidad_publica',
+    ),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('dashboard/resumen/', views.dashboard, {'tab': 'resumen'}, name='dashboard_resumen'),
     path('dashboard/produccion/', views.dashboard, {'tab': 'produccion'}, name='dashboard_produccion'),
     path('dashboard/clientes/', views.dashboard, {'tab': 'clientes'}, name='dashboard_clientes'),
+    path('dashboard/fidelidad/', views.dashboard, {'tab': 'fidelidad'}, name='dashboard_fidelidad'),
     path('catalogo/', views.catalogo, name='catalogo'),
     path('tienda/', views.tienda, name='tienda'),
     path('tienda/<int:pk>/vender/', views.tienda_vender, name='tienda_vender'),

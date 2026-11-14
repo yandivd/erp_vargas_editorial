@@ -70,7 +70,7 @@ export default function NuevoClienteModal() {
     setError(null);
 
     try {
-      const cliente = await apiFetch<ClienteListItem>("clientes/", {
+      const cliente = await apiFetch<ClienteListItem>("clientes", {
         method: "POST",
         body: JSON.stringify({
           nombre: nombre.trim(),

@@ -6,6 +6,16 @@ export type ClienteBadge = {
   color: string;
 };
 
+export type FidelidadCliente = {
+  sellos: number;
+  bono_saldo: number;
+  meta: number;
+  faltantes: number;
+  tiene_bono: boolean;
+  token: string;
+  porcentaje: number;
+};
+
 export type ClienteListItem = {
   id: number;
   nombre: string;
@@ -17,7 +27,9 @@ export type ClienteListItem = {
   saldo_pendiente: number;
   total_libros: number;
   dias_sin_comprar: number;
+  ultimo_pedido: string | null;
   badge: ClienteBadge | null;
+  fidelidad?: FidelidadCliente | null;
 };
 
 export type ClienteEstadisticas = {

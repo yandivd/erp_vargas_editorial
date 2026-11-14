@@ -32,7 +32,7 @@ function referenciaPedido(
 export default async function TicketEntregaPage({ params }: PageProps) {
   const { id } = await params;
   const result = await apiFetch<EntregaDetail>(
-    `entregas/${encodeURIComponent(id)}/`,
+    `entregas/${encodeURIComponent(id)}`,
   )
     .then((data) => ({ data, error: null }))
     .catch((error: unknown) => ({
@@ -338,11 +338,13 @@ export default async function TicketEntregaPage({ params }: PageProps) {
           </div>
           <div className="ticket-fila">
             <span>Mensajería:</span>
-            <span>{money(entrega.costo_mensajeria)}</span>
+            <span>
+              {entrega.entregado ? "Entregada" : money(entrega.costo_mensajeria)}
+            </span>
           </div>
           <div className="ticket-fila total-final">
             <span>Total a Cobrar:</span>
-            <span>{money(entrega.total_a_cobrar)}</span>
+            <span>{money(entrega.total_pendiente)}</span>
           </div>
         </div>
 

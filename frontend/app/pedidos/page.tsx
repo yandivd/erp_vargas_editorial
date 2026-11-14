@@ -23,6 +23,7 @@ type PageProps = {
     estado?: string;
     page?: string;
     en_taller?: string;
+    orden?: string;
   }>;
 };
 
@@ -32,6 +33,7 @@ export default async function PedidosPage({ searchParams }: PageProps) {
   const estado = (params.estado ?? "").trim();
   const enTaller =
     params.en_taller !== "false" && params.en_taller !== "0";
+  const orden = (params.orden ?? "").trim();
   const parsedPage = Number(params.page ?? "1");
   const page =
     Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -48,10 +50,13 @@ export default async function PedidosPage({ searchParams }: PageProps) {
   if (enTaller) {
     query.set("en_taller", "true");
   }
+  if (orden) {
+    query.set("orden", orden);
+  }
 
   const [estados, pedidosResult] = await Promise.all([
-    apiFetch<EstadoPedido[]>("pedidos/estados/").catch(() => []),
-    apiFetchEnvelope<PedidoListItem[]>(`pedidos/?${query.toString()}`)
+    apiFetch<EstadoPedido[]>("pedidos/estados").catch(() => []),
+    apiFetchEnvelope<PedidoListItem[]>(`pedidos?${query.toString()}`)
       .then((envelope) => ({ envelope, error: null }))
       .catch((error: unknown) => ({
         envelope: null,
@@ -86,13 +91,14 @@ export default async function PedidosPage({ searchParams }: PageProps) {
   return (
     <div>
       <PageHeader count={pagination?.count} enTaller={enTaller} />
-      <ViewTabs enTaller={enTaller} search={search} />
+      <ViewTabs enTaller={enTaller} search={search} orden={orden} />
 
       <PedidosFilters
         estados={estados}
         initialSearch={search}
         initialEstado={estado}
         enTaller={enTaller}
+        initialOrden={orden}
       />
 
       <section className="rounded-xl border border-line bg-white p-4 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.02)] md:p-6">
@@ -120,6 +126,7 @@ export default async function PedidosPage({ searchParams }: PageProps) {
                 search={search}
                 estado={estado}
                 enTaller={enTaller}
+                orden={orden}
               />
             ) : null}
           </>
@@ -166,13 +173,18 @@ function PageHeader({
 function ViewTabs({
   enTaller,
   search,
+  orden,
 }: {
   enTaller: boolean;
   search: string;
+  orden: string;
 }) {
   const params = new URLSearchParams();
   if (search) {
     params.set("search", search);
+  }
+  if (orden) {
+    params.set("orden", orden);
   }
 
   const tallerParams = new URLSearchParams(params);

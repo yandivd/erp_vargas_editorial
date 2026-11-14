@@ -44,7 +44,7 @@ export default async function InventarioPage({
   const result = await apiFetchEnvelope<{
     materiales: InventarioMaterial[];
   }>(
-    `inventario/?${query.toString()}`,
+    `inventario?${query.toString()}`,
   )
     .then((envelope) => ({ envelope, error: null }))
     .catch((error: unknown) => ({

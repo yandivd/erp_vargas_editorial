@@ -10,6 +10,7 @@ from django.db.models import (
     Sum,
     F,
     IntegerField,
+    Max,
     ProtectedError,
 )
 from django.db.models.functions import Cast
@@ -27,7 +28,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from clientes.models import Cliente
+from clientes.models import Cliente, TarjetaFidelidad
+from clientes.services import ServicioFidelidad
 from core.api import obtener_dashboard_data
 from core.api_utils import payload_paginacion
 from core.models import Parametro
@@ -57,6 +59,7 @@ from proveedores.models import Proveedor
 from .serializers import (
     ESTADOS_NO_TALLER,
     ActivoFijoV1Serializer,
+    AjusteFidelidadSerializer,
     AnticipoV1Serializer,
     CambiarEstadoMasivoSerializer,
     CambiarEstadoSerializer,
@@ -214,6 +217,26 @@ def me(request):
         'is_staff': user.is_staff,
         'is_superuser': user.is_superuser,
         'groups': list(user.groups.values_list('name', flat=True)),
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def fidelidad_publica(request, token):
+    tarjeta = get_object_or_404(
+        TarjetaFidelidad.objects.select_related('cliente'),
+        token=token,
+    )
+    estado = ServicioFidelidad.estado(tarjeta.cliente)
+
+    return Response({
+        'ok': True,
+        'data': {
+            'cliente_nombre': tarjeta.cliente.nombre,
+            'fecha_actualizacion': tarjeta.fecha_actualizacion,
+            **estado,
+        },
     })
 
 
@@ -879,6 +902,29 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
     pagination_class = PedidoPagination
     queryset = Pedido.objects.select_related('cliente', 'libro', 'estado').all()
 
+    ORDENES = {
+        'ref_asc': (F('referencia_externa').asc(nulls_last=True), 'id'),
+        'ref_desc': (F('referencia_externa').desc(nulls_last=True), '-id'),
+        'cliente_asc': ('cliente__nombre', 'id'),
+        'cliente_desc': ('-cliente__nombre', '-id'),
+        'libro_asc': ('libro__titulo', 'id'),
+        'libro_desc': ('-libro__titulo', '-id'),
+        'estado_asc': ('estado__orden', 'estado__nombre', 'id'),
+        'estado_desc': ('-estado__orden', '-estado__nombre', '-id'),
+        'fecha_pedido_asc': ('fecha_pedido', 'id'),
+        'fecha_pedido_desc': ('-fecha_pedido', '-id'),
+        'entrega_asc': (
+            F('fecha_entrega_prometida').asc(nulls_last=True),
+            'id',
+        ),
+        'entrega_desc': (
+            F('fecha_entrega_prometida').desc(nulls_last=True),
+            '-id',
+        ),
+        'saldo_asc': (F('saldo_pendiente').asc(nulls_last=True), 'id'),
+        'saldo_desc': (F('saldo_pendiente').desc(nulls_last=True), '-id'),
+    }
+
     def get_serializer_class(self):
         if self.action in ('retrieve', 'cambiar_estado', 'registrar_anticipo'):
             return PedidoDetailV1Serializer
@@ -913,9 +959,9 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
             else:
                 queryset = queryset.filter(estado__nombre=estado)
 
+        orden = self.request.query_params.get('orden', 'ref_asc')
         return queryset.order_by(
-            F('referencia_externa').asc(nulls_last=True),
-            'id',
+            *self.ORDENES.get(orden, self.ORDENES['ref_asc'])
         )
 
     def create(self, request, *args, **kwargs):
@@ -933,6 +979,7 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                     telefono=data.get('cliente_telefono') or '',
                     direccion=data.get('cliente_direccion') or '',
                 )
+                ServicioFidelidad.obtener_tarjeta(cliente)
 
             libro = None
             if data.get('libro_id'):
@@ -961,6 +1008,23 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
+            bono_solicitado = Decimal(
+                str(data.get('bono_fidelidad_aplicado') or 0)
+            )
+            if bono_solicitado > 0:
+                tarjeta = ServicioFidelidad.obtener_tarjeta(cliente)
+                if tarjeta is None or bono_solicitado > tarjeta.bono_saldo:
+                    return Response(
+                        {
+                            'ok': False,
+                            'error': (
+                                'El cliente no tiene saldo suficiente en su '
+                                'bono de fidelidad.'
+                            ),
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
             siguiente_ref = _siguiente_referencia()
             estado_inicial = Estado.objects.get(nombre='Pendiente a impresión')
             anticipo = Decimal(str(data.get('anticipo_requerido') or 0))
@@ -975,6 +1039,7 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                 lleva_esquineros=bool(data.get('lleva_esquineros')),
                 precio_venta=Decimal(str(data.get('precio_venta') or 0)),
                 descuento_aplicado=descuento,
+                bono_fidelidad_aplicado=bono_solicitado,
                 codigo_descuento=cod_obj,
                 anticipo_requerido=anticipo,
                 estado=estado_inicial,
@@ -982,6 +1047,26 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                 referencia_externa=siguiente_ref,
             )
             pedido.calcular_fecha_entrega()
+
+            if bono_solicitado > 0:
+                descuento_bono = ServicioFidelidad.aplicar_bono(
+                    cliente,
+                    bono_solicitado,
+                )
+                if descuento_bono != bono_solicitado:
+                    transaction.set_rollback(True)
+                    return Response(
+                        {
+                            'ok': False,
+                            'error': (
+                                'No se pudo aplicar el bono de fidelidad. '
+                                'El saldo pudo haber cambiado.'
+                            ),
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            ServicioFidelidad.registrar_compra(pedido)
 
             if cod_obj:
                 cod_obj.usos_actuales += 1
@@ -1324,16 +1409,51 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
 
     ESTADOS_EXCLUIDOS = ('Entregado', 'Cancelado')
 
+    ORDENES = {
+        'nombre_asc': ('nombre', 'id'),
+        'nombre_desc': ('-nombre', '-id'),
+        'pedidos_asc': ('pedidos_totales', 'nombre'),
+        'pedidos_desc': ('-pedidos_totales', '-nombre'),
+        'ultimo_pedido_asc': (
+            F('ultimo_pedido_db').asc(nulls_last=True),
+            'nombre',
+        ),
+        'ultimo_pedido_desc': (
+            F('ultimo_pedido_db').desc(nulls_last=True),
+            'nombre',
+        ),
+        'dias_sin_comprar_asc': (
+            F('ultimo_pedido_db').desc(nulls_last=True),
+            'nombre',
+        ),
+        'dias_sin_comprar_desc': (
+            F('ultimo_pedido_db').asc(nulls_first=True),
+            'nombre',
+        ),
+        'saldo_asc': (
+            F('saldo_pendiente_total_db').asc(nulls_last=True),
+            'nombre',
+        ),
+        'saldo_desc': (
+            F('saldo_pendiente_total_db').desc(nulls_last=True),
+            '-nombre',
+        ),
+    }
+
     def get_queryset(self):
-        return Cliente.objects.annotate(
+        return Cliente.objects.select_related('tarjeta_fidelidad').annotate(
             pedidos_totales=Count(
                 'pedidos',
                 distinct=True,
-                filter=~Q(pedidos__estado__nombre__in=self.ESTADOS_EXCLUIDOS),
+                filter=~Q(pedidos__estado__nombre='Cancelado'),
             ),
             saldo_pendiente_total_db=Sum(
                 'pedidos__saldo_pendiente',
                 filter=~Q(pedidos__estado__nombre__in=self.ESTADOS_EXCLUIDOS),
+            ),
+            ultimo_pedido_db=Max(
+                'pedidos__fecha_pedido',
+                filter=~Q(pedidos__estado__nombre='Cancelado'),
             ),
         ).order_by('nombre')
 
@@ -1355,13 +1475,9 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
         if search:
             queryset = queryset.filter(nombre__icontains=search)
 
-        if orden == 'nombre_desc':
-            return queryset.order_by('-nombre')
-        if orden == 'pedidos_desc':
-            return queryset.order_by('-pedidos_totales', '-nombre')
-        if orden == 'pedidos_asc':
-            return queryset.order_by('pedidos_totales', 'nombre')
-        return queryset.order_by('nombre')
+        return queryset.order_by(
+            *self.ORDENES.get(orden, self.ORDENES['nombre_asc'])
+        )
 
     def _per_page(self, request):
         try:
@@ -1399,6 +1515,7 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
         serializer = ClienteCreateV1Serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         cliente = serializer.save()
+        ServicioFidelidad.obtener_tarjeta(cliente)
         return Response(
             {
                 'ok': True,
@@ -1406,6 +1523,31 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    @action(detail=True, methods=['post'], url_path='ajustar-fidelidad')
+    def ajustar_fidelidad(self, request, pk=None):
+        cliente = self.get_object()
+        serializer = AjusteFidelidadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        datos = serializer.validated_data
+
+        tarjeta = ServicioFidelidad.ajustar(
+            cliente,
+            sellos=datos.get('sellos'),
+            bono_saldo=datos.get('bono_saldo'),
+        )
+
+        return Response({
+            'ok': True,
+            'data': {
+                'fidelidad': ServicioFidelidad.estado(tarjeta.cliente),
+                'tarjeta': {
+                    'id': tarjeta.id,
+                    'sellos': tarjeta.sellos,
+                    'bono_saldo': float(tarjeta.bono_saldo),
+                },
+            },
+        })
 
 
 class LibroViewSetV1(viewsets.ModelViewSet):

@@ -49,11 +49,11 @@ export default async function EntregasPage({
 
   try {
     const data = await apiFetch<EntregaListItem[]>(
-      `entregas/?tab=${encodeURIComponent(tab)}`,
+      `entregas?tab=${encodeURIComponent(tab)}`,
     );
     entregas = data;
     totalPorCobrar = data.reduce(
-      (total, entrega) => total + Number(entrega.total_a_cobrar),
+      (total, entrega) => total + Number(entrega.total_pendiente),
       0,
     );
     pedidos = data.reduce(
@@ -170,11 +170,19 @@ export default async function EntregasPage({
                     </td>
                     <td className={tdClass}>{entrega.cantidad_pedidos}</td>
                     <td className={tdClass}>
-                      <p className="font-semibold text-slate-900">
-                        {money(entrega.total_a_cobrar)}
+                      <p
+                        className={
+                          entrega.entregado
+                            ? "font-semibold text-emerald-700"
+                            : "font-semibold text-slate-900"
+                        }
+                      >
+                        {money(entrega.total_pendiente)}
                       </p>
                       <p className="text-xs text-slate-500">
-                        Saldo: {money(entrega.saldo_pedidos)}
+                        {entrega.entregado
+                          ? "Entregada"
+                          : `Saldo: ${money(entrega.saldo_pedidos)}`}
                       </p>
                     </td>
                     <td className={tdClass}>

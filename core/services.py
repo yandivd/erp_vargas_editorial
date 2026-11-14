@@ -1,11 +1,12 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.db.models import Count, F, Max, OuterRef, Q, Subquery, Sum
+from django.db.models import Avg, Count, F, Max, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import ExtractHour, ExtractWeekDay, TruncMonth, TruncWeek
 from django.utils import timezone
 
-from clientes.models import Cliente
+from clientes.models import Cliente, TarjetaFidelidad
+from clientes.services import ServicioFidelidad
 from finanzas.models import ActivoFijo, LoteDivisa, MovimientoCaja
 from inventario.models import Material, MovimientoInventario
 from pedidos.models import HistorialEstado, Pedido, ServicioExterno
@@ -977,6 +978,278 @@ def dashboard_clientes(desde=None, hasta=None):
         },
         'clientes_vip_lista': vip_lista,
         'clientes_riesgo_lista': riesgo_lista,
+    }
+
+
+def dashboard_fidelidad(desde=None, hasta=None):
+    """KPIs de fidelidad. Las tarjetas son una foto actual; los pedidos respetan el filtro."""
+    hoy = timezone.localdate()
+    ahora = timezone.now()
+    meta = ServicioFidelidad._meta()
+    bono_monto = ServicioFidelidad._bono()
+    dias_expiracion = ServicioFidelidad._dias_expiracion()
+
+    total_clientes = Cliente.objects.count()
+    tarjetas_qs = TarjetaFidelidad.objects.all()
+    tarjetas_total = tarjetas_qs.count()
+
+    agregados = tarjetas_qs.aggregate(
+        sellos_promedio=Avg('sellos'),
+        sellos_totales=Sum('sellos'),
+        bono_pendiente=Sum('bono_saldo'),
+    )
+    sellos_promedio = agregados['sellos_promedio'] or 0
+    sellos_totales = agregados['sellos_totales'] or 0
+    bono_pendiente = agregados['bono_pendiente'] or 0
+
+    tarjetas_activas = tarjetas_qs.filter(
+        Q(sellos__gt=0) | Q(bono_saldo__gt=0)
+    ).count()
+    tarjetas_completas = tarjetas_qs.filter(sellos__gte=meta).count()
+    clientes_con_bono = tarjetas_qs.filter(bono_saldo__gt=0).count()
+
+    conteo_sellos = {
+        fila['sellos']: fila['cantidad']
+        for fila in tarjetas_qs.values('sellos').annotate(cantidad=Count('id'))
+    }
+    max_sellos = max([meta, *conteo_sellos.keys()], default=meta)
+    distribucion_sellos = [
+        {'sellos': sello, 'cantidad': conteo_sellos.get(sello, 0)}
+        for sello in range(0, max_sellos + 1)
+    ]
+
+    limite_riesgo = ahora - timedelta(days=max(0, dias_expiracion - 7))
+    limite_por_expirar = ahora - timedelta(days=max(0, dias_expiracion - 15))
+    riesgo_qs = tarjetas_qs.filter(
+        sellos__gt=0,
+        fecha_ultima_compra__isnull=False,
+        fecha_ultima_compra__lte=limite_riesgo,
+    )
+    clientes_en_riesgo = riesgo_qs.count()
+    por_expirar_total = tarjetas_qs.filter(
+        sellos__gt=0,
+        fecha_ultima_compra__isnull=False,
+        fecha_ultima_compra__lte=limite_por_expirar,
+    ).count()
+    clientes_por_expirar = max(0, por_expirar_total - clientes_en_riesgo)
+
+    lista_riesgo_qs = (
+        tarjetas_qs.select_related('cliente')
+        .filter(
+            sellos__gt=0,
+            fecha_ultima_compra__isnull=False,
+            fecha_ultima_compra__lte=limite_por_expirar,
+        )
+        .order_by('fecha_ultima_compra')
+    )
+    clientes_riesgo_lista = []
+    for tarjeta in lista_riesgo_qs[:10]:
+        vence = tarjeta.fecha_ultima_compra + timedelta(days=dias_expiracion)
+        dias_restantes = max(0, (vence - ahora).days)
+        if dias_restantes <= 7:
+            urgencia = 'alta'
+        elif dias_restantes <= 15:
+            urgencia = 'media'
+        else:
+            urgencia = 'baja'
+        clientes_riesgo_lista.append({
+            'id': tarjeta.cliente_id,
+            'nombre': tarjeta.cliente.nombre,
+            'telefono': tarjeta.cliente.telefono or '',
+            'sellos': tarjeta.sellos,
+            'ultima_compra': (
+                tarjeta.fecha_ultima_compra.date().isoformat()
+                if tarjeta.fecha_ultima_compra
+                else ''
+            ),
+            'dias_restantes': dias_restantes,
+            'urgencia': urgencia,
+        })
+
+    pedidos_base = Pedido.objects.filter(cliente__isnull=False).exclude(
+        estado__nombre='Cancelado'
+    )
+    if desde:
+        pedidos_base = pedidos_base.filter(fecha_pedido__date__gte=desde)
+    if hasta:
+        pedidos_base = pedidos_base.filter(fecha_pedido__date__lte=hasta)
+
+    q_clientes_activos = (
+        Q(cliente__tarjeta_fidelidad__sellos__gt=0)
+        | Q(cliente__tarjeta_fidelidad__bono_saldo__gt=0)
+    )
+    pedidos_activos = pedidos_base.filter(q_clientes_activos)
+    pedidos_inactivos = pedidos_base.exclude(q_clientes_activos)
+
+    ticket_activo = (
+        pedidos_activos.aggregate(total=Avg('precio_venta'))['total'] or 0
+    )
+    ticket_inactivo = (
+        pedidos_inactivos.aggregate(total=Avg('precio_venta'))['total'] or 0
+    )
+    ingresos_activos = (
+        pedidos_activos.aggregate(total=Sum('precio_venta'))['total'] or 0
+    )
+    ingresos_inactivos = (
+        pedidos_inactivos.aggregate(total=Sum('precio_venta'))['total'] or 0
+    )
+    bono_canjeado = (
+        pedidos_base.aggregate(total=Sum('bono_fidelidad_aplicado'))['total'] or 0
+    )
+    pedidos_con_bono = pedidos_base.filter(bono_fidelidad_aplicado__gt=0).count()
+    total_pedidos_activos = pedidos_activos.count()
+    total_pedidos_inactivos = pedidos_inactivos.count()
+
+    def _ingresos_ultimos(dias):
+        inicio = hoy - timedelta(days=dias)
+        return (
+            Pedido.objects.filter(
+                q_clientes_activos,
+                cliente__isnull=False,
+                fecha_pedido__date__gte=inicio,
+            )
+            .exclude(estado__nombre='Cancelado')
+            .aggregate(total=Sum('precio_venta'))['total'] or 0
+        )
+
+    ingresos_activos_30d = _ingresos_ultimos(30)
+    ingresos_activos_90d = _ingresos_ultimos(90)
+
+    def _serie_ingresos(queryset):
+        filas = (
+            queryset.annotate(mes=TruncMonth('fecha_pedido'))
+            .values('mes')
+            .annotate(ingresos=Sum('precio_venta'), pedidos=Count('id'))
+            .order_by('mes')
+        )
+        return {
+            fila['mes'].strftime('%Y-%m'): {
+                'ingresos': float(fila['ingresos'] or 0),
+                'pedidos': fila['pedidos'],
+            }
+            for fila in filas
+            if fila['mes']
+        }
+
+    serie_activos = _serie_ingresos(pedidos_activos)
+    serie_inactivos = _serie_ingresos(pedidos_inactivos)
+    meses = sorted(set(serie_activos) | set(serie_inactivos))
+    tendencia_mensual = [
+        {
+            'mes': mes,
+            'activos': serie_activos.get(mes, {}).get('ingresos', 0.0),
+            'inactivos': serie_inactivos.get(mes, {}).get('ingresos', 0.0),
+        }
+        for mes in meses
+    ]
+
+    def _tarjeta_data(tarjeta):
+        return {
+            'id': tarjeta.cliente_id,
+            'nombre': tarjeta.cliente.nombre,
+            'telefono': tarjeta.cliente.telefono or '',
+            'sellos': tarjeta.sellos,
+            'bono_saldo': float(tarjeta.bono_saldo),
+            'ultima_compra': (
+                tarjeta.fecha_ultima_compra.date().isoformat()
+                if tarjeta.fecha_ultima_compra
+                else ''
+            ),
+            'meta': meta,
+        }
+
+    tarjetas_destacadas = [
+        _tarjeta_data(tarjeta)
+        for tarjeta in (
+            tarjetas_qs.select_related('cliente')
+            .order_by('-sellos', '-bono_saldo', 'cliente__nombre')[:10]
+        )
+    ]
+    bonos_pendientes_lista = [
+        _tarjeta_data(tarjeta)
+        for tarjeta in (
+            tarjetas_qs.select_related('cliente')
+            .filter(bono_saldo__gt=0)
+            .order_by('-bono_saldo', 'cliente__nombre')[:10]
+        )
+    ]
+
+    # TODO: conversión a bono, tasa de canje, tiempo medio y sellos expirados
+    # requieren un modelo EventoFidelidad que registre cada cambio de sellos/bono.
+    no_disponibles = [
+        {
+            'id': 'tasa_conversion_bono',
+            'label': 'Tasa de conversión a bono',
+            'motivo': 'Requiere registrar cuándo cada tarjeta alcanza la meta.',
+        },
+        {
+            'id': 'tasa_canje',
+            'label': 'Tasa de canje',
+            'motivo': 'Solo se conoce el bono canjeado; falta el historial de bonos otorgados.',
+        },
+        {
+            'id': 'tiempo_medio_bono',
+            'label': 'Tiempo medio hasta el bono',
+            'motivo': 'Requiere la fecha en que se otorgó cada bono.',
+        },
+        {
+            'id': 'sellos_expirados',
+            'label': 'Sellos expirados',
+            'motivo': 'Requiere registrar las expiraciones, no solo el saldo actual.',
+        },
+    ]
+
+    adopcion = (tarjetas_total / total_clientes * 100) if total_clientes else 0
+
+    return {
+        'kpis': {
+            'total_clientes': total_clientes,
+            'tarjetas_total': tarjetas_total,
+            'adopcion_tarjeta': round(adopcion, 1),
+            'tarjetas_activas': tarjetas_activas,
+            'tarjetas_completas': tarjetas_completas,
+            'clientes_con_bono': clientes_con_bono,
+            'bono_pendiente_total': float(bono_pendiente),
+            'sellos_promedio': round(float(sellos_promedio), 2),
+            'sellos_totales': int(sellos_totales),
+            'meta_sellos': meta,
+            'bono_monto': float(bono_monto),
+            'dias_expiracion': dias_expiracion,
+            'ticket_medio_activo': float(ticket_activo),
+            'ticket_medio_inactivo': float(ticket_inactivo),
+            'pedidos_activos': total_pedidos_activos,
+            'pedidos_inactivos': total_pedidos_inactivos,
+            'ingresos_activos': float(ingresos_activos),
+            'ingresos_inactivos': float(ingresos_inactivos),
+            'ingresos_activos_30d': float(ingresos_activos_30d),
+            'ingresos_activos_90d': float(ingresos_activos_90d),
+            'bono_canjeado_total': float(bono_canjeado),
+            'pedidos_con_bono': pedidos_con_bono,
+            'clientes_en_riesgo': clientes_en_riesgo,
+            'clientes_por_expirar': clientes_por_expirar,
+        },
+        'distribucion_sellos': distribucion_sellos,
+        'composicion_ingresos': [
+            {'tipo': 'Activos', 'total': float(ingresos_activos)},
+            {'tipo': 'Inactivos', 'total': float(ingresos_inactivos)},
+        ],
+        'ticket_medio_data': [
+            {
+                'tipo': 'Activos',
+                'ticket': float(ticket_activo),
+                'pedidos': total_pedidos_activos,
+            },
+            {
+                'tipo': 'Inactivos',
+                'ticket': float(ticket_inactivo),
+                'pedidos': total_pedidos_inactivos,
+            },
+        ],
+        'tendencia_mensual': tendencia_mensual,
+        'clientes_riesgo_lista': clientes_riesgo_lista,
+        'tarjetas_destacadas': tarjetas_destacadas,
+        'bonos_pendientes_lista': bonos_pendientes_lista,
+        'no_disponibles': no_disponibles,
     }
 
 

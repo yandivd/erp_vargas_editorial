@@ -1,4 +1,10 @@
 import { NextResponse } from "next/server";
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  accessCookieOptions,
+  refreshCookieOptions,
+} from "@/lib/authCookies";
 
 type TokenResponse = {
   access?: string;
@@ -99,32 +105,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const secure = process.env.NODE_ENV === "production";
-  const accessCookieName =
-    process.env.JWT_ACCESS_COOKIE_NAME ?? "erp_access";
-  const refreshCookieName =
-    process.env.JWT_REFRESH_COOKIE_NAME ?? "erp_refresh";
-
   const response = NextResponse.json({
     ok: true,
     data: { authenticated: true },
   });
 
-  response.cookies.set(accessCookieName, payload.access, {
-    httpOnly: true,
-    secure,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 15,
-  });
-
-  response.cookies.set(refreshCookieName, payload.refresh, {
-    httpOnly: true,
-    secure,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  response.cookies.set(ACCESS_COOKIE, payload.access, accessCookieOptions());
+  response.cookies.set(REFRESH_COOKIE, payload.refresh, refreshCookieOptions());
 
   return response;
 }

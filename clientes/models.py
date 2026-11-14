@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.utils import timezone
 from django.db.models import Sum
@@ -22,7 +24,8 @@ class Cliente(models.Model):
     # --- PROPIEDADES FINANCIERAS ---
     @property
     def total_pedidos(self):
-        return self.pedidos.count()
+        """Total de pedidos realizados, excluyendo los cancelados."""
+        return self.pedidos.exclude(estado__nombre='Cancelado').count()
 
     @property
     def total_facturado(self):
@@ -36,39 +39,118 @@ class Cliente(models.Model):
     # --- PROPIEDADES PARA LOS BADGES (SEGMENTACIÓN) ---
     @property
     def total_libros(self):
-        """Cuenta cuántos libros ha comprado en total (solo entregados)."""
-        return self.pedidos.filter(estado__nombre='Entregado').aggregate(total=Sum('cantidad'))['total'] or 0
+        """Cuenta cuántos libros ha comprado en total (pedidos no cancelados)."""
+        return self.pedidos.exclude(estado__nombre='Cancelado').aggregate(
+            total=Sum('cantidad')
+        )['total'] or 0
+
+    @property
+    def fecha_ultimo_pedido(self):
+        """Fecha del último pedido no cancelado."""
+        ultimo = (
+            self.pedidos.exclude(estado__nombre='Cancelado')
+            .order_by('-fecha_pedido')
+            .first()
+        )
+        return ultimo.fecha_pedido if ultimo else None
 
     @property
     def dias_sin_comprar(self):
-        """Días desde su último pedido entregado."""
-        ultimo = self.pedidos.filter(estado__nombre='Entregado').order_by('-fecha_entrega_real').first()
-        if not ultimo or not ultimo.fecha_entrega_real:
-            return 999 # Si nunca ha comprado, lo tratamos como inactivo total
-        return (timezone.now().date() - ultimo.fecha_entrega_real.date()).days
+        """Días desde su último pedido no cancelado (por fecha de pedido)."""
+        ultima = self.fecha_ultimo_pedido
+        if not ultima:
+            return 999
+        ultima_fecha = timezone.localtime(ultima).date()
+        return (timezone.localdate() - ultima_fecha).days
 
     @property
     def badge(self):
-        """Calcula el badge que le corresponde al cliente basado en las reglas."""
-        libros = self.total_libros
-        dias = self.dias_sin_comprar
+        """Calcula el badge del cliente según sus pedidos no cancelados."""
+        pedidos = self.pedidos.exclude(estado__nombre='Cancelado')
+        total_pedidos = pedidos.count()
 
-        # 1. Reglas de inactividad (Prioridad alta)
-        if dias >= 90:
-            return {'label': 'En riesgo (90+ días)', 'emoji': '👑', 'color': 'danger'}
-        elif dias >= 60:
-            return {'label': 'Inactivo 60 días', 'emoji': '🥶', 'color': 'secondary'}
-        elif dias >= 30:
-            return {'label': 'Inactivo 30 días', 'emoji': '😴', 'color': 'warning'}
-        
-        # 2. Reglas de valor (Si está activo, menos de 30 días)
-        if libros > 10:
-            return {'label': 'Cliente VIP', 'emoji': '👑', 'color': 'primary'}
-        elif libros > 5:
-            return {'label': 'Alto valor', 'emoji': '💎', 'color': 'info'}
-        elif self.pedidos.count() >= 2:
-            return {'label': 'Recurrente activo', 'emoji': '🔥', 'color': 'success'}
-        elif self.pedidos.count() == 1:
-            return {'label': 'Cliente nuevo', 'emoji': '🆕', 'color': 'dark'}
-        
-        return None # Si no tiene pedidos, no tiene badge
+        if total_pedidos == 0:
+            return {'label': 'Sin Pedidos', 'emoji': '📭', 'color': 'secondary'}
+
+        hoy = timezone.localdate()
+        ultimo = pedidos.order_by('-fecha_pedido').first()
+        dias = (hoy - timezone.localtime(ultimo.fecha_pedido).date()).days
+
+        # 1. En Riesgo
+        if dias > 120:
+            return {'label': 'En Riesgo', 'emoji': '🚨', 'color': 'danger'}
+
+        # 2. Inactivo
+        if dias > 60:
+            return {'label': 'Inactivo', 'emoji': '🥶', 'color': 'secondary'}
+
+        # 3. VIP
+        if total_pedidos > 10:
+            return {'label': 'Cliente VIP', 'emoji': '👑', 'color': 'warning'}
+
+        # 4. Recurrente Activo (5 a 9 pedidos, mayoría en los últimos 60 días)
+        if 5 <= total_pedidos <= 9:
+            recientes = pedidos.filter(
+                fecha_pedido__date__gte=hoy - timedelta(days=60)
+            ).count()
+            if recientes * 2 > total_pedidos:
+                return {
+                    'label': 'Recurrente Activo',
+                    'emoji': '🔥',
+                    'color': 'success',
+                }
+
+        # 5. Alto Valor (promedio de libros por mes >= 2)
+        total_libros = pedidos.aggregate(total=Sum('cantidad'))['total'] or 0
+        primer = pedidos.order_by('fecha_pedido').first()
+        primer_fecha = timezone.localtime(primer.fecha_pedido)
+        meses = max(
+            1,
+            (hoy.year - primer_fecha.year) * 12
+            + (hoy.month - primer_fecha.month),
+        )
+        if total_libros / meses >= 2:
+            return {'label': 'Alto Valor', 'emoji': '💎', 'color': 'info'}
+
+        # 6. Cliente Nuevo (exactamente 1 pedido, hace menos de 60 días)
+        if total_pedidos == 1 and dias <= 60:
+            return {'label': 'Cliente Nuevo', 'emoji': '🆕', 'color': 'primary'}
+
+        return None
+
+
+class TarjetaFidelidad(models.Model):
+    cliente = models.OneToOneField(
+        Cliente,
+        on_delete=models.CASCADE,
+        related_name='tarjeta_fidelidad',
+        verbose_name='Cliente',
+    )
+    sellos = models.PositiveIntegerField(default=0, verbose_name='Sellos')
+    bono_saldo = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name='Saldo del bono',
+    )
+    token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        verbose_name='Token público',
+    )
+    fecha_ultima_compra = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Última compra',
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Tarjeta de fidelidad'
+        verbose_name_plural = 'Tarjetas de fidelidad'
+        ordering = ['cliente__nombre']
+
+    def __str__(self):
+        return f'{self.cliente.nombre} - {self.sellos} sellos'

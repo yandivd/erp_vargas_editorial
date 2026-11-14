@@ -115,7 +115,7 @@ export default function ArqueoModal({
     setError(null);
 
     try {
-      await apiFetch<ArqueoResponse>("finanzas/arqueo/", {
+      await apiFetch<ArqueoResponse>("finanzas/arqueo", {
         method: "POST",
         body: JSON.stringify({
           efectivo_cup: cupContado,

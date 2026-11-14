@@ -80,7 +80,7 @@ export default function CrearEntregaModal() {
 
     let cancelado = false;
 
-    apiFetch<PedidoListItem[]>("entregas/pedidos-disponibles/")
+    apiFetch<PedidoListItem[]>("entregas/pedidos-disponibles")
       .then((data) => {
         if (!cancelado) {
           setPedidos(data);
@@ -280,7 +280,7 @@ export default function CrearEntregaModal() {
     setDireccionError(null);
 
     try {
-      const entrega = await apiFetch<EntregaDetail>("entregas/crear/", {
+      const entrega = await apiFetch<EntregaDetail>("entregas/crear", {
         method: "POST",
         body: JSON.stringify({
           pedido_ids: Array.from(seleccionados),

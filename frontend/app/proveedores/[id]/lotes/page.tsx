@@ -21,7 +21,7 @@ type PageProps = {
 export default async function ProveedorLotesPage({ params }: PageProps) {
   const { id } = await params;
   const result = await apiFetch<ProveedorLotesData>(
-    `proveedores/${encodeURIComponent(id)}/lotes/`,
+    `proveedores/${encodeURIComponent(id)}/lotes`,
   )
     .then((data) => ({ data, error: null }))
     .catch((error: unknown) => ({

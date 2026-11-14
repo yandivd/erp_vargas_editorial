@@ -216,6 +216,10 @@ class ServicioPedido:
                 notas=notas or 'Venta en tienda',
             )
 
+            from clientes.services import ServicioFidelidad
+
+            ServicioFidelidad.registrar_compra(pedido)
+
         return resultado
 
     @staticmethod

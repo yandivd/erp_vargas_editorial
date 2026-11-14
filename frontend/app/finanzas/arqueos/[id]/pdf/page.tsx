@@ -32,7 +32,7 @@ function diferenciaClase(value: number): string {
 export default async function ArqueoPdfPage({ params }: PageProps) {
   const { id } = await params;
   const result = await apiFetch<CierreCaja>(
-    `finanzas/arqueos/${encodeURIComponent(id)}/`,
+    `finanzas/arqueos/${encodeURIComponent(id)}`,
   )
     .then((data) => ({ data, error: null }))
     .catch((error: unknown) => ({

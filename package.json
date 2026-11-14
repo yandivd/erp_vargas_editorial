@@ -17,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/yandivd/erp_vargas_editorial/issues"
   },
-  "homepage": "https://github.com/yandivd/erp_vargas_editorial#readme"
+  "homepage": "https://github.com/yandivd/erp_vargas_editorial#readme",
+  "dependencies": {
+    "freelm": "^0.5.2"
+  }
 }

@@ -30,7 +30,7 @@ export default async function LibrosPage({ searchParams }: PageProps) {
     query.set("search", search);
   }
 
-  const path = query.toString() ? `libros/?${query.toString()}` : "libros/";
+  const path = query.toString() ? `libros?${query.toString()}` : "libros";
 
   const result = await apiFetchEnvelope<Libro[]>(path)
     .then((envelope) => ({ envelope, error: null }))

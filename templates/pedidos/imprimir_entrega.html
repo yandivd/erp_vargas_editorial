@@ -6,7 +6,7 @@
     <div class="etiqueta">
         
         <div class="etq-header">
-            <img src="{% static 'img/logo1.jpg' %}?v=2" class="etq-logo" style="height: 120px !important;" alt="Logo">
+            <img src="{% static 'img/logo.png' %}?v=2" class="etq-logo" style="height: 120px !important;" alt="Logo">
             <p class="etq-sub">TEL: +53 54545068 | ARTEMISA</p>
         </div>
 
@@ -41,9 +41,16 @@
             </div>
             <div class="fila total-final">
                 <span>TOTAL:</span>
-                <span>${{ entrega.total_a_cobrar|floatformat:0 }}</span>
+                <span>${{ entrega.total_pendiente|floatformat:0 }}</span>
             </div>
         </div>
+
+        {% if qr_imagen %}
+        <div class="etq-qr">
+            <img src="{{ qr_imagen }}" alt="QR tarjeta cliente" class="etq-qr-img">
+            <p class="etq-qr-texto">Escanea para ver tu tarjeta de cliente</p>
+        </div>
+        {% endif %}
 
     </div>
     {% endfor %}

@@ -9,16 +9,25 @@ def actualizar_tasa_background():
         from django.core.management import call_command
         # Ejecuta el comando que creamos antes
         call_command('actualizar_tasa')
-        
+    except Exception as e:
+        print(f"Error actualizando tasa en background: {e}")
+
+    try:
+        from clientes.services import ServicioFidelidad
+        ServicioFidelidad.expirar_tarjetas_inactivas()
+    except Exception as e:
+        print(f"Error expirando sellos de fidelidad: {e}")
+
+    try:
         # Guardamos la fecha de hoy como número (YYYYMMDD) para que encaje en el DecimalField
         hoy_numero = int(date.today().strftime('%Y%m%d'))
-        
+
         Parametro.objects.update_or_create(
             clave='ultima_actualizacion_tasa',
             defaults={'valor': hoy_numero, 'descripcion': 'Fecha de la última actualización automática de la tasa'}
         )
     except Exception as e:
-        print(f"Error actualizando tasa en background: {e}")
+        print(f"Error guardando la fecha de actualización de la tasa: {e}")
 
 class ActualizarTasaDiariaMiddleware:
     def __init__(self, get_response):

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
 
@@ -208,6 +209,14 @@ class Pedido(models.Model):
     descuento_aplicado = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name='Descuento aplicado'
+    )
+    bono_fidelidad_aplicado = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name='Bono de fidelidad aplicado'
+    )
+    sellos_fidelidad_otorgados = models.BooleanField(
+        default=False,
+        verbose_name='Sellos de fidelidad otorgados'
     )
     # En pedidos/models.py
     es_historico = models.BooleanField(default=False, help_text="Pedidos anteriores al uso del ERP")
@@ -441,6 +450,10 @@ class Entrega(models.Model):
     @property
     def total_a_cobrar(self):
         return self.saldo_pedidos + self.costo_mensajeria
+
+    @property
+    def total_pendiente(self):
+        return Decimal('0.00') if self.entregado else self.total_a_cobrar
 
     @property
     def cantidad_pedidos(self):

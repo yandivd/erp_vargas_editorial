@@ -73,7 +73,7 @@ export default function PagarLoteModal({
 
       try {
         const data = await apiFetch<TasaCambioResponse>(
-          "pedidos/tasa-cambio/",
+          "pedidos/tasa-cambio",
         );
         const tasa = Number(data.tasa_cambio);
 
@@ -163,7 +163,7 @@ export default function PagarLoteModal({
 
     try {
       const data = await apiFetch<PagoLoteData>(
-        `proveedores/lotes/${lote.id}/pagar/`,
+        `proveedores/lotes/${lote.id}/pagar`,
         {
           method: "POST",
           body: JSON.stringify({

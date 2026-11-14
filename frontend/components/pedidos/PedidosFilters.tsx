@@ -14,6 +14,7 @@ type PedidosFiltersProps = {
   initialSearch: string;
   initialEstado: string;
   enTaller: boolean;
+  initialOrden: string;
 };
 
 export default function PedidosFilters({
@@ -21,6 +22,7 @@ export default function PedidosFilters({
   initialSearch,
   initialEstado,
   enTaller,
+  initialOrden,
 }: PedidosFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -34,7 +36,11 @@ export default function PedidosFilters({
       )
     : estados;
 
-  function applyFilters(nextSearch: string, nextEstado: string) {
+  function applyFilters(
+    nextSearch: string,
+    nextEstado: string,
+    nextOrden = "",
+  ) {
     const params = new URLSearchParams();
 
     if (nextSearch.trim()) {
@@ -44,6 +50,9 @@ export default function PedidosFilters({
       params.set("estado", nextEstado);
     }
     params.set("en_taller", enTaller ? "true" : "false");
+    if (nextOrden) {
+      params.set("orden", nextOrden);
+    }
 
     const query = params.toString();
     startTransition(() => {
@@ -53,13 +62,13 @@ export default function PedidosFilters({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    applyFilters(search, estado);
+    applyFilters(search, estado, initialOrden);
   }
 
   function handleClear() {
     setSearch("");
     setEstado("");
-    applyFilters("", "");
+    applyFilters("", "", initialOrden);
   }
 
   const hasFilters = Boolean(initialSearch || initialEstado);

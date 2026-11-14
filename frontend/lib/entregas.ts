@@ -16,6 +16,7 @@ export type EntregaListItem = {
   saldo_pedidos: string;
   costo_mensajeria: string;
   total_a_cobrar: string;
+  total_pendiente: string;
 };
 
 export type EntregaPedido = {

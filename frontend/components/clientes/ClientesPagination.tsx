@@ -7,11 +7,12 @@ type ClientesPaginationProps = {
   nombre: string;
   telefono: string;
   deuda: string;
+  orden: string;
 };
 
 type Filters = Pick<
   ClientesPaginationProps,
-  "nombre" | "telefono" | "deuda"
+  "nombre" | "telefono" | "deuda" | "orden"
 >;
 
 function hrefForPage(page: number, filters: Filters): string {
@@ -25,6 +26,9 @@ function hrefForPage(page: number, filters: Filters): string {
   }
   if (filters.deuda) {
     params.set("deuda", filters.deuda);
+  }
+  if (filters.orden) {
+    params.set("orden", filters.orden);
   }
   if (page > 1) {
     params.set("page", String(page));
@@ -46,6 +50,7 @@ export default function ClientesPagination({
   nombre,
   telefono,
   deuda,
+  orden,
 }: ClientesPaginationProps) {
   if (pagination.num_pages <= 1) {
     return (
@@ -55,7 +60,7 @@ export default function ClientesPagination({
     );
   }
 
-  const filters: Filters = { nombre, telefono, deuda };
+  const filters: Filters = { nombre, telefono, deuda, orden };
   const pages = visiblePages(pagination.page, pagination.num_pages);
   const linkClass =
     "inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-line px-2 text-sm font-semibold text-muted transition hover:border-brand hover:bg-blue-50 hover:text-brand";

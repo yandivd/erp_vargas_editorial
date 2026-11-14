@@ -84,7 +84,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
 
     let cancelado = false;
 
-    apiFetch<{ parametros: ParametrosCosto }>("libros/parametros-costo/")
+    apiFetch<{ parametros: ParametrosCosto }>("libros/parametros-costo")
       .then((data) => {
         if (!cancelado) {
           setParametros(data.parametros);
@@ -233,7 +233,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
     }
 
     try {
-      const endpoint = esEdicion ? `libros/${libro?.id}/` : "libros/";
+      const endpoint = esEdicion ? `libros/${libro?.id}` : "libros";
       const method = esEdicion ? "PATCH" : "POST";
       const guardado = await apiFetch<Libro>(endpoint, {
         method,

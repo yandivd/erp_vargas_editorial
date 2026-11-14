@@ -27,7 +27,7 @@ function referenciaPedido(
 export default async function OrdenTrabajoPage({ params }: PageProps) {
   const { id } = await params;
   const result = await apiFetch<InventarioOrdenTrabajoData>(
-    `inventario/movimiento/${encodeURIComponent(id)}/orden-trabajo/`,
+    `inventario/movimiento/${encodeURIComponent(id)}/orden-trabajo`,
   )
     .then((data) => ({ data, error: null }))
     .catch((error: unknown) => ({

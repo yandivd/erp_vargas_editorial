@@ -45,14 +45,22 @@
                         <small class="text-muted">#{{ e.id }} · {{ e.cantidad_pedidos }} pedido(s)</small>
                     </td>
                     <td class="d-none d-md-table-cell">
-                        {% if e.costo_mensajeria > 0 %}
+                        {% if e.entregado %}
+                            <span class="text-muted">—</span>
+                        {% elif e.costo_mensajeria > 0 %}
                             ${{ e.costo_mensajeria|floatformat:2 }}
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}
                     </td>
-                    <td class="d-none d-md-table-cell">${{ e.saldo_pedidos|floatformat:2 }}</td>
-                    <td class="fw-bold text-danger text-end">${{ e.total_a_cobrar|floatformat:2 }}</td>
+                    <td class="d-none d-md-table-cell">
+                        {% if e.entregado %}
+                            <span class="text-muted">—</span>
+                        {% else %}
+                            ${{ e.saldo_pedidos|floatformat:2 }}
+                        {% endif %}
+                    </td>
+                    <td class="fw-bold {% if e.entregado %}text-success{% else %}text-danger{% endif %} text-end">${{ e.total_pendiente|floatformat:2 }}</td>
                     <td>
                         {% if e.entregado %}
                             <span class="badge bg-success">Entregada</span>

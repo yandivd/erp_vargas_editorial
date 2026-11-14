@@ -3,6 +3,7 @@ import {
   BookOpen,
   Bot,
   Filter,
+  Gift,
   LayoutGrid,
   TrendingUp,
   Users,
@@ -20,6 +21,7 @@ const tabIcons: Record<DashboardTab, LucideIcon> = {
   resumen: TrendingUp,
   produccion: BookOpen,
   clientes: Users,
+  fidelidad: Gift,
 };
 
 function buildFilterQuery(desde: string, hasta: string): string {

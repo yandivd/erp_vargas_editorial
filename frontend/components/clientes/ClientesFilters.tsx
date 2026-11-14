@@ -8,6 +8,7 @@ type ClientesFiltersProps = {
   initialNombre: string;
   initialTelefono: string;
   initialDeuda: string;
+  initialOrden: string;
 };
 
 const inputClass =
@@ -19,6 +20,7 @@ export default function ClientesFilters({
   initialNombre,
   initialTelefono,
   initialDeuda,
+  initialOrden,
 }: ClientesFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -31,6 +33,7 @@ export default function ClientesFilters({
     nextNombre: string,
     nextTelefono: string,
     nextDeuda: string,
+    nextOrden = "",
   ) {
     const params = new URLSearchParams();
 
@@ -43,6 +46,9 @@ export default function ClientesFilters({
     if (nextDeuda) {
       params.set("deuda", nextDeuda);
     }
+    if (nextOrden) {
+      params.set("orden", nextOrden);
+    }
 
     const query = params.toString();
     startTransition(() => {
@@ -52,14 +58,14 @@ export default function ClientesFilters({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    applyFilters(nombre, telefono, deuda);
+    applyFilters(nombre, telefono, deuda, initialOrden);
   }
 
   function handleClear() {
     setNombre("");
     setTelefono("");
     setDeuda("");
-    applyFilters("", "", "");
+    applyFilters("", "", "", initialOrden);
   }
 
   const hasFilters = Boolean(

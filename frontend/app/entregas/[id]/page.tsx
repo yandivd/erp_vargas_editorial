@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   BookOpen,
   CalendarDays,
+  CheckCircle2,
   MapPin,
   Package,
   Printer,
@@ -42,7 +43,7 @@ export default async function EntregaDetailPage({
 
   try {
     entrega = await apiFetch<EntregaDetail>(
-      `entregas/${encodeURIComponent(id)}/`,
+      `entregas/${encodeURIComponent(id)}`,
     );
   } catch (err) {
     error = err instanceof Error ? err.message : "No se pudo cargar la entrega.";
@@ -152,9 +153,13 @@ export default async function EntregaDetailPage({
         />
         <KpiCard
           label="Total a cobrar"
-          value={money(entrega.total_a_cobrar)}
-          sub={`Mensajería: ${money(entrega.costo_mensajeria)}`}
-          tone="red"
+          value={money(entrega.total_pendiente)}
+          sub={
+            entrega.entregado
+              ? "Entregada"
+              : `Mensajería: ${money(entrega.costo_mensajeria)}`
+          }
+          tone={entrega.entregado ? "emerald" : "red"}
         />
       </div>
 
@@ -309,20 +314,29 @@ export default async function EntregaDetailPage({
           />
           <SummaryRow
             label="Costo de mensajería"
-            value={money(entrega.costo_mensajeria)}
+            value={
+              entrega.entregado
+                ? "Entregada"
+                : money(entrega.costo_mensajeria)
+            }
           />
           <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-base font-bold text-slate-900">
             <span>Total a cobrar</span>
-            <span>{money(entrega.total_a_cobrar)}</span>
+            <span>{money(entrega.total_pendiente)}</span>
           </div>
         </div>
-        {!entrega.entregado ? (
+        {entrega.entregado ? (
+          <p className="mt-4 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            Entrega confirmada. No queda saldo por cobrar.
+          </p>
+        ) : (
           <p className="mt-4 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
             <ReceiptText className="h-4 w-4 shrink-0" />
             Al confirmar, se registrará el pago y todos los pedidos pasarán a
             Entregado.
           </p>
-        ) : null}
+        )}
       </SectionCard>
     </div>
   );
