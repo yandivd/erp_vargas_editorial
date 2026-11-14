@@ -130,7 +130,7 @@ export default function ArqueoCajaPage() {
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    let ignore = true;
+    let ignore = false;
 
     async function cargarResumen() {
       try {
@@ -142,6 +142,7 @@ export default function ArqueoCajaPage() {
           setResumenError(null);
         }
       } catch (error) {
+        console.error("Error cargando Resumen:", error);
         if (!ignore) {
           setSaldoSistema(null);
           setResumenError(
@@ -167,6 +168,7 @@ export default function ArqueoCajaPage() {
           setHistorialError(null);
         }
       } catch (error) {
+        console.error("Error cargando Historial:", error);
         if (!ignore) {
           setHistorialError(
             error instanceof Error
@@ -185,7 +187,7 @@ export default function ArqueoCajaPage() {
     void cargarHistorial();
 
     return () => {
-      ignore = false;
+      ignore = true;
     };
   }, [reloadKey]);
 
