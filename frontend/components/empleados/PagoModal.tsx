@@ -52,7 +52,7 @@ export default function PagoModal({
   useEffect(() => {
     let activo = true;
 
-    apiFetch<UtilidadesDisponibles>("empleados/utilidades-disponibles/")
+    apiFetch<UtilidadesDisponibles>("empleados/utilidades-disponibles")
       .then((data) => {
         if (!activo) {
           return;
@@ -188,7 +188,7 @@ export default function PagoModal({
     setError(null);
 
     try {
-      await apiFetch<PagoEmpleadoData>(`empleados/${empleadoId}/pagar/`, {
+      await apiFetch<PagoEmpleadoData>(`empleados/${empleadoId}/pagar`, {
         method: "POST",
         body: JSON.stringify({
           monto: montoNumero,

@@ -79,7 +79,7 @@ export default function NuevoEmpleadoModal() {
     setError(null);
 
     try {
-      const empleado = await apiFetch<Empleado>("empleados/", {
+      const empleado = await apiFetch<Empleado>("empleados", {
         method: "POST",
         body: JSON.stringify({
           nombre: nombre.trim(),

@@ -18,7 +18,7 @@ type PageProps = {
 
 export default async function ActivoDetallePage({ params }: PageProps) {
   const { id } = await params;
-  const result = await apiFetch<ActivoFijo>(`finanzas/activos/${id}/`)
+  const result = await apiFetch<ActivoFijo>(`finanzas/activos/${id}`)
     .then((activo) => ({ activo, error: null }))
     .catch((error: unknown) => ({
       activo: null,

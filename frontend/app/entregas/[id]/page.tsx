@@ -43,7 +43,7 @@ export default async function EntregaDetailPage({
 
   try {
     entrega = await apiFetch<EntregaDetail>(
-      `entregas/${encodeURIComponent(id)}/`,
+      `entregas/${encodeURIComponent(id)}`,
     );
   } catch (err) {
     error = err instanceof Error ? err.message : "No se pudo cargar la entrega.";

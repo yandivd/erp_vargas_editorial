@@ -44,9 +44,9 @@ export default async function PedidoDetailPage({ params }: PageProps) {
   const { id } = await params;
 
   const [estados, tasaResult, result] = await Promise.all([
-    apiFetch<EstadoPedido[]>("pedidos/estados/").catch(() => []),
-    apiFetch<TasaCambioResponse>("pedidos/tasa-cambio/").catch(() => null),
-    apiFetch<PedidoDetail>(`pedidos/${encodeURIComponent(id)}/`)
+    apiFetch<EstadoPedido[]>("pedidos/estados").catch(() => []),
+    apiFetch<TasaCambioResponse>("pedidos/tasa-cambio").catch(() => null),
+    apiFetch<PedidoDetail>(`pedidos/${encodeURIComponent(id)}`)
       .then((pedido) => ({ ok: true as const, pedido }))
       .catch((error: unknown) => ({
         ok: false as const,
@@ -472,11 +472,11 @@ async function calcularCostoProduccion(
   try {
     const [{ parametros }, paginas] = await Promise.all([
       apiFetch<{ parametros: ParametrosCosto }>(
-        "pedidos/parametros-costo/",
+        "pedidos/parametros-costo",
       ),
       pedido.libro_paginas
         ? Promise.resolve(Number(pedido.libro_paginas))
-        : apiFetch<{ paginas: number }>(`libros/${pedido.libro_id}/`).then(
+        : apiFetch<{ paginas: number }>(`libros/${pedido.libro_id}`).then(
             (libro) => Number(libro.paginas),
           ),
     ]);

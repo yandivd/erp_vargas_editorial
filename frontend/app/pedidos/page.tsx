@@ -55,8 +55,8 @@ export default async function PedidosPage({ searchParams }: PageProps) {
   }
 
   const [estados, pedidosResult] = await Promise.all([
-    apiFetch<EstadoPedido[]>("pedidos/estados/").catch(() => []),
-    apiFetchEnvelope<PedidoListItem[]>(`pedidos/?${query.toString()}`)
+    apiFetch<EstadoPedido[]>("pedidos/estados").catch(() => []),
+    apiFetchEnvelope<PedidoListItem[]>(`pedidos?${query.toString()}`)
       .then((envelope) => ({ envelope, error: null }))
       .catch((error: unknown) => ({
         envelope: null,

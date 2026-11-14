@@ -135,7 +135,7 @@ export default function ArqueoCajaPage() {
     async function cargarResumen() {
       try {
         const resumen = await apiFetch<CajaResumen>(
-          "finanzas/caja/resumen/",
+          "finanzas/caja/resumen",
         );
         if (!ignore) {
           setSaldoSistema(resumen.saldo_actual_cup);
@@ -160,7 +160,7 @@ export default function ArqueoCajaPage() {
     async function cargarHistorial() {
       try {
         const envelope = await apiFetchEnvelope<ArqueosData>(
-          "finanzas/arqueos/?page=1&per_page=10",
+          "finanzas/arqueos?page=1&per_page=10",
         );
         if (!ignore) {
           setHistorial(envelope.data.arqueos ?? []);
@@ -223,7 +223,7 @@ export default function ArqueoCajaPage() {
 
     try {
       const resultado = await apiFetch<ArqueoResponse>(
-        "finanzas/arqueo/",
+        "finanzas/arqueo",
         {
           method: "POST",
           body: JSON.stringify({

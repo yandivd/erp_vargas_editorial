@@ -14,7 +14,7 @@ export default async function FidelidadPublicaPage({ params }: PageProps) {
   const { token } = await params;
 
   const result = await apiFetch<FidelidadPublica>(
-    `fidelidad/publica/${encodeURIComponent(token)}/`,
+    `fidelidad/publica/${encodeURIComponent(token)}`,
   )
     .then((fidelidad) => ({ ok: true as const, fidelidad }))
     .catch((error: unknown) => ({

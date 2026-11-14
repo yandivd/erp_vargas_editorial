@@ -147,7 +147,7 @@ export default function PedidoActions({
 
     try {
       const data = await apiFetch<TasaCambioResponse>(
-        "pedidos/tasa-cambio/",
+        "pedidos/tasa-cambio",
       );
       const tasa = Number(data.tasa_cambio);
 
@@ -239,7 +239,7 @@ export default function PedidoActions({
 
     try {
       await apiFetch<PedidoDetail>(
-        `pedidos/${pedidoId}/cambiar-estado/`,
+        `pedidos/${pedidoId}/cambiar-estado`,
         {
           method: "POST",
           body: JSON.stringify({
@@ -293,7 +293,7 @@ export default function PedidoActions({
     try {
       if (pagoModo === "ENTREGA") {
         await apiFetch<PedidoDetail>(
-          `pedidos/${pedidoId}/cambiar-estado/`,
+          `pedidos/${pedidoId}/cambiar-estado`,
           {
             method: "POST",
             body: JSON.stringify({
@@ -308,7 +308,7 @@ export default function PedidoActions({
         );
       } else {
         await apiFetch<PedidoDetail>(
-          `pedidos/${pedidoId}/registrar-anticipo/`,
+          `pedidos/${pedidoId}/registrar-anticipo`,
           {
             method: "POST",
             body: JSON.stringify({

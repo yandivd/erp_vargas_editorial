@@ -82,7 +82,7 @@ async function cargarTodosLosClientes(): Promise<Cliente[]> {
 
   while (true) {
     const envelope = await apiFetchEnvelope<{ clientes: Cliente[] }>(
-      `clientes/?per_page=500&page=${page}`,
+      `clientes?per_page=500&page=${page}`,
     );
     clientes.push(...envelope.data.clientes);
 
@@ -207,7 +207,7 @@ export default function NuevoPedidoModal() {
   const cargarTasaCambio = useCallback(async () => {
     try {
       const data = await apiFetch<{ tasa_cambio: number }>(
-        "pedidos/tasa-cambio/",
+        "pedidos/tasa-cambio",
       );
       const valor = Number(data.tasa_cambio);
       if (!Number.isFinite(valor) || valor <= 0) {
@@ -227,12 +227,12 @@ export default function NuevoPedidoModal() {
       const [clientesResult, librosResult, codigosResult, parametrosResult] =
         await Promise.all([
           cargarTodosLosClientes(),
-          apiFetch<Libro[]>("libros/"),
+          apiFetch<Libro[]>("libros"),
           apiFetch<{ codigos: CodigoDescuento[] }>(
-            "pedidos/codigos-vigentes/",
+            "pedidos/codigos-vigentes",
           ),
           apiFetch<{ parametros: ParametrosCosto }>(
-            "pedidos/parametros-costo/",
+            "pedidos/parametros-costo",
           ),
         ]);
       setCatalogosError(null);
@@ -655,7 +655,7 @@ export default function NuevoPedidoModal() {
 
     try {
       const descuento = await apiFetch<DescuentoValidado>(
-        `pedidos/validar-descuento/?${params.toString()}`,
+        `pedidos/validar-descuento?${params.toString()}`,
       );
 
       setDescuentoAplicado(String(descuento.descuento));
@@ -724,7 +724,7 @@ export default function NuevoPedidoModal() {
     setSubmitError(null);
 
     try {
-      await apiFetch<PedidoCreado>("pedidos/", {
+      await apiFetch<PedidoCreado>("pedidos", {
         method: "POST",
         body: JSON.stringify({
           cliente_id: modoCliente === "nuevo" ? null : Number(clienteId),

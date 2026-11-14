@@ -97,7 +97,7 @@ export default function MovimientoCajaModal({
     setError(null);
 
     try {
-      await apiFetch<MovimientoCajaResponse>("finanzas/caja/movimiento/", {
+      await apiFetch<MovimientoCajaResponse>("finanzas/caja/movimiento", {
         method: "POST",
         body: JSON.stringify({
           tipo,

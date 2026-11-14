@@ -51,7 +51,7 @@ export default async function ClientesPage({ searchParams }: PageProps) {
   }
 
   const result = await apiFetchEnvelope<ClientesData>(
-    `clientes/?${query.toString()}`,
+    `clientes?${query.toString()}`,
   )
     .then((envelope) => ({ envelope, error: null }))
     .catch((error: unknown) => ({

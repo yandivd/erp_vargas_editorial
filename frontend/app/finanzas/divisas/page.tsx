@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 export default async function FinanzasDivisasPage() {
   const [resumenResult, movimientosResult] = await Promise.all([
-    apiFetch<CajaResumen>("finanzas/caja/resumen/")
+    apiFetch<CajaResumen>("finanzas/caja/resumen")
       .then((resumen) => ({ resumen, error: null }))
       .catch((error: unknown) => ({
         resumen: null,
@@ -27,7 +27,7 @@ export default async function FinanzasDivisasPage() {
             ? error.message
             : "No se pudo cargar el resumen de caja.",
       })),
-    apiFetchEnvelope<CajaData>("finanzas/caja/?per_page=50")
+    apiFetchEnvelope<CajaData>("finanzas/caja?per_page=50")
       .then((envelope) => ({
         movimientos: envelope.data.movimientos,
         error: null,

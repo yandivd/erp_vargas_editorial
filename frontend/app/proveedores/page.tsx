@@ -12,7 +12,7 @@ type ProveedoresData = {
 
 export default async function ProveedoresPage() {
   const result = await apiFetchEnvelope<ProveedoresData>(
-    "proveedores/?per_page=500",
+    "proveedores?per_page=500",
   )
     .then((envelope) => ({ envelope, error: null }))
     .catch((error: unknown) => ({

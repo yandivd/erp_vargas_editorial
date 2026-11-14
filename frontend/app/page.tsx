@@ -45,7 +45,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   try {
     data = await apiFetch<DashboardData>(
-      `dashboard/${tab}/${queryString ? `?${queryString}` : ""}`,
+      `dashboard/${tab}${queryString ? `?${queryString}` : ""}`,
     );
   } catch (requestError) {
     error =

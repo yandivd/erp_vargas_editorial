@@ -49,7 +49,7 @@ export default async function EntregasPage({
 
   try {
     const data = await apiFetch<EntregaListItem[]>(
-      `entregas/?tab=${encodeURIComponent(tab)}`,
+      `entregas?tab=${encodeURIComponent(tab)}`,
     );
     entregas = data;
     totalPorCobrar = data.reduce(

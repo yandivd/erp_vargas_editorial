@@ -57,12 +57,27 @@ function getBaseUrl(): string {
   );
 }
 
+function normalizeApiPath(path: string, trailingSlash: boolean): string {
+  const queryIndex = path.indexOf("?");
+  const pathname = queryIndex === -1 ? path : path.slice(0, queryIndex);
+  const search = queryIndex === -1 ? "" : path.slice(queryIndex);
+  const cleanPath = pathname.replace(/^\/+|\/+$/g, "");
+
+  if (!cleanPath) {
+    return trailingSlash ? `/${search}` : search;
+  }
+
+  return trailingSlash ? `${cleanPath}/${search}` : `${cleanPath}${search}`;
+}
+
 function buildUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) {
     return path;
   }
 
-  return `${getBaseUrl()}/${path.replace(/^\/+/, "")}`;
+  const normalized = normalizeApiPath(path, isServer);
+
+  return normalized ? `${getBaseUrl()}/${normalized}` : getBaseUrl();
 }
 
 async function getServerAccessToken(): Promise<string | undefined> {

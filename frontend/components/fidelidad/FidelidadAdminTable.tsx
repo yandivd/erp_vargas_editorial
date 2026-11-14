@@ -89,7 +89,7 @@ export default function FidelidadAdminTable({ clientes }: Props) {
 
     try {
       await apiFetch<AjusteResponse>(
-        `clientes/${clienteEditando.id}/ajustar-fidelidad/`,
+        `clientes/${clienteEditando.id}/ajustar-fidelidad`,
         {
           method: "POST",
           body: JSON.stringify({

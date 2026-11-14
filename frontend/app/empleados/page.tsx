@@ -30,7 +30,7 @@ async function cargarDatos<T>(
 
 export default async function EmpleadosPage() {
   const [empleadosResult, utilidadesResult] = await Promise.all([
-    apiFetchEnvelope<EmpleadosData>("empleados/?per_page=500")
+    apiFetchEnvelope<EmpleadosData>("empleados?per_page=500")
       .then((envelope) => ({
         data: envelope.data.empleados ?? [],
         error: null,
@@ -43,7 +43,7 @@ export default async function EmpleadosPage() {
             : "No se pudieron cargar los empleados.",
       })),
     cargarDatos(
-      apiFetch<UtilidadesDisponibles>("empleados/utilidades-disponibles/"),
+      apiFetch<UtilidadesDisponibles>("empleados/utilidades-disponibles"),
       "No se pudieron calcular las utilidades disponibles.",
     ),
   ]);

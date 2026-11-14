@@ -119,7 +119,7 @@ export default async function ArqueosPage({ searchParams }: PageProps) {
     Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
   const result = await apiFetchEnvelope<ArqueosData>(
-    `finanzas/arqueos/?page=${page}&per_page=20`,
+    `finanzas/arqueos?page=${page}&per_page=20`,
   )
     .then((envelope) => ({ envelope, error: null }))
     .catch((error: unknown) => ({

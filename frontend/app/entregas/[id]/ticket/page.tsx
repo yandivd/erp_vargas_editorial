@@ -32,7 +32,7 @@ function referenciaPedido(
 export default async function TicketEntregaPage({ params }: PageProps) {
   const { id } = await params;
   const result = await apiFetch<EntregaDetail>(
-    `entregas/${encodeURIComponent(id)}/`,
+    `entregas/${encodeURIComponent(id)}`,
   )
     .then((data) => ({ data, error: null }))
     .catch((error: unknown) => ({

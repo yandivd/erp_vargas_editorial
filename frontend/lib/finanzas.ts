@@ -124,7 +124,7 @@ export async function registrarCompraDivisa(payload: {
   tasa_cambio: number;
 }) {
   return apiFetch<DivisaOperacionResponse>(
-    "finanzas/divisas/compra/",
+    "finanzas/divisas/compra",
     {
       method: "POST",
       body: JSON.stringify(payload),
@@ -137,7 +137,7 @@ export async function registrarVentaDivisa(payload: {
   tasa_cambio: number;
 }) {
   return apiFetch<DivisaOperacionResponse>(
-    "finanzas/divisas/venta/",
+    "finanzas/divisas/venta",
     {
       method: "POST",
       body: JSON.stringify(payload),

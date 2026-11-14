@@ -158,7 +158,7 @@ export default function PedidosTable({
 
     try {
       const resultado = await apiFetch<CambioEstadoMasivoResultado>(
-        "pedidos/cambiar-estado-masivo/",
+        "pedidos/cambiar-estado-masivo",
         {
           method: "POST",
           body: JSON.stringify({

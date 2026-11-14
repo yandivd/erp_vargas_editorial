@@ -12,7 +12,7 @@ async function cargarClientes(): Promise<ClienteListItem[]> {
 
   while (true) {
     const envelope = await apiFetchEnvelope<{ clientes: ClienteListItem[] }>(
-      `clientes/?per_page=500&page=${page}`,
+      `clientes?per_page=500&page=${page}`,
     );
     clientes.push(...(envelope.data.clientes ?? []));
 

@@ -69,7 +69,7 @@ export default function ConfirmarEntrega({
     async function cargarTasa() {
       try {
         const data = await apiFetch<{ tasa_cambio: number }>(
-          "pedidos/tasa-cambio/",
+          "pedidos/tasa-cambio",
         );
         const tasa = Number(data.tasa_cambio);
 
@@ -148,7 +148,7 @@ export default function ConfirmarEntrega({
     setError(null);
 
     try {
-      await apiFetch<unknown>(`entregas/${entregaId}/confirmar/`, {
+      await apiFetch<unknown>(`entregas/${entregaId}/confirmar`, {
         method: "POST",
         body: JSON.stringify({
           monto_cup: sinCobro || usaUsd ? 0 : redondear2(montoCupNumero),

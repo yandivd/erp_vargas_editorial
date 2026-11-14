@@ -17,7 +17,7 @@ import { formatDate, integer, money } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 export default async function ActivosPage() {
-  const result = await apiFetchEnvelope<ActivosData>("finanzas/activos/")
+  const result = await apiFetchEnvelope<ActivosData>("finanzas/activos")
     .then((envelope) => ({ data: envelope.data, error: null }))
     .catch((error: unknown) => ({
       data: null,

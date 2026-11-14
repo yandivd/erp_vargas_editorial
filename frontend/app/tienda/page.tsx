@@ -11,7 +11,7 @@ export default async function TiendaPage() {
   let error: string | null = null;
 
   try {
-    pedidos = await apiFetch<PedidoListItem[]>("tienda/");
+    pedidos = await apiFetch<PedidoListItem[]>("tienda");
   } catch (requestError) {
     error =
       requestError instanceof Error

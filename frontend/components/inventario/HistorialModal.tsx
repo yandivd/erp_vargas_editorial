@@ -53,7 +53,7 @@ export default function HistorialModal({ material }: HistorialModalProps) {
 
       try {
         const response = await apiFetch<InventarioHistorialData>(
-          `inventario/${material.id}/historial/`,
+          `inventario/${material.id}/historial`,
         );
 
         if (!cancelado) {

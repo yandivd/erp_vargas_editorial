@@ -31,7 +31,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
   const { id } = await params;
 
   const [libroResult, parametrosResult] = await Promise.all([
-    apiFetch<Libro>(`libros/${encodeURIComponent(id)}/`)
+    apiFetch<Libro>(`libros/${encodeURIComponent(id)}`)
       .then((libro) => ({ ok: true as const, libro }))
       .catch((error: unknown) => ({
         ok: false as const,
@@ -40,7 +40,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
             ? error.message
             : "No se pudo cargar el libro.",
       })),
-    apiFetch<ParametrosResponse>("libros/parametros-costo/").catch(() => null),
+    apiFetch<ParametrosResponse>("libros/parametros-costo").catch(() => null),
   ]);
 
   if (!libroResult.ok) {

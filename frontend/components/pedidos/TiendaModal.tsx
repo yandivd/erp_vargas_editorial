@@ -54,7 +54,7 @@ export default function TiendaModal({
     async function cargarTasa() {
       try {
         const data = await apiFetch<{ tasa_cambio: number }>(
-          "pedidos/tasa-cambio/",
+          "pedidos/tasa-cambio",
         );
         const tasa = Number(data.tasa_cambio);
 
@@ -110,7 +110,7 @@ export default function TiendaModal({
     setSuccess(null);
 
     try {
-      await apiFetch<unknown>(`tienda/${pedidoId}/vender/`, {
+      await apiFetch<unknown>(`tienda/${pedidoId}/vender`, {
         method: "POST",
         body: JSON.stringify({
           monto_cup: usaUsd ? 0 : montoCupNumero,

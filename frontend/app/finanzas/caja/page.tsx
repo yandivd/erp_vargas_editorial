@@ -73,12 +73,12 @@ export default async function CajaPage({ searchParams }: PageProps) {
     resumenQuery.set("categoria", categoria);
   }
   const resumenPath = resumenQuery.toString()
-    ? `finanzas/caja/resumen/?${resumenQuery.toString()}`
-    : "finanzas/caja/resumen/";
+    ? `finanzas/caja/resumen?${resumenQuery.toString()}`
+    : "finanzas/caja/resumen";
 
   const [movimientosResult, resumenResult] = await Promise.all([
     apiFetchEnvelope<CajaData>(
-      `finanzas/caja/?${movimientosQuery.toString()}`,
+      `finanzas/caja?${movimientosQuery.toString()}`,
     )
       .then((envelope) => ({ envelope, error: null }))
       .catch((error: unknown) => ({

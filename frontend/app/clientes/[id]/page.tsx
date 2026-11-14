@@ -34,7 +34,7 @@ export default async function ClienteDetailPage({ params }: PageProps) {
   const { id } = await params;
 
   const result = await apiFetch<ClienteDetail>(
-    `clientes/${encodeURIComponent(id)}/`,
+    `clientes/${encodeURIComponent(id)}`,
   )
     .then((cliente) => ({ ok: true as const, cliente }))
     .catch((error: unknown) => ({
