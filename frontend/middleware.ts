@@ -1,29 +1,71 @@
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  accessCookieOptions,
+  clearedCookieOptions,
+} from "@/lib/authCookies";
+import { isTokenExpired, refreshAccessToken } from "@/lib/authTokens";
 
-const ACCESS_COOKIE =
-  process.env.JWT_ACCESS_COOKIE_NAME ?? "erp_access";
+const PUBLIC_PREFIXES = ["/fidelidad/", "/api/"];
 
-export function middleware(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
-
-  if (
+function isPublicPath(pathname: string): boolean {
+  return (
     pathname === "/login" ||
     pathname === "/catalogo" ||
-    pathname.startsWith("/fidelidad/") ||
-    pathname.startsWith("/api/")
-  ) {
+    PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  );
+}
+
+function loginRedirect(request: NextRequest): NextResponse {
+  const { pathname, search } = request.nextUrl;
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.searchParams.set("next", `${pathname}${search}`);
+  return NextResponse.redirect(loginUrl);
+}
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get(ACCESS_COOKIE)?.value;
+  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
 
-  if (!token) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", `${pathname}${search}`);
-    return NextResponse.redirect(loginUrl);
+  if (accessToken && !isTokenExpired(accessToken)) {
+    return NextResponse.next();
   }
 
-  return NextResponse.next();
+  const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
+
+  if (refreshToken) {
+    const outcome = await refreshAccessToken(refreshToken);
+
+    if (outcome.status === "ok") {
+      request.cookies.set(ACCESS_COOKIE, outcome.access);
+
+      const response = NextResponse.next({
+        request: { headers: request.headers },
+      });
+
+      response.cookies.set(
+        ACCESS_COOKIE,
+        outcome.access,
+        accessCookieOptions(),
+      );
+
+      return response;
+    }
+
+    if (outcome.status === "invalid") {
+      const response = loginRedirect(request);
+      response.cookies.set(REFRESH_COOKIE, "", clearedCookieOptions());
+      return response;
+    }
+  }
+
+  return loginRedirect(request);
 }
 
 export const config = {

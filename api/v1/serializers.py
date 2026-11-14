@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.db.models import Q, Sum
+from django.utils import timezone
 from rest_framework import serializers
 
 from clientes.models import Cliente
@@ -211,7 +212,7 @@ class RegistrarAnticipoSerializer(serializers.Serializer):
         return attrs
 
 
-ESTADOS_CLIENTE_EXCLUIDOS = ('Entregado', 'Cancelado')
+ESTADOS_CLIENTE_EXCLUIDOS = ('Cancelado',)
 
 
 class ClienteListV1Serializer(serializers.ModelSerializer):
@@ -219,6 +220,7 @@ class ClienteListV1Serializer(serializers.ModelSerializer):
     saldo_pendiente = serializers.SerializerMethodField()
     total_libros = serializers.SerializerMethodField()
     dias_sin_comprar = serializers.SerializerMethodField()
+    ultimo_pedido = serializers.SerializerMethodField()
     badge = serializers.SerializerMethodField()
     fidelidad = serializers.SerializerMethodField()
 
@@ -235,6 +237,7 @@ class ClienteListV1Serializer(serializers.ModelSerializer):
             'saldo_pendiente',
             'total_libros',
             'dias_sin_comprar',
+            'ultimo_pedido',
             'badge',
             'fidelidad',
         )
@@ -257,7 +260,23 @@ class ClienteListV1Serializer(serializers.ModelSerializer):
         return obj.total_libros
 
     def get_dias_sin_comprar(self, obj):
+        if hasattr(obj, 'ultimo_pedido_db'):
+            ultimo = obj.ultimo_pedido_db
+            if ultimo is None:
+                return 999
+            return (
+                timezone.localdate() - timezone.localtime(ultimo).date()
+            ).days
         return obj.dias_sin_comprar
+
+    def get_ultimo_pedido(self, obj):
+        if hasattr(obj, 'ultimo_pedido_db'):
+            ultimo = obj.ultimo_pedido_db
+        else:
+            ultimo = obj.fecha_ultimo_pedido
+        if ultimo is None:
+            return None
+        return timezone.localtime(ultimo).date()
 
     def get_badge(self, obj):
         return obj.badge

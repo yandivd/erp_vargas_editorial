@@ -27,6 +27,7 @@ export type ClienteListItem = {
   saldo_pendiente: number;
   total_libros: number;
   dias_sin_comprar: number;
+  ultimo_pedido: string | null;
   badge: ClienteBadge | null;
   fidelidad?: FidelidadCliente | null;
 };

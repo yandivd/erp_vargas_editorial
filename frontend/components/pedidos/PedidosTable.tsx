@@ -23,8 +23,9 @@ import {
   tdClass,
   thClass,
 } from "@/components/dashboard/ui";
+import { SortableHeader } from "@/components/ui/SortableHeader";
 import { apiFetch } from "@/lib/api";
-import { money } from "@/lib/format";
+import { formatDate, money } from "@/lib/format";
 import {
   estadoStyle,
   type CambioEstadoMasivoResultado,
@@ -258,11 +259,13 @@ export default function PedidosTable({
                   className="h-4 w-4 cursor-pointer accent-blue-600"
                 />
               </th>
-              <th className={thClass}>Ref.</th>
-              <th className={thClass}>Cliente</th>
-              <th className={thClass}>Libro</th>
-              <th className={thClass}>Estado</th>
-              <th className={`${thClass} text-right`}>Saldo</th>
+              <SortableHeader sortKey="ref" label="Ref." isDefault />
+              <SortableHeader sortKey="cliente" label="Cliente" />
+              <SortableHeader sortKey="libro" label="Libro" />
+              <SortableHeader sortKey="estado" label="Estado" />
+              <SortableHeader sortKey="fecha_pedido" label="Creado" defaultDirection="desc" />
+              <SortableHeader sortKey="entrega" label="Entrega est." />
+              <SortableHeader sortKey="saldo" label="Saldo" align="right" defaultDirection="desc" />
               <th className={thClass}>
                 <span className="sr-only">Acciones</span>
               </th>
@@ -317,6 +320,12 @@ export default function PedidosTable({
                     >
                       {pedido.estado_nombre}
                     </span>
+                  </td>
+                  <td className={tdClass}>
+                    <div>{formatDate(pedido.fecha_pedido)}</div>
+                  </td>
+                  <td className={tdClass}>
+                    <div>{formatDate(pedido.fecha_entrega_prometida) || "—"}</div>
                   </td>
                   <td className={`${tdClass} text-right`}>
                     <div

@@ -7,8 +7,9 @@ import {
   tdClass,
   thClass,
 } from "@/components/dashboard/ui";
+import { SortableHeader } from "@/components/ui/SortableHeader";
 import { badgeClass, type ClienteListItem } from "@/lib/clientes";
-import { money } from "@/lib/format";
+import { formatDate, money } from "@/lib/format";
 
 export default function ClientesTable({
   clientes,
@@ -20,10 +21,30 @@ export default function ClientesTable({
       <table className={tableClass}>
         <thead>
           <tr>
-            <th className={thClass}>Nombre</th>
+            <SortableHeader sortKey="nombre" label="Nombre" isDefault />
             <th className={`${thClass} hidden lg:table-cell`}>Segmento</th>
-            <th className={`${thClass} hidden sm:table-cell`}>Pedidos</th>
-            <th className={thClass}>Saldo Pendiente</th>
+            <SortableHeader
+              sortKey="pedidos"
+              label="Pedidos"
+              className="hidden sm:table-cell"
+              defaultDirection="desc"
+            />
+            <SortableHeader
+              sortKey="ultimo_pedido"
+              label="Último pedido"
+              defaultDirection="desc"
+            />
+            <SortableHeader
+              sortKey="dias_sin_comprar"
+              label="Días sin pedir"
+              defaultDirection="desc"
+            />
+            <SortableHeader
+              sortKey="saldo"
+              label="Saldo Pendiente"
+              align="right"
+              defaultDirection="desc"
+            />
             <th className={`${thClass} text-right`}>
               <span className="sr-only">Acciones</span>
             </th>
@@ -66,6 +87,24 @@ export default function ClientesTable({
                   <span className="inline-flex min-w-8 justify-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">
                     {cliente.pedidos}
                   </span>
+                </td>
+                <td className={tdClass}>
+                  {cliente.ultimo_pedido ? (
+                    <span className="font-medium text-ink">
+                      {formatDate(cliente.ultimo_pedido)}
+                    </span>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </td>
+                <td className={tdClass}>
+                  {cliente.dias_sin_comprar >= 999 ? (
+                    <span className="text-muted">—</span>
+                  ) : (
+                    <span className="font-medium text-ink">
+                      {cliente.dias_sin_comprar} día{cliente.dias_sin_comprar === 1 ? "" : "s"}
+                    </span>
+                  )}
                 </td>
                 <td className={tdClass}>
                   {saldo > 0 ? (

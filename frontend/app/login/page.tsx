@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff, Loader2, Lock, UserRound } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 type LoginResponse = {
@@ -11,8 +10,22 @@ type LoginResponse = {
   error?: string;
 };
 
+function resolveNextPath(): string {
+  const next = new URLSearchParams(window.location.search).get("next");
+
+  if (
+    !next ||
+    !next.startsWith("/") ||
+    next.startsWith("//") ||
+    next.includes("\\")
+  ) {
+    return "/";
+  }
+
+  return next;
+}
+
 export default function LoginPage() {
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -43,8 +56,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace("/");
-      router.refresh();
+      window.location.replace(resolveNextPath());
     } catch {
       setError("No se pudo conectar con el servidor.");
       setLoading(false);

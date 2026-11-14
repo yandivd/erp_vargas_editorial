@@ -17,6 +17,7 @@ type PageProps = {
     telefono?: string;
     deuda?: string;
     page?: string;
+    orden?: string;
   }>;
 };
 
@@ -29,6 +30,7 @@ export default async function ClientesPage({ searchParams }: PageProps) {
   const nombre = (params.nombre ?? "").trim();
   const telefono = (params.telefono ?? "").trim();
   const deuda = (params.deuda ?? "").trim();
+  const orden = (params.orden ?? "").trim();
   const parsedPage = Number(params.page ?? "1");
   const page =
     Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -43,6 +45,9 @@ export default async function ClientesPage({ searchParams }: PageProps) {
   }
   if (deuda) {
     query.set("deuda", deuda);
+  }
+  if (orden) {
+    query.set("orden", orden);
   }
 
   const result = await apiFetchEnvelope<ClientesData>(
@@ -86,6 +91,7 @@ export default async function ClientesPage({ searchParams }: PageProps) {
         initialNombre={nombre}
         initialTelefono={telefono}
         initialDeuda={deuda}
+        initialOrden={orden}
       />
 
       <section className="rounded-xl border border-line bg-white p-4 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.02)] md:p-6">
@@ -109,6 +115,7 @@ export default async function ClientesPage({ searchParams }: PageProps) {
                 nombre={nombre}
                 telefono={telefono}
                 deuda={deuda}
+                orden={orden}
               />
             ) : null}
           </>

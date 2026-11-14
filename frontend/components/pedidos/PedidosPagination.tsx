@@ -7,6 +7,7 @@ type PedidosPaginationProps = {
   search: string;
   estado: string;
   enTaller: boolean;
+  orden: string;
 };
 
 function hrefForPage(
@@ -14,6 +15,7 @@ function hrefForPage(
   search: string,
   estado: string,
   enTaller: boolean,
+  orden: string,
 ): string {
   const params = new URLSearchParams();
 
@@ -24,6 +26,9 @@ function hrefForPage(
     params.set("estado", estado);
   }
   params.set("en_taller", enTaller ? "true" : "false");
+  if (orden) {
+    params.set("orden", orden);
+  }
   if (page > 1) {
     params.set("page", String(page));
   }
@@ -44,6 +49,7 @@ export default function PedidosPagination({
   search,
   estado,
   enTaller,
+  orden,
 }: PedidosPaginationProps) {
   if (pagination.num_pages <= 1) {
     return (
@@ -74,7 +80,7 @@ export default function PedidosPagination({
       >
         {pagination.has_previous ? (
           <Link
-            href={hrefForPage(pagination.page - 1, search, estado, enTaller)}
+            href={hrefForPage(pagination.page - 1, search, estado, enTaller, orden)}
             className={linkClass}
             aria-label="Página anterior"
           >
@@ -99,7 +105,7 @@ export default function PedidosPagination({
                 </span>
               ) : (
                 <Link
-                  href={hrefForPage(page, search, estado, enTaller)}
+                  href={hrefForPage(page, search, estado, enTaller, orden)}
                   className={linkClass}
                 >
                   {page}
@@ -111,7 +117,7 @@ export default function PedidosPagination({
 
         {pagination.has_next ? (
           <Link
-            href={hrefForPage(pagination.page + 1, search, estado, enTaller)}
+            href={hrefForPage(pagination.page + 1, search, estado, enTaller, orden)}
             className={linkClass}
             aria-label="Página siguiente"
           >

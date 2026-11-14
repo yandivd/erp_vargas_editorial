@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import (
 )
 
 from . import views
+from .auth import AccessTokenRefreshView
 
 
 app_name = 'api_v1'
@@ -21,6 +22,11 @@ router.register(r'proveedores', views.ProveedorViewSetV1, basename='proveedores'
 urlpatterns = [
     path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path(
+        'auth/refresh-access/',
+        AccessTokenRefreshView.as_view(),
+        name='token_refresh_access',
+    ),
     path('auth/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('auth/me/', views.me, name='me'),
     path(

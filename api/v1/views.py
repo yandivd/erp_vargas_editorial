@@ -10,6 +10,7 @@ from django.db.models import (
     Sum,
     F,
     IntegerField,
+    Max,
     ProtectedError,
 )
 from django.db.models.functions import Cast
@@ -901,6 +902,29 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
     pagination_class = PedidoPagination
     queryset = Pedido.objects.select_related('cliente', 'libro', 'estado').all()
 
+    ORDENES = {
+        'ref_asc': (F('referencia_externa').asc(nulls_last=True), 'id'),
+        'ref_desc': (F('referencia_externa').desc(nulls_last=True), '-id'),
+        'cliente_asc': ('cliente__nombre', 'id'),
+        'cliente_desc': ('-cliente__nombre', '-id'),
+        'libro_asc': ('libro__titulo', 'id'),
+        'libro_desc': ('-libro__titulo', '-id'),
+        'estado_asc': ('estado__orden', 'estado__nombre', 'id'),
+        'estado_desc': ('-estado__orden', '-estado__nombre', '-id'),
+        'fecha_pedido_asc': ('fecha_pedido', 'id'),
+        'fecha_pedido_desc': ('-fecha_pedido', '-id'),
+        'entrega_asc': (
+            F('fecha_entrega_prometida').asc(nulls_last=True),
+            'id',
+        ),
+        'entrega_desc': (
+            F('fecha_entrega_prometida').desc(nulls_last=True),
+            '-id',
+        ),
+        'saldo_asc': (F('saldo_pendiente').asc(nulls_last=True), 'id'),
+        'saldo_desc': (F('saldo_pendiente').desc(nulls_last=True), '-id'),
+    }
+
     def get_serializer_class(self):
         if self.action in ('retrieve', 'cambiar_estado', 'registrar_anticipo'):
             return PedidoDetailV1Serializer
@@ -935,9 +959,9 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
             else:
                 queryset = queryset.filter(estado__nombre=estado)
 
+        orden = self.request.query_params.get('orden', 'ref_asc')
         return queryset.order_by(
-            F('referencia_externa').asc(nulls_last=True),
-            'id',
+            *self.ORDENES.get(orden, self.ORDENES['ref_asc'])
         )
 
     def create(self, request, *args, **kwargs):
@@ -1385,16 +1409,51 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
 
     ESTADOS_EXCLUIDOS = ('Entregado', 'Cancelado')
 
+    ORDENES = {
+        'nombre_asc': ('nombre', 'id'),
+        'nombre_desc': ('-nombre', '-id'),
+        'pedidos_asc': ('pedidos_totales', 'nombre'),
+        'pedidos_desc': ('-pedidos_totales', '-nombre'),
+        'ultimo_pedido_asc': (
+            F('ultimo_pedido_db').asc(nulls_last=True),
+            'nombre',
+        ),
+        'ultimo_pedido_desc': (
+            F('ultimo_pedido_db').desc(nulls_last=True),
+            'nombre',
+        ),
+        'dias_sin_comprar_asc': (
+            F('ultimo_pedido_db').desc(nulls_last=True),
+            'nombre',
+        ),
+        'dias_sin_comprar_desc': (
+            F('ultimo_pedido_db').asc(nulls_first=True),
+            'nombre',
+        ),
+        'saldo_asc': (
+            F('saldo_pendiente_total_db').asc(nulls_last=True),
+            'nombre',
+        ),
+        'saldo_desc': (
+            F('saldo_pendiente_total_db').desc(nulls_last=True),
+            '-nombre',
+        ),
+    }
+
     def get_queryset(self):
         return Cliente.objects.select_related('tarjeta_fidelidad').annotate(
             pedidos_totales=Count(
                 'pedidos',
                 distinct=True,
-                filter=~Q(pedidos__estado__nombre__in=self.ESTADOS_EXCLUIDOS),
+                filter=~Q(pedidos__estado__nombre='Cancelado'),
             ),
             saldo_pendiente_total_db=Sum(
                 'pedidos__saldo_pendiente',
                 filter=~Q(pedidos__estado__nombre__in=self.ESTADOS_EXCLUIDOS),
+            ),
+            ultimo_pedido_db=Max(
+                'pedidos__fecha_pedido',
+                filter=~Q(pedidos__estado__nombre='Cancelado'),
             ),
         ).order_by('nombre')
 
@@ -1416,13 +1475,9 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
         if search:
             queryset = queryset.filter(nombre__icontains=search)
 
-        if orden == 'nombre_desc':
-            return queryset.order_by('-nombre')
-        if orden == 'pedidos_desc':
-            return queryset.order_by('-pedidos_totales', '-nombre')
-        if orden == 'pedidos_asc':
-            return queryset.order_by('pedidos_totales', 'nombre')
-        return queryset.order_by('nombre')
+        return queryset.order_by(
+            *self.ORDENES.get(orden, self.ORDENES['nombre_asc'])
+        )
 
     def _per_page(self, request):
         try:
