@@ -9,7 +9,7 @@
     <!-- CABECERA -->
     <div class="etq-header">
         <!-- Quitamos el ?v=3 y el estilo en línea -->
-        <img src="{% static 'img/logo1.jpg' %}" alt="Logo" class="etq-logo">
+        <img src="{% static 'img/logo.png' %}" alt="Logo" class="etq-logo">
         
         <p class="etq-empresa">VARGAS EDITORIAL</p>
         <p class="etq-sub">TEL: +53 54545068</p>
@@ -78,6 +78,13 @@
             <span>${{ entrega.total_pendiente|floatformat:2 }}</span>
         </div>
     </div>
+
+    {% if qr_imagen %}
+    <div class="etq-qr">
+        <img src="{{ qr_imagen }}" alt="QR tarjeta cliente" class="etq-qr-img">
+        <p class="etq-qr-texto">Escanea para ver tu tarjeta de cliente</p>
+    </div>
+    {% endif %}
 
 </div>
 {% endblock %}

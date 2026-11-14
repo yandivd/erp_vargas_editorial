@@ -30,6 +30,7 @@ from .services import (
 )
 from clientes.models import Cliente
 from clientes.services import ServicioFidelidad
+from erp.utils.qr import generar_qr_base64
 from finanzas.services import ServicioFinanzas
 from finanzas.models import MovimientoCaja
 
@@ -1089,10 +1090,14 @@ def detalle_entrega(request, pk):
 def imprimir_entrega(request, pk):
     entrega = get_object_or_404(Entrega, pk=pk)
     pedidos = entrega.pedidos.select_related('libro', 'cliente').all()
+    tarjeta = ServicioFidelidad.obtener_tarjeta(entrega.cliente)
+    qr_imagen = generar_qr_base64(tarjeta.token if tarjeta else None)
 
     return render(request, 'pedidos/imprimir_entrega.html', {
         'entrega': entrega,
+        'entregas': [entrega],
         'pedidos': pedidos,
+        'qr_imagen': qr_imagen,
     })
 
 
@@ -1124,11 +1129,15 @@ def imprimir_entrega_carta(request, pk):
     pedidos = entrega.pedidos.select_related('libro', 'cliente').all()
 
     total_descuento = sum(p.descuento_aplicado for p in pedidos)
-    
+
+    tarjeta = ServicioFidelidad.obtener_tarjeta(entrega.cliente)
+    qr_imagen = generar_qr_base64(tarjeta.token if tarjeta else None)
+
     return render(request, 'pedidos/imprimir_entrega_carta.html', {
-        'entrega': entrega, 
+        'entrega': entrega,
         'pedidos': pedidos,
-        'total_descuento': total_descuento
+        'total_descuento': total_descuento,
+        'qr_imagen': qr_imagen,
     })
 
 def lista_tienda(request):

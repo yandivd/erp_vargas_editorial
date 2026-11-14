@@ -40,6 +40,11 @@ DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+FRONTEND_URL = os.environ.get(
+    'FRONTEND_URL',
+    'https://erp-vargas-editorial.vercel.app',
+)
+
 
 # Application definition
 
