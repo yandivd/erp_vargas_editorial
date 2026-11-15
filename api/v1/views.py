@@ -1052,6 +1052,7 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                 descuento_bono = ServicioFidelidad.aplicar_bono(
                     cliente,
                     bono_solicitado,
+                    pedido=pedido,
                 )
                 if descuento_bono != bono_solicitado:
                     transaction.set_rollback(True)

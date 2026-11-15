@@ -1,11 +1,11 @@
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.db.models import Avg, Count, F, Max, OuterRef, Q, Subquery, Sum
+from django.db.models import Avg, Count, F, Max, Min, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import ExtractHour, ExtractWeekDay, TruncMonth, TruncWeek
 from django.utils import timezone
 
-from clientes.models import Cliente, TarjetaFidelidad
+from clientes.models import Cliente, EventoFidelidad, TarjetaFidelidad
 from clientes.services import ServicioFidelidad
 from finanzas.models import ActivoFijo, LoteDivisa, MovimientoCaja
 from inventario.models import Material, MovimientoInventario
@@ -1100,6 +1100,60 @@ def dashboard_fidelidad(desde=None, hasta=None):
     total_pedidos_activos = pedidos_activos.count()
     total_pedidos_inactivos = pedidos_inactivos.count()
 
+    eventos_qs = EventoFidelidad.objects.all()
+    tarjetas_convertidas = (
+        eventos_qs.filter(tipo=EventoFidelidad.Tipo.OTORGAMIENTO)
+        .values('tarjeta_id')
+        .distinct()
+        .count()
+    )
+    tasa_conversion_bono = (
+        (tarjetas_convertidas / tarjetas_total * 100) if tarjetas_total else 0
+    )
+
+    monto_bono_otorgado = (
+        eventos_qs.filter(tipo=EventoFidelidad.Tipo.OTORGAMIENTO)
+        .aggregate(total=Sum('cantidad'))['total'] or 0
+    )
+    monto_bono_canjeado = (
+        eventos_qs.filter(tipo=EventoFidelidad.Tipo.CANJE)
+        .aggregate(total=Sum('cantidad'))['total'] or 0
+    )
+    tasa_canje = (
+        (monto_bono_canjeado / monto_bono_otorgado * 100)
+        if monto_bono_otorgado
+        else 0
+    )
+
+    primeros_bonos = (
+        eventos_qs.filter(tipo=EventoFidelidad.Tipo.OTORGAMIENTO)
+        .values('tarjeta_id')
+        .annotate(primera=Min('fecha'))
+    )
+    fechas_creacion = dict(
+        TarjetaFidelidad.objects.values_list('id', 'fecha_creacion')
+    )
+    dias_hasta_bono = [
+        (fila['primera'] - fechas_creacion[fila['tarjeta_id']]).total_seconds()
+        / 86400
+        for fila in primeros_bonos
+        if fila['primera'] and fila['tarjeta_id'] in fechas_creacion
+    ]
+    tiempo_medio_bono = (
+        sum(dias_hasta_bono) / len(dias_hasta_bono) if dias_hasta_bono else 0
+    )
+
+    bonos_otorgados = eventos_qs.filter(
+        tipo=EventoFidelidad.Tipo.OTORGAMIENTO
+    ).count()
+    eventos_expiracion = eventos_qs.filter(
+        tipo=EventoFidelidad.Tipo.EXPIRACION
+    ).count()
+    sellos_expirados = (
+        eventos_qs.filter(tipo=EventoFidelidad.Tipo.EXPIRACION)
+        .aggregate(total=Sum('cantidad'))['total'] or 0
+    )
+
     def _ingresos_ultimos(dias):
         inicio = hoy - timedelta(days=dias)
         return (
@@ -1174,31 +1228,6 @@ def dashboard_fidelidad(desde=None, hasta=None):
         )
     ]
 
-    # TODO: conversión a bono, tasa de canje, tiempo medio y sellos expirados
-    # requieren un modelo EventoFidelidad que registre cada cambio de sellos/bono.
-    no_disponibles = [
-        {
-            'id': 'tasa_conversion_bono',
-            'label': 'Tasa de conversión a bono',
-            'motivo': 'Requiere registrar cuándo cada tarjeta alcanza la meta.',
-        },
-        {
-            'id': 'tasa_canje',
-            'label': 'Tasa de canje',
-            'motivo': 'Solo se conoce el bono canjeado; falta el historial de bonos otorgados.',
-        },
-        {
-            'id': 'tiempo_medio_bono',
-            'label': 'Tiempo medio hasta el bono',
-            'motivo': 'Requiere la fecha en que se otorgó cada bono.',
-        },
-        {
-            'id': 'sellos_expirados',
-            'label': 'Sellos expirados',
-            'motivo': 'Requiere registrar las expiraciones, no solo el saldo actual.',
-        },
-    ]
-
     adopcion = (tarjetas_total / total_clientes * 100) if total_clientes else 0
 
     return {
@@ -1227,6 +1256,15 @@ def dashboard_fidelidad(desde=None, hasta=None):
             'pedidos_con_bono': pedidos_con_bono,
             'clientes_en_riesgo': clientes_en_riesgo,
             'clientes_por_expirar': clientes_por_expirar,
+            'tasa_conversion_bono': round(tasa_conversion_bono, 1),
+            'tarjetas_convertidas': tarjetas_convertidas,
+            'tasa_canje': round(tasa_canje, 1),
+            'monto_bono_otorgado': float(monto_bono_otorgado),
+            'monto_bono_canjeado': float(monto_bono_canjeado),
+            'tiempo_medio_bono': round(tiempo_medio_bono, 1),
+            'bonos_otorgados': bonos_otorgados,
+            'sellos_expirados': int(sellos_expirados),
+            'eventos_expiracion': eventos_expiracion,
         },
         'distribucion_sellos': distribucion_sellos,
         'composicion_ingresos': [
@@ -1249,7 +1287,6 @@ def dashboard_fidelidad(desde=None, hasta=None):
         'clientes_riesgo_lista': clientes_riesgo_lista,
         'tarjetas_destacadas': tarjetas_destacadas,
         'bonos_pendientes_lista': bonos_pendientes_lista,
-        'no_disponibles': no_disponibles,
     }
 
 

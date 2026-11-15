@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Cliente, TarjetaFidelidad
+from .models import Cliente, EventoFidelidad, TarjetaFidelidad
 
 
 @admin.register(Cliente)
@@ -25,3 +25,12 @@ class TarjetaFidelidadAdmin(admin.ModelAdmin):
         'fecha_creacion',
         'fecha_actualizacion',
     )
+
+
+@admin.register(EventoFidelidad)
+class EventoFidelidadAdmin(admin.ModelAdmin):
+    list_display = ('fecha', 'tarjeta', 'tipo', 'cantidad', 'pedido')
+    list_filter = ('tipo',)
+    search_fields = ('tarjeta__cliente__nombre', 'tarjeta__cliente__telefono')
+    readonly_fields = ('fecha',)
+    date_hierarchy = 'fecha'

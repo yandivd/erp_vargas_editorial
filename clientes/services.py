@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from core.models import Parametro
 
-from .models import TarjetaFidelidad
+from .models import EventoFidelidad, TarjetaFidelidad
 
 
 class ServicioFidelidad:
@@ -52,21 +52,28 @@ class ServicioFidelidad:
         if tarjeta.fecha_ultima_compra > limite:
             return False
 
-        tarjeta.sellos = 0
-        tarjeta.save(update_fields=['sellos', 'fecha_actualizacion'])
+        sellos_expirados = tarjeta.sellos
+        with transaction.atomic():
+            tarjeta.sellos = 0
+            tarjeta.save(update_fields=['sellos', 'fecha_actualizacion'])
+            EventoFidelidad.objects.create(
+                tarjeta=tarjeta,
+                tipo=EventoFidelidad.Tipo.EXPIRACION,
+                cantidad=sellos_expirados,
+            )
         return True
 
     @classmethod
     def expirar_tarjetas_inactivas(cls):
         limite = timezone.now() - timedelta(days=cls._dias_expiracion())
-        return TarjetaFidelidad.objects.filter(
-            sellos__gt=0,
-            fecha_ultima_compra__isnull=False,
-            fecha_ultima_compra__lte=limite,
-        ).update(
-            sellos=0,
-            fecha_actualizacion=timezone.now(),
+        tarjetas = list(
+            TarjetaFidelidad.objects.filter(
+                sellos__gt=0,
+                fecha_ultima_compra__isnull=False,
+                fecha_ultima_compra__lte=limite,
+            )
         )
+        return sum(1 for tarjeta in tarjetas if cls._expirar_sellos(tarjeta))
 
     @classmethod
     def obtener_tarjeta(cls, cliente, crear=True):
@@ -123,10 +130,12 @@ class ServicioFidelidad:
             cls._expirar_sellos(tarjeta)
 
             tarjeta.fecha_ultima_compra = timezone.now()
+            bono_otorgado = False
             if tarjeta.sellos < meta:
                 tarjeta.sellos = min(meta, tarjeta.sellos + cantidad)
                 if tarjeta.sellos >= meta:
                     tarjeta.bono_saldo = tarjeta.bono_saldo + bono
+                    bono_otorgado = True
             tarjeta.save(
                 update_fields=[
                     'sellos',
@@ -136,13 +145,21 @@ class ServicioFidelidad:
                 ],
             )
 
+            if bono_otorgado:
+                EventoFidelidad.objects.create(
+                    tarjeta=tarjeta,
+                    tipo=EventoFidelidad.Tipo.OTORGAMIENTO,
+                    cantidad=bono,
+                    pedido=pedido,
+                )
+
             pedido.sellos_fidelidad_otorgados = True
             pedido.save(update_fields=['sellos_fidelidad_otorgados'])
 
         return tarjeta
 
     @classmethod
-    def aplicar_bono(cls, cliente, monto):
+    def aplicar_bono(cls, cliente, monto, pedido=None):
         try:
             monto = Decimal(str(monto or 0))
         except (InvalidOperation, TypeError, ValueError):
@@ -164,6 +181,12 @@ class ServicioFidelidad:
             tarjeta.sellos = 0
             tarjeta.save(
                 update_fields=['bono_saldo', 'sellos', 'fecha_actualizacion'],
+            )
+            EventoFidelidad.objects.create(
+                tarjeta=tarjeta,
+                tipo=EventoFidelidad.Tipo.CANJE,
+                cantidad=descuento,
+                pedido=pedido,
             )
 
         return descuento

@@ -154,3 +154,48 @@ class TarjetaFidelidad(models.Model):
 
     def __str__(self):
         return f'{self.cliente.nombre} - {self.sellos} sellos'
+
+
+class EventoFidelidad(models.Model):
+    class Tipo(models.TextChoices):
+        OTORGAMIENTO = 'OTORGAMIENTO', 'Bono otorgado'
+        CANJE = 'CANJE', 'Bono canjeado'
+        EXPIRACION = 'EXPIRACION', 'Sellos expirados'
+
+    tarjeta = models.ForeignKey(
+        TarjetaFidelidad,
+        on_delete=models.CASCADE,
+        related_name='eventos',
+        verbose_name='Tarjeta',
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=Tipo.choices,
+        verbose_name='Tipo',
+    )
+    cantidad = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name='Cantidad',
+    )
+    pedido = models.ForeignKey(
+        'pedidos.Pedido',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='eventos_fidelidad',
+        verbose_name='Pedido',
+    )
+    fecha = models.DateTimeField(auto_now_add=True, verbose_name='Fecha')
+
+    class Meta:
+        verbose_name = 'Evento de fidelidad'
+        verbose_name_plural = 'Eventos de fidelidad'
+        ordering = ['-fecha', '-id']
+
+    def __str__(self):
+        return (
+            f'{self.tarjeta.cliente.nombre} - {self.get_tipo_display()} '
+            f'({self.cantidad})'
+        )

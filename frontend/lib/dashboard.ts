@@ -290,6 +290,15 @@ export type FidelidadKpis = {
   pedidos_con_bono: number;
   clientes_en_riesgo: number;
   clientes_por_expirar: number;
+  tasa_conversion_bono: number;
+  tarjetas_convertidas: number;
+  tasa_canje: number;
+  monto_bono_otorgado: number;
+  monto_bono_canjeado: number;
+  tiempo_medio_bono: number;
+  bonos_otorgados: number;
+  sellos_expirados: number;
+  eventos_expiracion: number;
 };
 
 export type DistribucionSellos = {
@@ -334,12 +343,6 @@ export type TarjetaFidelidadResumen = {
   meta: number;
 };
 
-export type KpiFidelidadNoDisponible = {
-  id: string;
-  label: string;
-  motivo: string;
-};
-
 export type DashboardFidelidad = {
   kpis: FidelidadKpis;
   distribucion_sellos: DistribucionSellos[];
@@ -349,7 +352,6 @@ export type DashboardFidelidad = {
   clientes_riesgo_lista: ClienteFidelidadRiesgo[];
   tarjetas_destacadas: TarjetaFidelidadResumen[];
   bonos_pendientes_lista: TarjetaFidelidadResumen[];
-  no_disponibles: KpiFidelidadNoDisponible[];
 };
 
 export type DashboardData =

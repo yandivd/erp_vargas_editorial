@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   BarChart3,
   Gift,
-  Info,
   LineChart,
   PieChart,
   Stamp,
@@ -137,7 +136,9 @@ export default function FidelidadTab({ data }: { data: DashboardFidelidad }) {
         pedidos, ingresos del período y bonos canjeados respetan el filtro de
         fechas. Se comparan clientes activos (con sellos o bono) contra
         inactivos (tarjeta vacía). Las ventanas de 30/90 días son fijas y los
-        datos de tarjetas (adopción, sellos y saldo) son una foto actual.{" "}
+        datos de tarjetas (adopción, sellos y saldo) son una foto actual. Las
+        métricas de conversión, canje, tiempo hasta el bono y sellos expirados
+        se calculan sobre todo el historial de eventos.{" "}
         <Link
           href="/fidelidad"
           className="font-semibold text-brand hover:underline"
@@ -227,6 +228,45 @@ export default function FidelidadTab({ data }: { data: DashboardFidelidad }) {
           tone="pink"
         />
       </div>
+
+      <SectionCard
+        className="mb-4"
+        title="Conversión y canje"
+        icon={<Gift className="h-5 w-5 text-emerald-600" aria-hidden="true" />}
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard
+            label="Tasa de conversión a bono"
+            value={`${Number(kpis.tasa_conversion_bono).toFixed(1)}%`}
+            sub={`${integer(kpis.tarjetas_convertidas)} de ${integer(
+              kpis.tarjetas_total,
+            )} tarjetas`}
+            tone="emerald"
+            valueClassName="text-emerald-600"
+          />
+          <KpiCard
+            label="Tasa de canje"
+            value={`${Number(kpis.tasa_canje).toFixed(1)}%`}
+            sub={`${money(kpis.monto_bono_canjeado)} de ${money(
+              kpis.monto_bono_otorgado,
+            )}`}
+            tone="pink"
+          />
+          <KpiCard
+            label="Tiempo medio hasta el bono"
+            value={`${number(kpis.tiempo_medio_bono)} días`}
+            sub={`${integer(kpis.bonos_otorgados)} bonos otorgados`}
+            tone="blue"
+          />
+          <KpiCard
+            label="Sellos expirados"
+            value={integer(kpis.sellos_expirados)}
+            sub={`${integer(kpis.eventos_expiracion)} expiraciones`}
+            tone="red"
+            valueClassName="text-red-500"
+          />
+        </div>
+      </SectionCard>
 
       <div className="mb-4 grid gap-3 md:grid-cols-12">
         <SectionCard
@@ -345,33 +385,6 @@ export default function FidelidadTab({ data }: { data: DashboardFidelidad }) {
           tarjetas={data.tarjetas_destacadas}
           emptyMessage="Sin tarjetas registradas"
         />
-      </SectionCard>
-
-      {/* TODO: estas métricas se desbloquean con un modelo EventoFidelidad. */}
-      <SectionCard
-        title="Métricas pendientes de instrumentación"
-        icon={<Info className="h-5 w-5 text-slate-500" aria-hidden="true" />}
-      >
-        <p className="mb-3 text-sm text-muted">
-          Requieren registrar cada evento de fidelidad (otorgamiento, canje y
-          expiración) para poder calcularlas con exactitud.
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {data.no_disponibles.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 opacity-80"
-            >
-              <div className="text-sm font-bold text-slate-700">
-                {item.label}
-              </div>
-              <p className="mt-1 text-xs text-muted">{item.motivo}</p>
-              <div className="mt-2 inline-flex rounded-full bg-slate-200 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-slate-600">
-                No disponible
-              </div>
-            </div>
-          ))}
-        </div>
       </SectionCard>
     </>
   );

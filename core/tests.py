@@ -6,7 +6,8 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from clientes.models import Cliente, TarjetaFidelidad
+from clientes.models import Cliente, EventoFidelidad, TarjetaFidelidad
+from clientes.services import ServicioFidelidad
 from core.models import Parametro
 from core.services import dashboard_fidelidad
 from pedidos.models import Book, Estado, Pedido
@@ -160,3 +161,115 @@ class DashboardFidelidadApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data['ok'])
         self.assertIn('kpis', response.data['data'])
+
+
+class EventoFidelidadTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.estado = Estado.objects.create(nombre='Entregado', es_final=True)
+        cls.libro = Book.objects.create(
+            titulo='Libro de prueba',
+            paginas=100,
+            precio=Decimal('1000'),
+        )
+        Parametro.objects.update_or_create(
+            clave='fidelidad_sellos_meta',
+            defaults={'valor': 2, 'descripcion': 'test'},
+        )
+        Parametro.objects.update_or_create(
+            clave='fidelidad_bono_monto',
+            defaults={'valor': 100, 'descripcion': 'test'},
+        )
+        Parametro.objects.update_or_create(
+            clave='fidelidad_dias_expiracion',
+            defaults={'valor': 30, 'descripcion': 'test'},
+        )
+
+    def _pedido(self, cliente, cantidad=1):
+        return Pedido.objects.create(
+            cliente=cliente,
+            libro=self.libro,
+            estado=self.estado,
+            cantidad=cantidad,
+            precio_venta=Decimal('1000'),
+        )
+
+    def test_otorgamiento_al_alcanzar_la_meta(self):
+        cliente = Cliente.objects.create(nombre='Cliente')
+        pedido = self._pedido(cliente, cantidad=2)
+
+        ServicioFidelidad.registrar_compra(pedido)
+
+        tarjeta = cliente.tarjeta_fidelidad
+        self.assertEqual(tarjeta.sellos, 2)
+        self.assertEqual(tarjeta.bono_saldo, Decimal('100'))
+        evento = EventoFidelidad.objects.get(
+            tipo=EventoFidelidad.Tipo.OTORGAMIENTO,
+        )
+        self.assertEqual(evento.tarjeta_id, tarjeta.id)
+        self.assertEqual(evento.cantidad, Decimal('100'))
+        self.assertEqual(evento.pedido_id, pedido.id)
+
+    def test_canje_crea_evento(self):
+        cliente = Cliente.objects.create(nombre='Cliente')
+        TarjetaFidelidad.objects.create(
+            cliente=cliente,
+            sellos=2,
+            bono_saldo=Decimal('100'),
+        )
+        pedido = self._pedido(cliente)
+
+        descuento = ServicioFidelidad.aplicar_bono(
+            cliente,
+            Decimal('40'),
+            pedido=pedido,
+        )
+
+        self.assertEqual(descuento, Decimal('40'))
+        evento = EventoFidelidad.objects.get(tipo=EventoFidelidad.Tipo.CANJE)
+        self.assertEqual(evento.cantidad, Decimal('40'))
+        self.assertEqual(evento.pedido_id, pedido.id)
+
+    def test_expiracion_crea_evento(self):
+        cliente = Cliente.objects.create(nombre='Cliente')
+        tarjeta = TarjetaFidelidad.objects.create(
+            cliente=cliente,
+            sellos=3,
+            fecha_ultima_compra=timezone.now() - timedelta(days=31),
+        )
+
+        self.assertTrue(ServicioFidelidad._expirar_sellos(tarjeta))
+
+        evento = EventoFidelidad.objects.get(
+            tipo=EventoFidelidad.Tipo.EXPIRACION,
+        )
+        self.assertEqual(evento.cantidad, Decimal('3'))
+        tarjeta.refresh_from_db()
+        self.assertEqual(tarjeta.sellos, 0)
+
+    def test_metricas_de_conversion_y_canje(self):
+        cliente = Cliente.objects.create(nombre='Cliente')
+        pedido = self._pedido(cliente, cantidad=2)
+        ServicioFidelidad.registrar_compra(pedido)
+        ServicioFidelidad.aplicar_bono(cliente, Decimal('40'), pedido=pedido)
+
+        cliente_expirado = Cliente.objects.create(nombre='Expirado')
+        TarjetaFidelidad.objects.create(
+            cliente=cliente_expirado,
+            sellos=5,
+            fecha_ultima_compra=timezone.now() - timedelta(days=31),
+        )
+        ServicioFidelidad.expirar_tarjetas_inactivas()
+
+        data = dashboard_fidelidad()
+        kpis = data['kpis']
+
+        self.assertEqual(kpis['tarjetas_total'], 2)
+        self.assertEqual(kpis['tarjetas_convertidas'], 1)
+        self.assertEqual(kpis['tasa_conversion_bono'], 50.0)
+        self.assertEqual(kpis['bonos_otorgados'], 1)
+        self.assertEqual(kpis['monto_bono_otorgado'], 100.0)
+        self.assertEqual(kpis['monto_bono_canjeado'], 40.0)
+        self.assertEqual(kpis['tasa_canje'], 40.0)
+        self.assertEqual(kpis['eventos_expiracion'], 1)
+        self.assertEqual(kpis['sellos_expirados'], 5)
