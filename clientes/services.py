@@ -108,6 +108,8 @@ class ServicioFidelidad:
             return None
         if getattr(pedido, 'sellos_fidelidad_otorgados', False):
             return None
+        if getattr(pedido, 'bono_fidelidad_aplicado', 0) > 0:
+            return None
 
         meta = cls._meta()
         bono = cls._bono()
