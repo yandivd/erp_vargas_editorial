@@ -703,7 +703,10 @@ export default function NuevoPedidoModal() {
       setSubmitError("Si creas un libro nuevo, indica título y páginas.");
       return;
     }
-    if (!Number(precioVenta) || Number(precioVenta) <= 0) {
+    const precioFinal = Number(precioVenta) || 0;
+    const descuentoOcupaPrecio = bonoActivo || descuentoActivo;
+
+    if (precioFinal <= 0 && !descuentoOcupaPrecio) {
       setSubmitError("El precio de venta debe ser mayor a 0.");
       return;
     }
