@@ -1,4 +1,5 @@
 import { AlertTriangle, Package, SearchX } from "lucide-react";
+import AjusteStockModal from "@/components/inventario/AjusteStockModal";
 import HistorialModal from "@/components/inventario/HistorialModal";
 import MovimientoModal from "@/components/inventario/MovimientoModal";
 import SalidaRapidaModal from "@/components/inventario/SalidaRapidaModal";
@@ -149,6 +150,7 @@ export default async function InventarioPage({
                       </td>
                       <td className={`${tdClass} text-right`}>
                         <div className="flex flex-wrap justify-end gap-2">
+                          <AjusteStockModal material={material} />
                           <SalidaRapidaModal material={material} />
                           <HistorialModal material={material} />
                         </div>

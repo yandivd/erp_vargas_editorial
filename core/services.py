@@ -34,6 +34,13 @@ CATEGORIAS_NO_EGRESO_OPERATIVO = [
     CATEGORIA_VUELTO_CLIENTE,
 ]
 
+CATEGORIAS_NO_GASTO_OPERATIVO = [
+    *CATEGORIAS_NO_EGRESO_OPERATIVO,
+    'COMPRA_MATERIAL',
+]
+
+CATEGORIA_ANTICIPO_CLIENTE = 'ANTICIPO_CLIENTE'
+
 Q_APERTURA = (
     Q(categoria__in=['SALDO_INICIAL', 'APERTURA'])
     | Q(categoria='OTRO', concepto__icontains='saldo inicial')
@@ -42,6 +49,12 @@ Q_APERTURA = (
 Q_TRANSFERENCIA = Q(categoria__in=CATEGORIAS_TRANSFERENCIA)
 Q_NO_INGRESO_OPERATIVO = Q(categoria__in=CATEGORIAS_NO_INGRESO) | Q_APERTURA
 Q_NO_EGRESO_OPERATIVO = Q(categoria__in=CATEGORIAS_NO_EGRESO_OPERATIVO)
+Q_NO_GASTO_OPERATIVO = Q(categoria__in=CATEGORIAS_NO_GASTO_OPERATIVO)
+# Los anticipos de pedidos no son ingreso hasta que el pedido se entrega.
+Q_INGRESO_DIFERIDO = Q(
+    categoria=CATEGORIA_ANTICIPO_CLIENTE,
+    pedido__isnull=False,
+)
 
 ESTADOS_PEDIDO_INACTIVO = ['Borrador', 'Cancelado', 'En Stock']
 
@@ -119,6 +132,30 @@ def movimientos_financieros(desde=None, hasta=None, moneda=None):
     return movimientos_caja(inicio, hasta, moneda)
 
 
+def consumos_inventario(desde=None, hasta=None):
+    """Salidas de inventario del período: gasto por consumo, no flujo de caja."""
+    qs = MovimientoInventario.objects.filter(tipo='SALIDA')
+    inicio = max(FECHA_CORTE_FINANCIERO, desde) if desde else FECHA_CORTE_FINANCIERO
+    qs = qs.filter(fecha__date__gte=inicio)
+    if hasta:
+        qs = qs.filter(fecha__date__lte=hasta)
+    return qs
+
+
+def anticipos_reconocidos(desde=None, hasta=None):
+    """Anticipos que pasan a ingreso porque el pedido ya fue entregado."""
+    inicio = max(FECHA_CORTE_FINANCIERO, desde) if desde else FECHA_CORTE_FINANCIERO
+    qs = MovimientoCaja.objects.filter(
+        tipo='INGRESO',
+        categoria=CATEGORIA_ANTICIPO_CLIENTE,
+        pedido__isnull=False,
+        pedido__fecha_entrega_real__date__gte=inicio,
+    ).exclude(pedido__estado__nombre__in=['Cancelado', 'Borrador'])
+    if hasta:
+        qs = qs.filter(pedido__fecha_entrega_real__date__lte=hasta)
+    return qs
+
+
 def pedidos_financieros(desde=None, hasta=None):
     inicio = max(FECHA_CORTE_FINANCIERO, desde) if desde else FECHA_CORTE_FINANCIERO
     qs = Pedido.objects.filter(
@@ -190,17 +227,35 @@ def _sumar_vuelto(qs):
     )
 
 
-def resumen_monedas(desde=None, hasta=None):
+def resumen_monedas(
+    desde=None,
+    hasta=None,
+    consumo_cup=Decimal('0'),
+    anticipos_diferidos_cup=Decimal('0'),
+    anticipos_diferidos_usd=Decimal('0'),
+):
     tasa, advertencia = tasa_cambio()
     movs = movimientos_financieros(desde, hasta)
+    consumo_cup = Decimal(str(consumo_cup or 0))
+    anticipos_diferidos = {
+        'CUP': Decimal(str(anticipos_diferidos_cup or 0)),
+        'USD': Decimal(str(anticipos_diferidos_usd or 0)),
+    }
 
     datos = {}
     for moneda in ('CUP', 'USD'):
         movs_moneda = movs.filter(moneda=moneda)
-        ingresos_brutos = _sumar(movs_moneda, 'INGRESO', Q_NO_INGRESO_OPERATIVO)
+        ingresos_brutos = _sumar(
+            movs_moneda,
+            'INGRESO',
+            Q_NO_INGRESO_OPERATIVO | Q_INGRESO_DIFERIDO,
+        )
+        ingresos_brutos += anticipos_diferidos[moneda]
         vuelto_clientes = _sumar_vuelto(movs_moneda)
         ingresos = ingresos_brutos - vuelto_clientes
-        gastos = _sumar(movs_moneda, 'EGRESO', Q_NO_EGRESO_OPERATIVO)
+        gastos = _sumar(movs_moneda, 'EGRESO', Q_NO_GASTO_OPERATIVO)
+        if moneda == 'CUP':
+            gastos += consumo_cup
         flujo_ingresos = _sumar(movs_moneda, 'INGRESO', Q_TRANSFERENCIA | Q_APERTURA)
         flujo_egresos = _sumar(movs_moneda, 'EGRESO', Q_TRANSFERENCIA)
         datos[moneda] = {
@@ -251,7 +306,26 @@ def resumen_monedas(desde=None, hasta=None):
 def dashboard_resumen(desde=None, hasta=None):
     hoy = timezone.localdate()
     tasa, advertencia = tasa_cambio()
-    monedas = resumen_monedas(desde, hasta)
+    consumos = consumos_inventario(desde, hasta)
+    costo_consumo_cup = (
+        consumos.aggregate(t=Sum('costo_total'))['t'] or Decimal('0')
+    )
+    anticipos_dif = anticipos_reconocidos(desde, hasta)
+    anticipos_dif_cup = (
+        anticipos_dif.filter(moneda='CUP').aggregate(t=Sum('monto'))['t']
+        or Decimal('0')
+    )
+    anticipos_dif_usd = (
+        anticipos_dif.filter(moneda='USD').aggregate(t=Sum('monto'))['t']
+        or Decimal('0')
+    )
+    monedas = resumen_monedas(
+        desde,
+        hasta,
+        costo_consumo_cup,
+        anticipos_dif_cup,
+        anticipos_dif_usd,
+    )
     pasivos = pasivos_operativos()
 
     pedidos = pedidos_financieros(desde, hasta)
@@ -309,7 +383,7 @@ def dashboard_resumen(desde=None, hasta=None):
 
     desglose = (
         movs.filter(tipo='INGRESO', moneda='CUP')
-        .exclude(Q_NO_INGRESO_OPERATIVO)
+        .exclude(Q_NO_INGRESO_OPERATIVO | Q_INGRESO_DIFERIDO)
         .values('categoria')
         .annotate(total=Sum('monto'))
         .order_by('-total')
@@ -321,10 +395,16 @@ def dashboard_resumen(desde=None, hasta=None):
         }
         for d in desglose
     ]
+    if anticipos_dif_cup > 0:
+        desglose_data.append({
+            'categoria': 'Anticipos reconocidos al entregar',
+            'total': float(anticipos_dif_cup),
+        })
+        desglose_data.sort(key=lambda item: item['total'], reverse=True)
 
     gastos_desglose = (
         movs.filter(tipo='EGRESO', moneda='CUP')
-        .exclude(Q_NO_EGRESO_OPERATIVO)
+        .exclude(Q_NO_GASTO_OPERATIVO)
         .values('categoria')
         .annotate(total=Sum('monto'))
         .order_by('-total')
@@ -338,15 +418,16 @@ def dashboard_resumen(desde=None, hasta=None):
         }
         for d in gastos_desglose
     ]
+    if costo_consumo_cup > 0:
+        categorias_gastos_data.append({
+            'categoria': 'Consumo de material',
+            'total': float(costo_consumo_cup),
+        })
+        categorias_gastos_data.sort(
+            key=lambda item: item['total'], reverse=True
+        )
 
-    consumos = MovimientoInventario.objects.filter(tipo='SALIDA')
-    if desde:
-        consumos = consumos.filter(fecha__date__gte=max(FECHA_CORTE_FINANCIERO, desde))
-    else:
-        consumos = consumos.filter(fecha__date__gte=FECHA_CORTE_FINANCIERO)
-    if hasta:
-        consumos = consumos.filter(fecha__date__lte=hasta)
-    consumos = (
+    consumos_agrupados = (
         consumos.values('material__nombre', 'material__unidad_medida')
         .annotate(cantidad=Sum('cantidad'), costo_total=Sum('costo_total'))
         .order_by('-costo_total')
@@ -359,7 +440,7 @@ def dashboard_resumen(desde=None, hasta=None):
             'costo_total': float(c['costo_total'] or 0),
             'costo_unitario': float((c['costo_total'] or 0) / c['cantidad']) if c['cantidad'] else 0,
         }
-        for c in consumos
+        for c in consumos_agrupados
     ]
 
     tendencia = (
@@ -368,7 +449,10 @@ def dashboard_resumen(desde=None, hasta=None):
         .values('mes')
         .annotate(
             ingresos_brutos=Sum(
-                'monto', filter=Q(tipo='INGRESO') & ~Q_NO_INGRESO_OPERATIVO
+                'monto',
+                filter=Q(tipo='INGRESO')
+                & ~Q_NO_INGRESO_OPERATIVO
+                & ~Q_INGRESO_DIFERIDO,
             ),
             vuelto_clientes=Sum(
                 'monto',
@@ -377,23 +461,65 @@ def dashboard_resumen(desde=None, hasta=None):
             ),
             gastos=Sum(
                 'monto',
-                filter=Q(tipo='EGRESO') & ~Q_NO_EGRESO_OPERATIVO,
+                filter=Q(tipo='EGRESO') & ~Q_NO_GASTO_OPERATIVO,
             ),
         )
         .order_by('mes')
     )
+    consumo_mensual = (
+        consumos.annotate(mes=TruncMonth('fecha'))
+        .values('mes')
+        .annotate(total=Sum('costo_total'))
+    )
+    consumo_por_mes = {
+        item['mes']: item['total'] or Decimal('0')
+        for item in consumo_mensual
+        if item['mes']
+    }
+    anticipo_mensual = (
+        anticipos_dif.filter(moneda='CUP')
+        .annotate(mes=TruncMonth('pedido__fecha_entrega_real'))
+        .values('mes')
+        .annotate(total=Sum('monto'))
+    )
+    anticipo_por_mes = {
+        item['mes']: item['total'] or Decimal('0')
+        for item in anticipo_mensual
+        if item['mes']
+    }
+    tendencia_por_mes = {
+        item['mes']: item for item in tendencia if item['mes']
+    }
+    for mes in set(consumo_por_mes) | set(anticipo_por_mes):
+        if mes not in tendencia_por_mes:
+            tendencia_por_mes[mes] = {
+                'mes': mes,
+                'ingresos_brutos': Decimal('0'),
+                'vuelto_clientes': Decimal('0'),
+                'gastos': Decimal('0'),
+            }
     tendencia_data = [
         {
-            'mes': t['mes'].strftime('%b %Y'),
-            'ingresos_brutos': float(t['ingresos_brutos'] or 0),
-            'vuelto_clientes': float(t['vuelto_clientes'] or 0),
-            'ingresos': float(
-                (t['ingresos_brutos'] or 0) - (t['vuelto_clientes'] or 0)
+            'mes': item['mes'].strftime('%b %Y'),
+            'ingresos_brutos': float(
+                (item['ingresos_brutos'] or 0)
+                + anticipo_por_mes.get(item['mes'], Decimal('0'))
             ),
-            'gastos': float(t['gastos'] or 0),
+            'vuelto_clientes': float(item['vuelto_clientes'] or 0),
+            'ingresos': float(
+                (item['ingresos_brutos'] or 0)
+                + anticipo_por_mes.get(item['mes'], Decimal('0'))
+                - (item['vuelto_clientes'] or 0)
+            ),
+            'gastos': float(
+                (item['gastos'] or 0)
+                + consumo_por_mes.get(item['mes'], Decimal('0'))
+            ),
         }
-        for t in tendencia
-        if t['mes']
+        for item in sorted(
+            tendencia_por_mes.values(), key=lambda x: x['mes']
+        )
+        if item['mes']
     ]
 
     ultimos = tendencia_data[-3:]
@@ -462,7 +588,10 @@ def dashboard_resumen(desde=None, hasta=None):
         .values('semana')
         .annotate(
             ingresos_brutos=Sum(
-                'monto', filter=Q(tipo='INGRESO') & ~Q_NO_INGRESO_OPERATIVO
+                'monto',
+                filter=Q(tipo='INGRESO')
+                & ~Q_NO_INGRESO_OPERATIVO
+                & ~Q_INGRESO_DIFERIDO,
             ),
             vuelto_clientes=Sum(
                 'monto',
@@ -471,27 +600,70 @@ def dashboard_resumen(desde=None, hasta=None):
             ),
             gastos=Sum(
                 'monto',
-                filter=Q(tipo='EGRESO') & ~Q_NO_EGRESO_OPERATIVO,
+                filter=Q(tipo='EGRESO') & ~Q_NO_GASTO_OPERATIVO,
             ),
         )
         .order_by('semana')
     )
+    consumo_semanal = (
+        consumos.annotate(semana=TruncWeek('fecha'))
+        .values('semana')
+        .annotate(total=Sum('costo_total'))
+    )
+    consumo_por_semana = {
+        item['semana']: item['total'] or Decimal('0')
+        for item in consumo_semanal
+        if item['semana']
+    }
+    anticipo_semanal = (
+        anticipos_dif.filter(moneda='CUP')
+        .annotate(semana=TruncWeek('pedido__fecha_entrega_real'))
+        .values('semana')
+        .annotate(total=Sum('monto'))
+    )
+    anticipo_por_semana = {
+        item['semana']: item['total'] or Decimal('0')
+        for item in anticipo_semanal
+        if item['semana']
+    }
+    semanal_por_semana = {
+        item['semana']: item for item in semanal if item['semana']
+    }
+    for semana in set(consumo_por_semana) | set(anticipo_por_semana):
+        if semana not in semanal_por_semana:
+            semanal_por_semana[semana] = {
+                'semana': semana,
+                'ingresos_brutos': Decimal('0'),
+                'vuelto_clientes': Decimal('0'),
+                'gastos': Decimal('0'),
+            }
     semanal_data = [
         {
-            'semana': s['semana'].strftime('%d/%m') if s['semana'] else '',
-            'ingresos_brutos': float(s['ingresos_brutos'] or 0),
-            'vuelto_clientes': float(s['vuelto_clientes'] or 0),
-            'ingresos': float(
-                (s['ingresos_brutos'] or 0) - (s['vuelto_clientes'] or 0)
+            'semana': item['semana'].strftime('%d/%m') if item['semana'] else '',
+            'ingresos_brutos': float(
+                (item['ingresos_brutos'] or 0)
+                + anticipo_por_semana.get(item['semana'], Decimal('0'))
             ),
-            'gastos': float(s['gastos'] or 0),
+            'vuelto_clientes': float(item['vuelto_clientes'] or 0),
+            'ingresos': float(
+                (item['ingresos_brutos'] or 0)
+                + anticipo_por_semana.get(item['semana'], Decimal('0'))
+                - (item['vuelto_clientes'] or 0)
+            ),
+            'gastos': float(
+                (item['gastos'] or 0)
+                + consumo_por_semana.get(item['semana'], Decimal('0'))
+            ),
         }
-        for s in semanal
+        for item in sorted(
+            semanal_por_semana.values(), key=lambda x: x['semana']
+        )
+        if item['semana']
     ]
 
     ingresos_por_dia = (
         movs.filter(moneda='CUP', tipo='INGRESO')
-        .exclude(Q_NO_INGRESO_OPERATIVO)
+        .exclude(Q_NO_INGRESO_OPERATIVO | Q_INGRESO_DIFERIDO)
         .annotate(dia=ExtractWeekDay('fecha'))
         .values('dia')
         .annotate(total=Sum('monto'))
@@ -500,6 +672,17 @@ def dashboard_resumen(desde=None, hasta=None):
         fila['dia']: float(fila['total'] or 0)
         for fila in ingresos_por_dia
     }
+    anticipos_por_dia = (
+        anticipos_dif.filter(moneda='CUP')
+        .annotate(dia=ExtractWeekDay('pedido__fecha_entrega_real'))
+        .values('dia')
+        .annotate(total=Sum('monto'))
+    )
+    for fila in anticipos_por_dia:
+        totales_por_dia[fila['dia']] = (
+            totales_por_dia.get(fila['dia'], 0)
+            + float(fila['total'] or 0)
+        )
     mapa_calor_dias_data = [
         {'dia': nombre, 'total': totales_por_dia.get(numero, 0)}
         for nombre, numero in (

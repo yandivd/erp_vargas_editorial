@@ -374,13 +374,19 @@ def inventario_movimiento(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    if tipo not in ('ENTRADA', 'SALIDA'):
+    if tipo not in ('ENTRADA', 'SALIDA', 'AJUSTE'):
         return Response(
-            {'ok': False, 'error': 'El tipo debe ser ENTRADA o SALIDA.'},
+            {'ok': False, 'error': 'El tipo debe ser ENTRADA, SALIDA o AJUSTE.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    if cantidad <= 0:
+    if tipo == 'AJUSTE':
+        if cantidad < 0:
+            return Response(
+                {'ok': False, 'error': 'El stock ajustado no puede ser negativo.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    elif cantidad <= 0:
         return Response(
             {'ok': False, 'error': 'La cantidad debe ser mayor a cero.'},
             status=status.HTTP_400_BAD_REQUEST,
@@ -408,9 +414,9 @@ def inventario_movimiento(request):
             tipo=tipo,
             cantidad=cantidad,
             costo_unitario=(
-                material.costo_promedio
-                if tipo == 'SALIDA'
-                else (costo_unitario if costo_unitario > 0 else material.costo_promedio)
+                costo_unitario
+                if tipo == 'ENTRADA' and costo_unitario > 0
+                else material.costo_promedio
             ),
             pedido=pedido,
             motivo=motivo,

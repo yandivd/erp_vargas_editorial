@@ -39,34 +39,23 @@ def abrir_lote(request, lote_id):
             lote.fecha_apertura = timezone.now()
             lote.save()
             
-            # 2. Registramos el egreso en caja
-            MovimientoCaja.objects.create(
-                tipo='EGRESO',
-                categoria='GASTO_OPERATIVO',
-                monto=lote.costo_total,
-                concepto=f'Apertura de {lote.codigo} ({lote.material.nombre})',
-            )
-            
+            # 2. Registramos el consumo: gasto sin nueva salida de caja
+            #    (la compra ya descontó el efectivo al entrar al inventario).
             material = lote.material
-            
-            # 3. Restamos el stock de consumo
+
             material.stock_consumo -= lote.cantidad_inicial
-            
-            # 4. Restamos el stock principal
-            cantidad_a_restar = Decimal(str(lote.cantidad_inicial)) / Decimal(str(material.cantidad_por_unidad))
-            
-            stock_anterior = material.stock_actual
-            material.stock_actual = material.stock_actual - cantidad_a_restar
-            
-            # Imprimimos en la consola para diagnosticar
-            print(f"--- ABRIENDO {lote.codigo} ---")
-            print(f"Stock anterior: {stock_anterior}")
-            print(f"Cantidad a restar: {cantidad_a_restar}")
-            print(f"Stock nuevo: {material.stock_actual}")
-            
             material.save()
-            
-            messages.success(request, f'Lote {lote.codigo} ejecutado. Gasto registrado: ${lote.costo_total}. Stock restante: {material.stock_actual}')
+
+            cantidad_a_restar = Decimal(str(lote.cantidad_inicial)) / Decimal(
+                str(material.cantidad_por_unidad)
+            )
+            movimiento = ServicioInventario.registrar_consumo(
+                material,
+                cantidad_a_restar,
+                motivo=f'Apertura de {lote.codigo} ({material.nombre})',
+            )
+
+            messages.success(request, f'Lote {lote.codigo} ejecutado. Gasto registrado: ${movimiento.costo_total}. Stock restante: {material.stock_actual}')
         
     return redirect('inventario:lista')
 
