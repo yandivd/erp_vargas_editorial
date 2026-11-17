@@ -398,7 +398,7 @@ def arqueo_caja(request):
         transferencia = Decimal(request.POST.get('transferencia', 0) or 0)
         
         # Capturar Billetes
-        denominaciones = [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 1]
+        denominaciones = [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 3, 1]
         cantidades = {}
         total_efectivo = transferencia
         
@@ -442,7 +442,7 @@ def arqueo_caja(request):
     return render(request, 'finanzas/arqueo_caja.html', {
         'saldo_sistema': saldo_sistema,
         'cierres': cierres,
-        'denominaciones': [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 1]
+        'denominaciones': [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 3, 1]
     })
 
 def gestionar_divisas(request):
@@ -541,7 +541,7 @@ def arqueo_caja_pdf(request, pk):
     cierre = get_object_or_404(CierreCaja, pk=pk)
 
     # Reconstruir el desglose de billetes legible
-    denominaciones = [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 1]
+    denominaciones = [20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 3, 1]
     desglose = []
     total_efectivo = 0
     for d in denominaciones:

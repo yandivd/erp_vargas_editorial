@@ -24,6 +24,10 @@ from proveedores.models import Proveedor
 
 ESTADOS_NO_TALLER = ('Entregado', 'En Stock', 'Cancelado')
 
+DENOMINACIONES_BILLETES = (
+    20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 3, 1,
+)
+
 CATEGORIAS_MANUALES_CAJA = {
     'INGRESO': {
         'INGRESO_MANUAL',
@@ -1118,6 +1122,11 @@ class RegistrarArqueoSerializer(serializers.Serializer):
         min_value=Decimal('0'),
         required=False,
     )
+    cantidades = serializers.DictField(
+        child=serializers.IntegerField(min_value=0),
+        required=False,
+        default=dict,
+    )
     notas = serializers.CharField(required=False, allow_blank=True)
 
     def validate_notas(self, value):
@@ -1130,6 +1139,36 @@ class RegistrarArqueoSerializer(serializers.Serializer):
             raise serializers.ValidationError({
                 'efectivo': 'El efectivo contado es obligatorio.',
             })
+
+        cantidades = {
+            str(denominacion): cantidad
+            for denominacion, cantidad in (
+                attrs.get('cantidades') or {}
+            ).items()
+        }
+        if cantidades:
+            validas = {str(d) for d in DENOMINACIONES_BILLETES}
+            invalidas = sorted(set(cantidades) - validas)
+            if invalidas:
+                raise serializers.ValidationError({
+                    'cantidades': (
+                        'Denominaciones no válidas: '
+                        f'{", ".join(invalidas)}.'
+                    ),
+                })
+            total_desglose = sum(
+                cantidad * int(denominacion)
+                for denominacion, cantidad in cantidades.items()
+            )
+            if Decimal(total_desglose) != attrs['efectivo_cup']:
+                raise serializers.ValidationError({
+                    'cantidades': (
+                        'La suma del desglose de billetes no coincide con el '
+                        'efectivo contado.'
+                    ),
+                })
+
+        attrs['cantidades'] = cantidades
         return attrs
 
 
@@ -1174,12 +1213,9 @@ class CierreCajaV1Serializer(serializers.ModelSerializer):
     cantidades = serializers.SerializerMethodField()
 
     def get_cantidades(self, obj):
-        denominaciones = (
-            20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50, 20, 10, 5, 1,
-        )
         return {
             str(denominacion): cantidad
-            for denominacion in denominaciones
+            for denominacion in DENOMINACIONES_BILLETES
             if (cantidad := getattr(obj, f'b_{denominacion}', 0)) > 0
         }
 

@@ -196,6 +196,7 @@ class CierreCaja(models.Model):
     b_20 = models.IntegerField(default=0)
     b_10 = models.IntegerField(default=0)
     b_5 = models.IntegerField(default=0)
+    b_3 = models.IntegerField(default=0)
     b_1 = models.IntegerField(default=0)
     
     notas = models.TextField(blank=True)

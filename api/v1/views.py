@@ -57,6 +57,7 @@ from pedidos.services import CosteadorPedido, ServicioPedido
 from proveedores.models import Proveedor
 
 from .serializers import (
+    DENOMINACIONES_BILLETES,
     ESTADOS_NO_TALLER,
     ActivoFijoV1Serializer,
     AjusteFidelidadSerializer,
@@ -2468,6 +2469,12 @@ def finanzas_arqueo(request):
         efectivo_usd = esperado_usd
         diferencia_usd = Decimal('0.00')
 
+    cantidades = datos.get('cantidades') or {}
+    cantidades_db = {
+        f'b_{denominacion}': int(cantidades.get(str(denominacion), 0))
+        for denominacion in DENOMINACIONES_BILLETES
+    }
+
     with transaction.atomic():
         cierre = CierreCaja.objects.create(
             usuario=(request.user.get_username() or '')[:100],
@@ -2479,6 +2486,7 @@ def finanzas_arqueo(request):
             efectivo_real_usd=efectivo_usd,
             diferencia_usd=diferencia_usd,
             notas=datos.get('notas', ''),
+            **cantidades_db,
         )
 
         ajustes = []

@@ -52,6 +52,10 @@ function valorNumerico(value: string | number | undefined): number {
   return Number.isFinite(numero) ? Math.max(0, numero) : 0;
 }
 
+function cantidadEntera(value: string | number | undefined): number {
+  return Math.floor(valorNumerico(value));
+}
+
 function diferenciaClase(value: number): string {
   if (value === 0) {
     return "text-emerald-600";
@@ -193,7 +197,7 @@ export default function ArqueoCajaPage() {
 
   const efectivoContado = DENOMINACIONES.reduce(
     (total, denominacion) =>
-      total + valorNumerico(cantidades[denominacion]) * denominacion,
+      total + cantidadEntera(cantidades[denominacion]) * denominacion,
     0,
   );
   const transferencias = valorNumerico(transferencia);
@@ -224,6 +228,14 @@ export default function ArqueoCajaPage() {
     setExito(null);
 
     try {
+      const cantidadesPayload: Record<string, number> = {};
+      for (const denominacion of DENOMINACIONES) {
+        const cantidad = cantidadEntera(cantidades[denominacion]);
+        if (cantidad > 0) {
+          cantidadesPayload[String(denominacion)] = cantidad;
+        }
+      }
+
       const resultado = await apiFetch<ArqueoResponse>(
         "finanzas/arqueo",
         {
@@ -231,6 +243,7 @@ export default function ArqueoCajaPage() {
           body: JSON.stringify({
             efectivo: Number(efectivoContado.toFixed(2)),
             transferencias: Number(transferencias.toFixed(2)),
+            cantidades: cantidadesPayload,
             notas: notas.trim(),
           }),
         },
@@ -360,7 +373,7 @@ export default function ArqueoCajaPage() {
                 </thead>
                 <tbody>
                   {DENOMINACIONES.map((denominacion) => {
-                    const cantidad = valorNumerico(
+                    const cantidad = cantidadEntera(
                       cantidades[denominacion],
                     );
                     const subtotal = cantidad * denominacion;
