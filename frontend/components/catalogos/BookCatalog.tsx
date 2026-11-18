@@ -1,8 +1,9 @@
+"use client";
+
 import type { RefObject } from "react";
 import { Loader2, Search } from "lucide-react";
-import { money } from "@/lib/format";
 import type { LibroPublico } from "@/lib/catalogos";
-import { libroImagenSrc } from "@/lib/libros";
+import ShopBookCard from "./ShopBookCard";
 
 type BookCatalogProps = {
   books: LibroPublico[];
@@ -14,6 +15,9 @@ type BookCatalogProps = {
   hasNext: boolean;
   onRetry: () => void;
   sentinelRef: RefObject<HTMLDivElement | null>;
+  onBookClick: (book: LibroPublico) => void;
+  favoritos: Set<number>;
+  onToggleFavorito: (book: LibroPublico) => void;
 };
 
 function SkeletonGrid() {
@@ -45,6 +49,9 @@ export default function BookCatalog({
   hasNext,
   onRetry,
   sentinelRef,
+  onBookClick,
+  favoritos,
+  onToggleFavorito,
 }: BookCatalogProps) {
   const hasBooks = books.length > 0;
   const normalizedQuery = query.trim();
@@ -107,31 +114,13 @@ export default function BookCatalog({
         <>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {books.map((book) => (
-              <article
+              <ShopBookCard
                 key={book.id}
-                className="flex flex-col rounded-xl border border-line p-5 transition hover:bg-slate-50"
-              >
-                <div className="mb-4 aspect-[21/9] overflow-hidden rounded-lg bg-slate-100">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={libroImagenSrc(book.imagen)}
-                    alt={`Portada de ${book.titulo}`}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-                <h3 className="text-lg font-bold text-ink">{book.titulo}</h3>
-                <p className="text-sm text-muted">
-                  {book.autor || "Autor desconocido"}
-                </p>
-                {book.descripcion ? (
-                  <p className="mt-2 text-sm text-muted">{book.descripcion}</p>
-                ) : null}
-                <div className="mt-auto pt-4 text-lg font-bold text-brand">
-                  {money(book.precio, "CUP")}
-                </div>
-              </article>
+                libro={book}
+                favorito={favoritos.has(book.id)}
+                onToggleFavorito={onToggleFavorito}
+                onClick={onBookClick}
+              />
             ))}
           </div>
 

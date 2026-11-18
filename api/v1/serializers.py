@@ -327,7 +327,7 @@ class AjusteFidelidadSerializer(serializers.Serializer):
 class LibroListV1Serializer(serializers.ModelSerializer):
     class Meta:
         model = Book
-        fields = ('id', 'titulo', 'autor', 'paginas', 'precio', 'imagen')
+        fields = ('id', 'titulo', 'autor', 'paginas', 'precio', 'disponible', 'imagen')
         extra_kwargs = {
             'imagen': {'required': False, 'allow_null': True},
         }
