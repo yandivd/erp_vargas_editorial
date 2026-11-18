@@ -61,9 +61,10 @@ class ServicioInventario:
     
     @staticmethod
     def consumir_materiales_pedido(pedido, momento=None):
-        """Solo consume esquineros cuando el pedido pasa a 'Listo para Entregar' y los lleva.
+        """Consume esquineros al entregar si el pedido los lleva o tiene cantos tintados.
         
-        Hojas, tinta, pegamento y scotch se controlan manualmente.
+        Los cantos tintados incluyen esquineros. Hojas, tinta y pegamento se
+        controlan manualmente.
         """
         from core.models import Parametro
         from decimal import Decimal
@@ -72,7 +73,7 @@ class ServicioInventario:
 
         # Solo esquineros, y solo en el momento de entrega
         if momento in (None, 'ENTREGA', 'ESQUINEROS'):
-            if pedido.lleva_esquineros:
+            if pedido.lleva_esquineros or pedido.lleva_cantos_tintados:
                 material_esq = Material.objects.filter(nombre__iexact='esquineros', activo=True).first()
                 if material_esq:
                     cant_esq = Decimal(str(Parametro.get('esquineros_por_libro', 4)))

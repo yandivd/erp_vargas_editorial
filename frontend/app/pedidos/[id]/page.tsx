@@ -224,7 +224,7 @@ export default async function PedidoDetailPage({ params }: PageProps) {
                 Acabados
               </dt>
               <dd className="mt-1.5 flex flex-wrap gap-2">
-                <Tag active={pedido.lleva_scotch} label="Scotch" />
+                <Tag active={pedido.lleva_cantos_tintados} label="Cantos tintados" />
                 <Tag active={pedido.lleva_esquineros} label="Esquineros" />
               </dd>
             </div>
@@ -487,7 +487,7 @@ async function calcularCostoProduccion(
 
     return calcularCostoPorUnidad(
       paginas,
-      pedido.lleva_scotch,
+      pedido.lleva_cantos_tintados,
       pedido.lleva_esquineros,
       parametros,
     ).costo_total;

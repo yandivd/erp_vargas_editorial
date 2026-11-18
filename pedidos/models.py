@@ -168,7 +168,7 @@ class Pedido(models.Model):
     )
     cantidad = models.PositiveIntegerField(default=1, verbose_name='Cantidad')
 
-    lleva_scotch = models.BooleanField(default=False, verbose_name='Lleva scotch')
+    lleva_cantos_tintados = models.BooleanField(default=False, verbose_name='Lleva cantos tintados')
     lleva_esquineros = models.BooleanField(default=False, verbose_name='Lleva esquineros')
 
     # Precios

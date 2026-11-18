@@ -15,6 +15,25 @@ FECHA_CORTE_GANANCIA_PROMEDIO = date(2026, 8, 2)
 
 logger = logging.getLogger(__name__)
 
+INCREMENTO_CANTOS_TINTADOS = {
+    'bajo': Decimal('3000'),
+    'medio': Decimal('4000'),
+    'alto': Decimal('5000'),
+}
+INCREMENTO_ESQUINEROS = {
+    'bajo': Decimal('300'),
+    'medio': Decimal('500'),
+    'alto': Decimal('800'),
+}
+
+
+def _incremento_por_precio_base(precio_base, incrementos):
+    if precio_base < Decimal('5000'):
+        return incrementos['bajo']
+    if precio_base < Decimal('8000'):
+        return incrementos['medio']
+    return incrementos['alto']
+
 
 # ============================================================
 # COSTEADOR
@@ -57,9 +76,9 @@ class CosteadorPedido:
                 cant_esquineros = self._param('esquineros_por_libro', 4)
                 costo_esquineros = cant_esquineros * material_esquineros.costo_promedio
 
-        # --- SCOTCH ---
+        # --- CANTOS TINTADOS ---
         costo_scotch = Decimal('0')
-        if p.lleva_scotch:
+        if p.lleva_cantos_tintados:
             precio_scotch = self._param('precio_scotch', 1000)
             rinde_scotch = self._param('rinde_scotch_libros', 30)
             costo_scotch = precio_scotch / rinde_scotch if rinde_scotch else 0
@@ -102,9 +121,15 @@ class CosteadorPedido:
         }
 
     def calcular_precio_sugerido(self):
-        """Calcula el precio basado en la fórmula del Excel (margen dinámico)."""
+        """Calcula el precio base y suma el adicional según los acabados."""
         costo = self.calcular()
         costo_total = Decimal(str(costo['costo_total']))
+        # El precio base no incluye los adicionales de cantos tintados/esquineros.
+        costo_base = (
+            costo_total
+            - Decimal(str(costo['costo_scotch']))
+            - Decimal(str(costo['costo_esquineros']))
+        )
         paginas = Decimal(str(self.pedido.paginas))
 
         pag_min = Decimal(str(Parametro.get('paginas_min', 100)))
@@ -118,12 +143,23 @@ class CosteadorPedido:
         proporcion = (min(max(paginas, pag_min), pag_max) - pag_min) / (pag_max - pag_min)
         margen = margen_min + (proporcion * (margen_max - margen_min))
 
-        precio_base = costo_total * (Decimal('1') + margen)
+        precio_base = costo_base * (Decimal('1') + margen)
 
         import math
-        precio_final = math.ceil(precio_base / 100) * 100
+        precio_base = Decimal(str(math.ceil(precio_base / 100) * 100))
 
-        return Decimal(str(precio_final))
+        if self.pedido.lleva_cantos_tintados:
+            incremento = _incremento_por_precio_base(
+                precio_base, INCREMENTO_CANTOS_TINTADOS
+            )
+        elif self.pedido.lleva_esquineros:
+            incremento = _incremento_por_precio_base(
+                precio_base, INCREMENTO_ESQUINEROS
+            )
+        else:
+            incremento = Decimal('0')
+
+        return precio_base + incremento
 
 
 def obtener_ganancia_promedio():

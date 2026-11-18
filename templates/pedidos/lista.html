@@ -220,7 +220,7 @@
                         </div>
                         <div class="col-12 col-md-8 d-flex align-items-end gap-4">
                             <div class="form-check">
-                                {{ form.lleva_scotch }} <label class="form-check-label">Lleva Scotch</label>
+                                {{ form.lleva_cantos_tintados }} <label class="form-check-label">Lleva Cantos Tintados</label>
                             </div>
                             <div class="form-check">
                                 {{ form.lleva_esquineros }} <label class="form-check-label">Lleva Esquineros</label>
@@ -430,14 +430,14 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const llevaScotch = document.querySelector('#id_lleva_scotch').checked;
+        const llevaCantosTintados = document.querySelector('#id_lleva_cantos_tintados').checked;
         const llevaEsquineros = document.querySelector('#id_lleva_esquineros').checked;
         const peticion = ++ultimaPeticionCosto;
 
         if (controladorCosto) controladorCosto.abort();
         controladorCosto = new AbortController();
 
-        fetch(`/pedidos/calcular-costo/?paginas=${paginas}&lleva_scotch=${llevaScotch}&lleva_esquineros=${llevaEsquineros}`, {
+        fetch(`/pedidos/calcular-costo/?paginas=${paginas}&lleva_cantos_tintados=${llevaCantosTintados}&lleva_esquineros=${llevaEsquineros}`, {
             signal: controladorCosto.signal
         })
             .then(r => r.json())
@@ -459,6 +459,38 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(err => {
                 if (err.name !== 'AbortError') console.error(err);
             });
+    }
+
+    function incrementoPorAcabados(precioBase, llevaCantosTintados, llevaEsquineros) {
+        if (llevaCantosTintados) {
+            if (precioBase < 5000) return 3000;
+            if (precioBase < 8000) return 4000;
+            return 5000;
+        }
+        if (llevaEsquineros) {
+            if (precioBase < 5000) return 300;
+            if (precioBase < 8000) return 500;
+            return 800;
+        }
+        return 0;
+    }
+
+    function actualizarPrecioPorAcabados() {
+        if (usandoLibroNuevo) return;
+        if (!libroSelect || !libroSelect.value) return;
+
+        const opcionSeleccionada = libroSelect.options[libroSelect.selectedIndex];
+        const precioBase = parseFloat(opcionSeleccionada.getAttribute('data-precio')) || 0;
+        const cantosTintados = document.querySelector('#id_lleva_cantos_tintados').checked;
+        const esquineros = document.querySelector('#id_lleva_esquineros').checked;
+        const nuevoPrecio = precioBase + incrementoPorAcabados(precioBase, cantosTintados, esquineros);
+
+        if (precioInput && !precioEditadoManualmente) {
+            precioInput.value = nuevoPrecio.toFixed(2);
+        }
+        if (anticipoInput && !anticipoEditado) {
+            anticipoInput.value = (nuevoPrecio / 2).toFixed(2);
+        }
     }
 
     function actualizarCosto() {
@@ -488,12 +520,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (libroSelect && libroSelect.value) {
             const opcionSeleccionada = libroSelect.options[libroSelect.selectedIndex];
             const paginas = opcionSeleccionada.getAttribute('data-paginas');
-            const precioBase = opcionSeleccionada.getAttribute('data-precio');
-            const anticipoBase = opcionSeleccionada.getAttribute('data-anticipo');
+            const precioBase = parseFloat(opcionSeleccionada.getAttribute('data-precio')) || 0;
+            const cantosTintados = document.querySelector('#id_lleva_cantos_tintados').checked;
+            const esquineros = document.querySelector('#id_lleva_esquineros').checked;
+            const precio = precioBase + incrementoPorAcabados(precioBase, cantosTintados, esquineros);
 
             if (paginasInput) paginasInput.value = paginas;
-            if (precioInput) precioInput.value = precioBase;
-            if (anticipoInput) anticipoInput.value = anticipoBase;
+            if (precioInput) precioInput.value = precio.toFixed(2);
+            if (anticipoInput) anticipoInput.value = (precio / 2).toFixed(2);
         }
 
         actualizarCosto();
@@ -687,19 +721,21 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
         
-        const scotchCheck = document.querySelector('#id_lleva_scotch');
-        if (scotchCheck) scotchCheck.addEventListener('change', function () {
-            if (usandoLibroNuevo && descuentoActivo) {
+        const cantosTintadosCheck = document.querySelector('#id_lleva_cantos_tintados');
+        if (cantosTintadosCheck) cantosTintadosCheck.addEventListener('change', function () {
+            if (descuentoActivo) {
                 resetearDescuento();
             }
+            actualizarPrecioPorAcabados();
             actualizarCosto();
         });
         
         const esquinerosCheck = document.querySelector('#id_lleva_esquineros');
         if (esquinerosCheck) esquinerosCheck.addEventListener('change', function () {
-            if (usandoLibroNuevo && descuentoActivo) {
+            if (descuentoActivo) {
                 resetearDescuento();
             }
+            actualizarPrecioPorAcabados();
             actualizarCosto();
         });
 

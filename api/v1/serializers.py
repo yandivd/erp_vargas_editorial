@@ -359,7 +359,7 @@ class PedidoCreateSerializer(serializers.Serializer):
     libro_autor = serializers.CharField(required=False, allow_blank=True)
     libro_paginas = serializers.IntegerField(required=False, allow_null=True)
     cantidad = serializers.IntegerField(default=1, min_value=1)
-    lleva_scotch = serializers.BooleanField(default=False)
+    lleva_cantos_tintados = serializers.BooleanField(default=False)
     lleva_esquineros = serializers.BooleanField(default=False)
     precio_venta = serializers.DecimalField(
         max_digits=10,
@@ -609,7 +609,7 @@ class PedidoDetailV1Serializer(PedidoListV1Serializer):
 
     class Meta(PedidoListV1Serializer.Meta):
         fields = PedidoListV1Serializer.Meta.fields + (
-            'lleva_scotch',
+            'lleva_cantos_tintados',
             'lleva_esquineros',
             'direccion_entrega',
             'telefono_entrega',

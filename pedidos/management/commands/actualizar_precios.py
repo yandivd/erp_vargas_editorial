@@ -36,7 +36,7 @@ class Command(BaseCommand):
                     pedido_falso = Pedido(
                         libro=libro,
                         cantidad=1,
-                        lleva_scotch=False,
+                        lleva_cantos_tintados=False,
                         lleva_esquineros=False,
                         estado=estado_inicial,
                     )

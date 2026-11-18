@@ -46,7 +46,7 @@ class PedidoAdmin(admin.ModelAdmin):
         'precio_venta', 'anticipo_recibido', 'saldo_pendiente', 'estado',
         'fecha_entrega_prometida', 'esta_atrasado'
     )
-    list_filter = ('estado', 'lleva_scotch', 'lleva_esquineros')
+    list_filter = ('estado', 'lleva_cantos_tintados', 'lleva_esquineros')
     search_fields = ('referencia_externa', 'libro__titulo', 'libro__autor', 'cliente__nombre')
     readonly_fields = ('fecha_pedido', 'saldo_pendiente')
     inlines = [HistorialEstadoInline]
@@ -55,7 +55,7 @@ class PedidoAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Datos del libro', {
             'fields': ('referencia_externa', 'cliente', 'libro', 'cantidad',
-                       'lleva_scotch', 'lleva_esquineros')
+                       'lleva_cantos_tintados', 'lleva_esquineros')
         }),
         ('Precio y pagos', {
             'fields': (

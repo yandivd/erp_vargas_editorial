@@ -44,9 +44,42 @@ export function redondear2(valor: number): number {
   return Math.round((valor + Number.EPSILON) * 100) / 100;
 }
 
+function incrementoCantosTintados(precioBase: number): number {
+  if (precioBase < 5000) {
+    return 3000;
+  }
+  if (precioBase < 8000) {
+    return 4000;
+  }
+  return 5000;
+}
+
+function incrementoEsquineros(precioBase: number): number {
+  if (precioBase < 5000) {
+    return 300;
+  }
+  if (precioBase < 8000) {
+    return 500;
+  }
+  return 800;
+}
+
+export function calcularPrecioConAcabados(
+  precioBase: number,
+  llevaCantosTintados: boolean,
+  llevaEsquineros: boolean,
+): number {
+  const incremento = llevaCantosTintados
+    ? incrementoCantosTintados(precioBase)
+    : llevaEsquineros
+      ? incrementoEsquineros(precioBase)
+      : 0;
+  return precioBase + incremento;
+}
+
 export function calcularCostoPorUnidad(
   paginas: number,
-  llevaScotch: boolean,
+  llevaCantosTintados: boolean,
   llevaEsquineros: boolean,
   parametros: ParametrosCosto,
 ): CostoCalculado {
@@ -68,8 +101,8 @@ export function calcularCostoPorUnidad(
   const costoEsquineros = llevaEsquineros
     ? parametros.esquineros_por_libro * parametros.costo_esquineros_material
     : 0;
-  const costoScotch =
-    llevaScotch && parametros.rinde_scotch_libros
+  const costoCantosTintados =
+    llevaCantosTintados && parametros.rinde_scotch_libros
       ? parametros.precio_scotch / parametros.rinde_scotch_libros
       : 0;
   const costoPortada = parametros.precio_portada;
@@ -86,7 +119,7 @@ export function calcularCostoPorUnidad(
     costoPapel +
       costoTinta +
       costoPegamento +
-      costoScotch +
+      costoCantosTintados +
       costoEsquineros +
       costoPortada +
       costoEncuadernacion +
@@ -105,14 +138,23 @@ export function calcularCostoPorUnidad(
   const margen =
     parametros.margen_min +
     proporcion * (parametros.margen_max - parametros.margen_min);
-  const precioSugerido = Math.ceil((costoTotal * (1 + margen)) / 100) * 100;
+  const costoBase = redondear2(
+    costoTotal - costoCantosTintados - costoEsquineros,
+  );
+  const precioBase = Math.ceil((costoBase * (1 + margen)) / 100) * 100;
+  const incremento = llevaCantosTintados
+    ? incrementoCantosTintados(precioBase)
+    : llevaEsquineros
+      ? incrementoEsquineros(precioBase)
+      : 0;
+  const precioSugerido = precioBase + incremento;
 
   return {
     hojas,
     costo_papel: redondear2(costoPapel),
     costo_tinta: redondear2(costoTinta),
     costo_pegamento: redondear2(costoPegamento),
-    costo_scotch: redondear2(costoScotch),
+    costo_scotch: redondear2(costoCantosTintados),
     costo_portada: redondear2(costoPortada),
     costo_esquineros: redondear2(costoEsquineros),
     costo_encuadernacion: redondear2(costoEncuadernacion),

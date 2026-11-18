@@ -63,7 +63,7 @@ export type ServicioExternoPedido = {
 };
 
 export type PedidoDetail = PedidoListItem & {
-  lleva_scotch: boolean;
+  lleva_cantos_tintados: boolean;
   lleva_esquineros: boolean;
   direccion_entrega: string;
   telefono_entrega: string;

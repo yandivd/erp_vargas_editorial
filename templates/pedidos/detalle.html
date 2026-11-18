@@ -36,7 +36,11 @@
                     <p class="mb-1"><strong>Estado:</strong> <span class="badge" style="background-color: {{ pedido.estado.color }}">{{ pedido.estado.nombre }}</span></p>
                 </div>
                 <div class="col-12 mt-2">
-                    {% if not pedido.lleva_esquineros %}
+                    {% if pedido.lleva_cantos_tintados %}
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-check-lg"></i> Esquineros incluidos
+                        </span>
+                    {% elif not pedido.lleva_esquineros %}
                         <form method="post" action="{% url 'pedidos:agregar_esquineros' pedido.id %}" class="d-inline" data-confirm="¿Agregar esquineros a este pedido y recalcular el precio?">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-sm btn-outline-warning w-100 w-sm-auto">
@@ -66,7 +70,7 @@
                     <tr><td>Papel</td><td class="text-end">${{ costo.costo_papel }}</td></tr>
                     <tr><td>Tinta</td><td class="text-end">${{ costo.costo_tinta }}</td></tr>
                     <tr><td>Pegamento</td><td class="text-end">${{ costo.costo_pegamento }}</td></tr>
-                    <tr><td>Scotch</td><td class="text-end">${{ costo.costo_scotch }}</td></tr>
+                    <tr><td>Cantos tintados</td><td class="text-end">${{ costo.costo_scotch }}</td></tr>
                     <tr><td>Esquineros</td><td class="text-end">${{ costo.costo_esquineros }}</td></tr>
                     <tr><td>Portada</td><td class="text-end">${{ costo.costo_portada }}</td></tr>
                     <tr><td>Encuadernación</td><td class="text-end">${{ costo.costo_encuadernacion }}</td></tr>

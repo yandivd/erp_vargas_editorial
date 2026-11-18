@@ -91,7 +91,7 @@ class NuevoPedidoForm(forms.Form):
     nuevo_libro_paginas = forms.IntegerField(required=False, widget=forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Páginas'}))
 
     cantidad = forms.IntegerField(initial=1, widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1}))
-    lleva_scotch = forms.BooleanField(required=False)
+    lleva_cantos_tintados = forms.BooleanField(required=False)
     lleva_esquineros = forms.BooleanField(required=False)
 
     precio_venta = forms.DecimalField(widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}))
@@ -438,7 +438,7 @@ def nuevo_pedido_modal(request):
                 cliente=cliente,
                 libro=libro,
                 cantidad=form.cleaned_data['cantidad'],
-                lleva_scotch=form.cleaned_data.get('lleva_scotch', False),
+                lleva_cantos_tintados=form.cleaned_data.get('lleva_cantos_tintados', False),
                 lleva_esquineros=form.cleaned_data.get('lleva_esquineros', False),
                 precio_venta=form.cleaned_data['precio_venta'],
                 descuento_aplicado=descuento,
@@ -481,7 +481,7 @@ def nuevo_pedido_modal(request):
 def calcular_costo_ajax(request):
     try:
         paginas = int(request.GET.get('paginas', 0))
-        lleva_scotch = request.GET.get('lleva_scotch') == 'true'
+        lleva_cantos_tintados = request.GET.get('lleva_cantos_tintados') == 'true'
         lleva_esquineros = request.GET.get('lleva_esquineros') == 'true'
 
         if paginas <= 0:
@@ -490,7 +490,7 @@ def calcular_costo_ajax(request):
         libro_temp = Book(paginas=paginas)
         pedido_temp = Pedido(
             libro=libro_temp,
-            lleva_scotch=lleva_scotch,
+            lleva_cantos_tintados=lleva_cantos_tintados,
             lleva_esquineros=lleva_esquineros,
             cantidad=1,
             precio_venta=0

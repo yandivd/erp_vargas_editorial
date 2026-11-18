@@ -168,11 +168,11 @@ def _parametros_costo():
     }
 
 
-def _calcular_costo_paginas(paginas, lleva_scotch=False, lleva_esquineros=False):
+def _calcular_costo_paginas(paginas, lleva_cantos_tintados=False, lleva_esquineros=False):
     libro_temp = Book(paginas=paginas)
     pedido_temp = Pedido(
         libro=libro_temp,
-        lleva_scotch=lleva_scotch,
+        lleva_cantos_tintados=lleva_cantos_tintados,
         lleva_esquineros=lleva_esquineros,
         cantidad=1,
         precio_venta=0,
@@ -1042,7 +1042,7 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                 cliente=cliente,
                 libro=libro,
                 cantidad=int(data.get('cantidad') or 1),
-                lleva_scotch=bool(data.get('lleva_scotch')),
+                lleva_cantos_tintados=bool(data.get('lleva_cantos_tintados')),
                 lleva_esquineros=bool(data.get('lleva_esquineros')),
                 precio_venta=Decimal(str(data.get('precio_venta') or 0)),
                 descuento_aplicado=descuento,
@@ -1134,7 +1134,9 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
     def calcular_costo(self, request):
         try:
             paginas = int(request.query_params.get('paginas') or 0)
-            lleva_scotch = _es_verdadero(request.query_params.get('lleva_scotch') or '')
+            lleva_cantos_tintados = _es_verdadero(
+                request.query_params.get('lleva_cantos_tintados') or ''
+            )
             lleva_esquineros = _es_verdadero(
                 request.query_params.get('lleva_esquineros') or ''
             )
@@ -1147,7 +1149,7 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
 
             resultado = _calcular_costo_paginas(
                 paginas,
-                lleva_scotch=lleva_scotch,
+                lleva_cantos_tintados=lleva_cantos_tintados,
                 lleva_esquineros=lleva_esquineros,
             )
 

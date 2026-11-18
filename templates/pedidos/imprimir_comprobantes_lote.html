@@ -58,7 +58,7 @@
             <td>
                 <strong>{{ p.libro.titulo }}</strong>
                 {% if p.libro.autor %}<br><small>Autor: {{ p.libro.autor }}</small>{% endif %}
-                {% if p.lleva_scotch %}<br><small>+ Scotch</small>{% endif %}
+                {% if p.lleva_cantos_tintados %}<br><small>+ Cantos tintados</small>{% endif %}
                 {% if p.lleva_esquineros %}<br><small>+ Esquineros</small>{% endif %}
                 {% if not un_solo_cliente %}
                     <br><small class="text-muted">Cliente: {{ p.cliente.nombre|default:"Stock" }}</small>

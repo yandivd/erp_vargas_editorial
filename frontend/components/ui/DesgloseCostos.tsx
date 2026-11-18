@@ -18,7 +18,7 @@ export default function DesgloseCostos({
     { label: "Papel", value: costo.costo_papel },
     { label: "Tinta", value: costo.costo_tinta },
     { label: "Pegamento", value: costo.costo_pegamento },
-    { label: "Scotch", value: costo.costo_scotch },
+    { label: "Cantos tintados", value: costo.costo_scotch },
     { label: "Esquineros", value: costo.costo_esquineros },
     { label: "Portada", value: costo.costo_portada },
     { label: "Encuadernación", value: costo.costo_encuadernacion },

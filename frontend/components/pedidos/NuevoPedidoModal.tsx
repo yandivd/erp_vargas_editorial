@@ -25,6 +25,7 @@ import SelectBuscador, {
 import { apiFetch, apiFetchEnvelope } from "@/lib/api";
 import {
   calcularCostoPorUnidad,
+  calcularPrecioConAcabados,
   redondear2,
   type CostoCalculado,
   type ParametrosCosto,
@@ -120,7 +121,7 @@ export default function NuevoPedidoModal() {
   const [libroPaginas, setLibroPaginas] = useState("");
 
   const [cantidad, setCantidad] = useState("1");
-  const [llevaScotch, setLlevaScotch] = useState(false);
+  const [llevaCantosTintados, setLlevaCantosTintados] = useState(false);
   const [llevaEsquineros, setLlevaEsquineros] = useState(false);
   const [precioVenta, setPrecioVenta] = useState("0");
   const [anticipoRequerido, setAnticipoRequerido] = useState("0");
@@ -278,11 +279,11 @@ export default function NuevoPedidoModal() {
     }
     return calcularCostoPorUnidad(
       paginas,
-      llevaScotch,
+      llevaCantosTintados,
       llevaEsquineros,
       parametros,
     );
-  }, [parametros, paginas, llevaScotch, llevaEsquineros]);
+  }, [parametros, paginas, llevaCantosTintados, llevaEsquineros]);
 
   const cantidadNum = Math.max(1, Number(cantidad) || 1);
   const precio = Number(precioVenta || 0);
@@ -311,7 +312,7 @@ export default function NuevoPedidoModal() {
 
   function calcularActual(
     paginasActuales: number,
-    scotch: boolean,
+    cantosTintados: boolean,
     esquineros: boolean,
   ): CostoCalculado | null {
     if (
@@ -323,7 +324,7 @@ export default function NuevoPedidoModal() {
     }
     return calcularCostoPorUnidad(
       paginasActuales,
-      scotch,
+      cantosTintados,
       esquineros,
       parametros,
     );
@@ -355,7 +356,7 @@ export default function NuevoPedidoModal() {
     setNuevoLibroAutor("");
     setLibroPaginas("");
     setCantidad("1");
-    setLlevaScotch(false);
+    setLlevaCantosTintados(false);
     setLlevaEsquineros(false);
     setPrecioVenta("0");
     setAnticipoRequerido("0");
@@ -430,8 +431,13 @@ export default function NuevoPedidoModal() {
     resetDescuento();
 
     if (libro) {
-      setPrecioVenta(String(libro.precio));
-      setAnticipoRequerido(anticipoSugeridoEnMoneda(Number(libro.precio) / 2));
+      const precio = calcularPrecioConAcabados(
+        Number(libro.precio),
+        llevaCantosTintados,
+        llevaEsquineros,
+      );
+      setPrecioVenta(String(precio));
+      setAnticipoRequerido(anticipoSugeridoEnMoneda(precio / 2));
       setPrecioEditadoManualmente(false);
       setAnticipoEditado(false);
     } else {
@@ -450,8 +456,13 @@ export default function NuevoPedidoModal() {
     resetDescuento();
 
     if (libro) {
-      setPrecioVenta(String(libro.precio));
-      setAnticipoRequerido(anticipoSugeridoEnMoneda(Number(libro.precio) / 2));
+      const precio = calcularPrecioConAcabados(
+        Number(libro.precio),
+        llevaCantosTintados,
+        llevaEsquineros,
+      );
+      setPrecioVenta(String(precio));
+      setAnticipoRequerido(anticipoSugeridoEnMoneda(precio / 2));
       setPrecioEditadoManualmente(false);
       setAnticipoEditado(false);
     } else {
@@ -470,7 +481,7 @@ export default function NuevoPedidoModal() {
 
     const calculo = calcularActual(
       Number(libroPaginas),
-      llevaScotch,
+      llevaCantosTintados,
       llevaEsquineros,
     );
     if (calculo) {
@@ -488,7 +499,7 @@ export default function NuevoPedidoModal() {
 
     const calculo = calcularActual(
       Number(value),
-      llevaScotch,
+      llevaCantosTintados,
       llevaEsquineros,
     );
     if (calculo) {
@@ -497,50 +508,63 @@ export default function NuevoPedidoModal() {
     }
   }
 
-  function handleScotchChange(checked: boolean) {
-    setLlevaScotch(checked);
-
+  function actualizarPrecioYAnticipo(
+    cantosTintados: boolean,
+    esquineros: boolean,
+  ) {
     if (modoLibro === "nuevo") {
-      if (descuentoActivo) {
-        resetDescuento();
-      }
       const calculo = calcularActual(
         Number(libroPaginas),
-        checked,
-        llevaEsquineros,
+        cantosTintados,
+        esquineros,
       );
       if (calculo) {
         if (!precioEditadoManualmente) {
           setPrecioVenta(String(calculo.precio_sugerido));
         }
         if (!anticipoEditado) {
-          setAnticipoRequerido(anticipoSugeridoEnMoneda(calculo.anticipo_sugerido));
+          setAnticipoRequerido(
+            anticipoSugeridoEnMoneda(calculo.anticipo_sugerido),
+          );
         }
       }
+      return;
     }
+
+    if (libroSeleccionado) {
+      const precioBase = Number(libroSeleccionado.precio);
+      const nuevoPrecio = calcularPrecioConAcabados(
+        precioBase,
+        cantosTintados,
+        esquineros,
+      );
+      if (!precioEditadoManualmente) {
+        setPrecioVenta(String(nuevoPrecio));
+      }
+      if (!anticipoEditado) {
+        setAnticipoRequerido(anticipoSugeridoEnMoneda(nuevoPrecio / 2));
+      }
+    }
+  }
+
+  function handleCantosTintadosChange(checked: boolean) {
+    setLlevaCantosTintados(checked);
+
+    if (descuentoActivo) {
+      resetDescuento();
+    }
+
+    actualizarPrecioYAnticipo(checked, llevaEsquineros);
   }
 
   function handleEsquinerosChange(checked: boolean) {
     setLlevaEsquineros(checked);
 
-    if (modoLibro === "nuevo") {
-      if (descuentoActivo) {
-        resetDescuento();
-      }
-      const calculo = calcularActual(
-        Number(libroPaginas),
-        llevaScotch,
-        checked,
-      );
-      if (calculo) {
-        if (!precioEditadoManualmente) {
-          setPrecioVenta(String(calculo.precio_sugerido));
-        }
-        if (!anticipoEditado) {
-          setAnticipoRequerido(anticipoSugeridoEnMoneda(calculo.anticipo_sugerido));
-        }
-      }
+    if (descuentoActivo) {
+      resetDescuento();
     }
+
+    actualizarPrecioYAnticipo(llevaCantosTintados, checked);
   }
 
   function handlePrecioChange(value: string) {
@@ -744,7 +768,7 @@ export default function NuevoPedidoModal() {
           libro_paginas:
             modoLibro === "nuevo" ? Number(libroPaginas) : null,
           cantidad: cantidadNum,
-          lleva_scotch: llevaScotch,
+          lleva_cantos_tintados: llevaCantosTintados,
           lleva_esquineros: llevaEsquineros,
           precio_venta: Number(precioVenta),
           anticipo_requerido: anticipoEnCup,
@@ -1070,29 +1094,41 @@ export default function NuevoPedidoModal() {
                       className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
                     />
                   </div>
-                  <div className="flex items-end gap-5 pb-2">
+                  <div className="flex flex-wrap items-start gap-5 pb-2">
                     <label className="flex items-center gap-2 text-sm font-semibold text-ink">
                       <input
                         type="checkbox"
-                        checked={llevaScotch}
+                        checked={llevaCantosTintados}
                         onChange={(event) =>
-                          handleScotchChange(event.target.checked)
+                          handleCantosTintadosChange(event.target.checked)
                         }
                         className="h-4 w-4 accent-brand"
                       />
-                      Scotch
+                      Cantos Tintados
                     </label>
-                    <label className="flex items-center gap-2 text-sm font-semibold text-ink">
-                      <input
-                        type="checkbox"
-                        checked={llevaEsquineros}
-                        onChange={(event) =>
-                          handleEsquinerosChange(event.target.checked)
-                        }
-                        className="h-4 w-4 accent-brand"
-                      />
-                      Esquineros
-                    </label>
+                    <div>
+                      <label
+                        className={`flex items-center gap-2 text-sm font-semibold ${
+                          llevaCantosTintados ? "text-muted" : "text-ink"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={llevaEsquineros}
+                          onChange={(event) =>
+                            handleEsquinerosChange(event.target.checked)
+                          }
+                          disabled={llevaCantosTintados}
+                          className="h-4 w-4 accent-brand disabled:cursor-not-allowed disabled:opacity-50"
+                        />
+                        Esquineros
+                      </label>
+                      {llevaCantosTintados ? (
+                        <p className="mt-1 text-xs text-muted">
+                          Incluye esquineros
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 </section>
 

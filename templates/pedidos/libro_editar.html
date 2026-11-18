@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const peticion = ++ultimaPeticion;
             controlador = new AbortController();
 
-            fetch(`/pedidos/calcular-costo/?paginas=${paginas}&lleva_scotch=false&lleva_esquineros=false`, {
+            fetch(`/pedidos/calcular-costo/?paginas=${paginas}&lleva_cantos_tintados=false&lleva_esquineros=false`, {
                 signal: controlador.signal
             })
                 .then(r => r.json())
