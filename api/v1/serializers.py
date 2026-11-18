@@ -18,7 +18,13 @@ from pedidos.models import (
     Pedido,
     ServicioExterno,
 )
-from pedidos.services import CosteadorPedido
+from core.ubicaciones import PROVINCIAS
+from pedidos.services import (
+    CosteadorPedido,
+    costo_mensajeria_para_cliente,
+    provincia_para_municipio,
+    ubicacion_para_cliente,
+)
 from proveedores.models import Proveedor
 
 
@@ -235,6 +241,8 @@ class ClienteListV1Serializer(serializers.ModelSerializer):
             'nombre',
             'telefono',
             'direccion',
+            'provincia',
+            'municipio',
             'notas',
             'fecha_registro',
             'pedidos',
@@ -292,13 +300,52 @@ class ClienteListV1Serializer(serializers.ModelSerializer):
 class ClienteCreateV1Serializer(serializers.ModelSerializer):
     class Meta:
         model = Cliente
-        fields = ('id', 'nombre', 'telefono', 'direccion', 'notas')
+        fields = (
+            'id',
+            'nombre',
+            'telefono',
+            'direccion',
+            'provincia',
+            'municipio',
+            'notas',
+        )
 
     def validate_nombre(self, value):
         value = value.strip()
         if not value:
             raise serializers.ValidationError('El nombre es obligatorio.')
         return value
+
+    def validate(self, attrs):
+        provincia = (attrs.get('provincia') or '').strip()
+        municipio = (attrs.get('municipio') or '').strip()
+
+        if provincia and provincia not in PROVINCIAS:
+            raise serializers.ValidationError(
+                {'provincia': 'Selecciona una provincia válida.'}
+            )
+
+        if municipio:
+            provincia_municipio = provincia_para_municipio(municipio)
+            if not provincia_municipio:
+                raise serializers.ValidationError(
+                    {'municipio': 'Selecciona un municipio válido.'}
+                )
+            if provincia and provincia != provincia_municipio:
+                raise serializers.ValidationError(
+                    {
+                        'municipio': (
+                            'El municipio no pertenece a la provincia '
+                            'seleccionada.'
+                        )
+                    }
+                )
+            if not provincia:
+                provincia = provincia_municipio
+
+        attrs['provincia'] = provincia
+        attrs['municipio'] = municipio
+        return attrs
 
 
 class AjusteFidelidadSerializer(serializers.Serializer):
@@ -354,6 +401,8 @@ class PedidoCreateSerializer(serializers.Serializer):
     cliente_nombre = serializers.CharField(required=False, allow_blank=True)
     cliente_telefono = serializers.CharField(required=False, allow_blank=True)
     cliente_direccion = serializers.CharField(required=False, allow_blank=True)
+    cliente_provincia = serializers.CharField(required=False, allow_blank=True)
+    cliente_municipio = serializers.CharField(required=False, allow_blank=True)
     libro_id = serializers.IntegerField(required=False, allow_null=True)
     libro_titulo = serializers.CharField(required=False, allow_blank=True)
     libro_autor = serializers.CharField(required=False, allow_blank=True)
@@ -421,6 +470,34 @@ class PedidoCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 'El bono de fidelidad solo aplica a clientes registrados.'
             )
+
+        if not attrs.get('cliente_id'):
+            provincia = (attrs.get('cliente_provincia') or '').strip()
+            municipio = (attrs.get('cliente_municipio') or '').strip()
+
+            if provincia and provincia not in PROVINCIAS:
+                raise serializers.ValidationError({
+                    'cliente_provincia': 'Selecciona una provincia válida.',
+                })
+
+            if municipio:
+                provincia_municipio = provincia_para_municipio(municipio)
+                if not provincia_municipio:
+                    raise serializers.ValidationError({
+                        'cliente_municipio': 'Selecciona un municipio válido.',
+                    })
+                if provincia and provincia != provincia_municipio:
+                    raise serializers.ValidationError({
+                        'cliente_municipio': (
+                            'El municipio no pertenece a la provincia '
+                            'seleccionada.'
+                        ),
+                    })
+                if not provincia:
+                    provincia = provincia_municipio
+
+            attrs['cliente_provincia'] = provincia
+            attrs['cliente_municipio'] = municipio
 
         monto_anticipo = attrs.get('monto_anticipo')
         if monto_anticipo is None:
@@ -541,6 +618,9 @@ class PedidoListV1Serializer(serializers.ModelSerializer):
     cliente_id = serializers.IntegerField(read_only=True)
     cliente_nombre = serializers.SerializerMethodField()
     cliente_direccion = serializers.SerializerMethodField()
+    cliente_provincia = serializers.SerializerMethodField()
+    cliente_municipio = serializers.SerializerMethodField()
+    cliente_costo_mensajeria = serializers.SerializerMethodField()
     libro_id = serializers.IntegerField(read_only=True)
     libro_titulo = serializers.SerializerMethodField()
     libro_autor = serializers.SerializerMethodField()
@@ -557,6 +637,9 @@ class PedidoListV1Serializer(serializers.ModelSerializer):
             'cliente_id',
             'cliente_nombre',
             'cliente_direccion',
+            'cliente_provincia',
+            'cliente_municipio',
+            'cliente_costo_mensajeria',
             'libro_id',
             'libro_titulo',
             'libro_autor',
@@ -580,6 +663,27 @@ class PedidoListV1Serializer(serializers.ModelSerializer):
 
     def get_cliente_direccion(self, obj):
         return obj.cliente.direccion if obj.cliente_id else ''
+
+    def _ubicacion_cliente(self, obj):
+        if not hasattr(obj, '_ubicacion_cliente_cache'):
+            if obj.cliente_id:
+                obj._ubicacion_cliente_cache = ubicacion_para_cliente(
+                    obj.cliente,
+                )
+            else:
+                obj._ubicacion_cliente_cache = ('', '')
+        return obj._ubicacion_cliente_cache
+
+    def get_cliente_provincia(self, obj):
+        return self._ubicacion_cliente(obj)[0]
+
+    def get_cliente_municipio(self, obj):
+        return self._ubicacion_cliente(obj)[1]
+
+    def get_cliente_costo_mensajeria(self, obj):
+        if not obj.cliente_id:
+            return 0
+        return float(costo_mensajeria_para_cliente(obj.cliente))
 
     def get_libro_titulo(self, obj):
         return obj.libro.titulo if obj.libro_id else ''
@@ -686,18 +790,51 @@ class CrearEntregaSerializer(serializers.Serializer):
         allow_empty=False,
     )
     direccion = serializers.CharField(required=False, allow_blank=True, default='')
+    provincia = serializers.CharField(required=False, allow_blank=True, default='')
+    municipio = serializers.CharField(required=False, allow_blank=True, default='')
     costo_mensajeria = serializers.DecimalField(
         max_digits=10,
         decimal_places=2,
         min_value=Decimal('0'),
-        default=Decimal('0'),
         required=False,
+        allow_null=True,
     )
     fecha_entrega = serializers.DateField(required=False, allow_null=True)
     notas = serializers.CharField(required=False, allow_blank=True, default='')
 
     def validate_pedido_ids(self, value):
         return list(dict.fromkeys(value))
+
+    def validate(self, attrs):
+        provincia = (attrs.get('provincia') or '').strip()
+        municipio = (attrs.get('municipio') or '').strip()
+
+        if provincia and provincia not in PROVINCIAS:
+            raise serializers.ValidationError(
+                {'provincia': 'Selecciona una provincia válida.'}
+            )
+
+        if municipio:
+            provincia_municipio = provincia_para_municipio(municipio)
+            if not provincia_municipio:
+                raise serializers.ValidationError(
+                    {'municipio': 'Selecciona un municipio válido.'}
+                )
+            if provincia and provincia != provincia_municipio:
+                raise serializers.ValidationError(
+                    {
+                        'municipio': (
+                            'El municipio no pertenece a la provincia '
+                            'seleccionada.'
+                        )
+                    }
+                )
+            if not provincia:
+                provincia = provincia_municipio
+
+        attrs['provincia'] = provincia
+        attrs['municipio'] = municipio
+        return attrs
 
 
 class ConfirmarEntregaSerializer(serializers.Serializer):
@@ -779,6 +916,8 @@ class EntregaListV1Serializer(serializers.ModelSerializer):
             'cliente_id',
             'cliente_nombre',
             'direccion',
+            'provincia',
+            'municipio',
             'fecha_creacion',
             'fecha_entrega',
             'fecha_entrega_real',

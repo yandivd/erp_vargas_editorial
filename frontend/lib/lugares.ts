@@ -1,4 +1,4 @@
-export const PROVINCIAS = ["Artemisa", "La Habana"] as const;
+export const PROVINCIAS = ["La Habana", "Artemisa"] as const;
 
 export type Provincia = (typeof PROVINCIAS)[number];
 

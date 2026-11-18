@@ -5,6 +5,8 @@ export type EntregaListItem = {
   cliente_id: number;
   cliente_nombre: string;
   direccion: string;
+  provincia: string;
+  municipio: string;
   fecha_creacion: string;
   fecha_entrega: string | null;
   fecha_entrega_real: string | null;

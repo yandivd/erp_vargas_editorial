@@ -53,7 +53,14 @@ from pedidos.models import (
     Pedido,
     ServicioExterno,
 )
-from pedidos.services import CosteadorPedido, ServicioPedido
+from pedidos.services import (
+    CosteadorPedido,
+    ServicioPedido,
+    costo_mensajeria_para_cliente,
+    costo_mensajeria_para_municipio,
+    provincia_para_municipio,
+    ubicacion_para_cliente,
+)
 from proveedores.models import Proveedor
 
 from .serializers import (
@@ -956,6 +963,27 @@ def entrega_crear(request):
         )
 
     cliente = next((pedido.cliente for pedido in pedidos if pedido.cliente_id), None)
+    provincia = (datos.get('provincia') or '').strip()
+    municipio = (datos.get('municipio') or '').strip()
+
+    provincia_cliente, municipio_cliente = ubicacion_para_cliente(cliente)
+    if not provincia:
+        provincia = provincia_cliente
+    if not municipio:
+        municipio = municipio_cliente
+    if municipio and not provincia:
+        provincia = provincia_para_municipio(municipio)
+
+    costo_mensajeria = datos.get('costo_mensajeria')
+    if costo_mensajeria is None:
+        if municipio:
+            costo_mensajeria = costo_mensajeria_para_municipio(
+                municipio,
+                provincia,
+            )
+        else:
+            costo_mensajeria = costo_mensajeria_para_cliente(cliente)
+
     direccion = (datos.get('direccion') or '').strip()
     if not direccion:
         direccion = (cliente.direccion or '').strip()
@@ -975,7 +1003,9 @@ def entrega_crear(request):
         entrega = Entrega.objects.create(
             cliente=cliente,
             direccion=direccion,
-            costo_mensajeria=datos.get('costo_mensajeria') or Decimal('0'),
+            provincia=provincia,
+            municipio=municipio,
+            costo_mensajeria=costo_mensajeria,
             fecha_entrega=datos.get('fecha_entrega'),
             notas=datos.get('notas') or '',
         )
@@ -1104,6 +1134,8 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                     nombre=data.get('cliente_nombre') or '',
                     telefono=data.get('cliente_telefono') or '',
                     direccion=data.get('cliente_direccion') or '',
+                    provincia=data.get('cliente_provincia') or '',
+                    municipio=data.get('cliente_municipio') or '',
                 )
                 ServicioFidelidad.obtener_tarjeta(cliente)
 

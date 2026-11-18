@@ -403,6 +403,15 @@ export default function CatalogoPage() {
     escribirCarrito(carrito.filter((current) => !mismoItem(current, item)));
   }
 
+  function irAlCarrito() {
+    setLibroSeleccionado(null);
+    setTab("carrito");
+    document.getElementById("catalogo-secciones")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
   const tabs: { id: TabId; label: string; icon: typeof Library; badge: number }[] = [
     { id: "catalogo", label: "Catálogo", icon: Library, badge: 0 },
     { id: "favoritos", label: "Favoritos", icon: Heart, badge: favoritos.length },
@@ -472,6 +481,7 @@ export default function CatalogoPage() {
       </header>
 
       <nav
+        id="catalogo-secciones"
         className="mb-6 flex flex-wrap items-center justify-center gap-2"
         aria-label="Secciones de la tienda"
       >
@@ -748,6 +758,7 @@ export default function CatalogoPage() {
           onClose={() => setLibroSeleccionado(null)}
           onToggleFavorito={handleToggleFavorito}
           onAddToCart={handleAddToCart}
+          onIrAlCarrito={irAlCarrito}
           onSelectLibro={setLibroSeleccionado}
         />
       ) : null}

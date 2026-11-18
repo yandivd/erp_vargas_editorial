@@ -12,6 +12,7 @@ import {
 import { fetchCatalogoLibro, type LibroPublico } from "@/lib/catalogos";
 import { money } from "@/lib/format";
 import { PROVINCIAS, municipiosDe } from "@/lib/lugares";
+import { costoMensajeriaDe } from "@/lib/mensajeria";
 import { precioItem, useCarrito } from "@/lib/tienda";
 
 const WHATSAPP_NUMERO = "5354545068";
@@ -113,6 +114,13 @@ export default function CheckoutPage() {
     [items, libros],
   );
 
+  const costoMensajeria = useMemo(
+    () => costoMensajeriaDe(formulario.municipio, formulario.provincia),
+    [formulario.municipio, formulario.provincia],
+  );
+
+  const totalAPagar = total + costoMensajeria;
+
   const faltanLibros = useMemo(
     () => items.some((item) => !libros[item.libroId]),
     [items, libros],
@@ -168,7 +176,9 @@ export default function CheckoutPage() {
       "",
       ...lineas,
       "",
-      `Total: ${money(total, "CUP")}`,
+      `Subtotal de libros: ${money(total, "CUP")}`,
+      `Costo de mensajería: ${money(costoMensajeria, "CUP")}`,
+      `Total a pagar: ${money(totalAPagar, "CUP")}`,
       "",
       `Nombre: ${formulario.nombre.trim()}`,
       `Teléfono: ${formulario.telefono.trim()}`,
@@ -353,11 +363,29 @@ export default function CheckoutPage() {
               })}
             </div>
 
-            <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
-              <span className="text-sm font-semibold text-ink">Total</span>
-              <span className="text-2xl font-extrabold text-brand">
-                {money(total, "CUP")}
-              </span>
+            <div className="mt-5 space-y-2 border-t border-line pt-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted">Subtotal de libros</span>
+                <span className="font-semibold text-ink">
+                  {money(total, "CUP")}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted">Costo de mensajería</span>
+                <span className="font-semibold text-ink">
+                  {formulario.municipio
+                    ? money(costoMensajeria, "CUP")
+                    : "Selecciona un municipio"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-t border-line pt-3">
+                <span className="text-sm font-semibold text-ink">
+                  Total a pagar
+                </span>
+                <span className="text-2xl font-extrabold text-brand">
+                  {money(totalAPagar, "CUP")}
+                </span>
+              </div>
             </div>
 
             {faltanLibros && !cargando ? (

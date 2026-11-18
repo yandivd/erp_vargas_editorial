@@ -166,6 +166,15 @@ export default async function ClienteDetailPage({ params }: PageProps) {
               value={cliente.direccion || "—"}
             />
             <Info
+              label="Provincia / Municipio"
+              icon={<MapPin className="h-4 w-4" aria-hidden="true" />}
+              value={
+                [cliente.provincia, cliente.municipio]
+                  .filter(Boolean)
+                  .join(" / ") || "—"
+              }
+            />
+            <Info
               label="Cliente desde"
               icon={<CalendarDays className="h-4 w-4" aria-hidden="true" />}
               value={formatDate(cliente.fecha_registro)}

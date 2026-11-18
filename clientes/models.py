@@ -5,11 +5,27 @@ from django.utils import timezone
 from django.db.models import Sum
 from datetime import timedelta
 
+from core.ubicaciones import PROVINCIAS
+
+
+PROVINCIA_CHOICES = tuple((provincia, provincia) for provincia in PROVINCIAS)
+
 
 class Cliente(models.Model):
     nombre = models.CharField(max_length=200)
     telefono = models.CharField(max_length=50, blank=True)
     direccion = models.TextField(blank=True)
+    provincia = models.CharField(
+        max_length=50,
+        blank=True,
+        choices=PROVINCIA_CHOICES,
+        verbose_name='Provincia',
+    )
+    municipio = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Municipio',
+    )
     notas = models.TextField(blank=True)
     fecha_registro = models.DateTimeField(auto_now_add=True)
 

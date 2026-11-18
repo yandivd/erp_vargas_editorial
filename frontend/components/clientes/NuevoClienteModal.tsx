@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { apiFetch } from "@/lib/api";
 import type { ClienteListItem } from "@/lib/clientes";
+import { PROVINCIAS, municipiosDe } from "@/lib/lugares";
 
 const inputClass =
   "w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-50";
@@ -16,10 +17,13 @@ export default function NuevoClienteModal() {
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [direccion, setDireccion] = useState("");
+  const [provincia, setProvincia] = useState("");
+  const [municipio, setMunicipio] = useState("");
   const [notas, setNotas] = useState("");
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
+  const municipios = municipiosDe(provincia);
 
   useEffect(() => {
     if (!abierto) {
@@ -41,6 +45,8 @@ export default function NuevoClienteModal() {
     setNombre("");
     setTelefono("");
     setDireccion("");
+    setProvincia("");
+    setMunicipio("");
     setNotas("");
     setError(null);
     setExito(null);
@@ -76,6 +82,8 @@ export default function NuevoClienteModal() {
           nombre: nombre.trim(),
           telefono: telefono.trim(),
           direccion: direccion.trim(),
+          provincia,
+          municipio,
           notas: notas.trim(),
         }),
       });
@@ -213,6 +221,51 @@ export default function NuevoClienteModal() {
                   className={inputClass}
                   placeholder="Dirección de entrega"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="cliente-form-provincia" className={labelClass}>
+                    Provincia
+                  </label>
+                  <select
+                    id="cliente-form-provincia"
+                    value={provincia}
+                    onChange={(event) => {
+                      setProvincia(event.target.value);
+                      setMunicipio("");
+                    }}
+                    disabled={guardando}
+                    className={inputClass}
+                  >
+                    <option value="">Sin especificar</option>
+                    {PROVINCIAS.map((opcion) => (
+                      <option key={opcion} value={opcion}>
+                        {opcion}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="cliente-form-municipio" className={labelClass}>
+                    Municipio
+                  </label>
+                  <select
+                    id="cliente-form-municipio"
+                    value={municipio}
+                    onChange={(event) => setMunicipio(event.target.value)}
+                    disabled={guardando || !provincia}
+                    className={inputClass}
+                  >
+                    <option value="">Sin especificar</option>
+                    {municipios.map((opcion) => (
+                      <option key={opcion} value={opcion}>
+                        {opcion}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div>

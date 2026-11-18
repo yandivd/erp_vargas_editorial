@@ -32,6 +32,7 @@ import {
 } from "@/lib/costos";
 import { integer, money, number } from "@/lib/format";
 import type { FidelidadCliente } from "@/lib/clientes";
+import { PROVINCIAS, municipiosDe } from "@/lib/lugares";
 
 type Cliente = {
   id: number;
@@ -112,6 +113,8 @@ export default function NuevoPedidoModal() {
   const [nuevoClienteNombre, setNuevoClienteNombre] = useState("");
   const [nuevoClienteTelefono, setNuevoClienteTelefono] = useState("");
   const [nuevoClienteDireccion, setNuevoClienteDireccion] = useState("");
+  const [nuevoClienteProvincia, setNuevoClienteProvincia] = useState("");
+  const [nuevoClienteMunicipio, setNuevoClienteMunicipio] = useState("");
 
   const [modoLibro, setModoLibro] = useState<ModoLibro>("existente");
   const [libroId, setLibroId] = useState("");
@@ -197,6 +200,11 @@ export default function NuevoPedidoModal() {
   const clienteSeleccionadoObj = useMemo(
     () => clientes.find((cliente) => String(cliente.id) === clienteId) ?? null,
     [clientes, clienteId],
+  );
+
+  const municipiosNuevoCliente = useMemo(
+    () => municipiosDe(nuevoClienteProvincia),
+    [nuevoClienteProvincia],
   );
 
   const fidelidad = clienteSeleccionadoObj?.fidelidad ?? null;
@@ -349,6 +357,8 @@ export default function NuevoPedidoModal() {
     setNuevoClienteNombre("");
     setNuevoClienteTelefono("");
     setNuevoClienteDireccion("");
+    setNuevoClienteProvincia("");
+    setNuevoClienteMunicipio("");
     setModoLibro("existente");
     setLibroId("");
     setLibroSeleccionado(null);
@@ -761,6 +771,10 @@ export default function NuevoPedidoModal() {
             modoCliente === "nuevo" ? nuevoClienteTelefono.trim() : "",
           cliente_direccion:
             modoCliente === "nuevo" ? nuevoClienteDireccion.trim() : "",
+          cliente_provincia:
+            modoCliente === "nuevo" ? nuevoClienteProvincia : "",
+          cliente_municipio:
+            modoCliente === "nuevo" ? nuevoClienteMunicipio : "",
           libro_id: modoLibro === "nuevo" ? null : Number(libroId),
           libro_titulo:
             modoLibro === "nuevo" ? nuevoLibroTitulo.trim() : "",
@@ -944,6 +958,54 @@ export default function NuevoPedidoModal() {
                           }
                           className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
                         />
+                      </div>
+                      <div>
+                        <label
+                          htmlFor="nuevo-cliente-provincia"
+                          className="mb-1.5 block text-sm font-semibold text-ink"
+                        >
+                          Provincia
+                        </label>
+                        <select
+                          id="nuevo-cliente-provincia"
+                          value={nuevoClienteProvincia}
+                          onChange={(event) => {
+                            setNuevoClienteProvincia(event.target.value);
+                            setNuevoClienteMunicipio("");
+                          }}
+                          className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                        >
+                          <option value="">Sin especificar</option>
+                          {PROVINCIAS.map((provincia) => (
+                            <option key={provincia} value={provincia}>
+                              {provincia}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label
+                          htmlFor="nuevo-cliente-municipio"
+                          className="mb-1.5 block text-sm font-semibold text-ink"
+                        >
+                          Municipio
+                        </label>
+                        <select
+                          id="nuevo-cliente-municipio"
+                          value={nuevoClienteMunicipio}
+                          onChange={(event) =>
+                            setNuevoClienteMunicipio(event.target.value)
+                          }
+                          disabled={!nuevoClienteProvincia}
+                          className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-50"
+                        >
+                          <option value="">Sin especificar</option>
+                          {municipiosNuevoCliente.map((municipio) => (
+                            <option key={municipio} value={municipio}>
+                              {municipio}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div className="sm:col-span-2">
                         <label

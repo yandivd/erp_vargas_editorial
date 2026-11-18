@@ -21,6 +21,8 @@ export type ClienteListItem = {
   nombre: string;
   telefono: string;
   direccion: string;
+  provincia: string;
+  municipio: string;
   notas: string;
   fecha_registro: string;
   pedidos: number;

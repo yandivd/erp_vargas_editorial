@@ -27,6 +27,15 @@
                     <strong>Dirección:</strong><br class="d-md-none">
                     {{ cliente.direccion|default:"—" }}
                 </p>
+                <p class="mb-0">
+                    <i class="bi bi-map text-muted me-2"></i>
+                    <strong>Provincia / Municipio:</strong><br class="d-md-none">
+                    {% if cliente.provincia or cliente.municipio %}
+                        {{ cliente.provincia|default:"—" }} / {{ cliente.municipio|default:"—" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </p>
             </div>
             <p class="text-muted small mt-3 mb-0 border-top pt-2">
                 Cliente desde: {{ cliente.fecha_registro|date:"d/m/Y" }}

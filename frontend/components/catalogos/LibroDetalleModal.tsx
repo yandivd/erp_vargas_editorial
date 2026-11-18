@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  CheckCircle2,
   Heart,
   Loader2,
   Minus,
@@ -30,6 +31,7 @@ type LibroDetalleModalProps = {
       cantidad: number;
     },
   ) => void;
+  onIrAlCarrito: () => void;
   onSelectLibro: (libro: LibroPublico) => void;
 };
 
@@ -40,6 +42,7 @@ export default function LibroDetalleModal({
   onClose,
   onToggleFavorito,
   onAddToCart,
+  onIrAlCarrito,
   onSelectLibro,
 }: LibroDetalleModalProps) {
   const [esquineros, setEsquineros] = useState(false);
@@ -312,9 +315,20 @@ export default function LibroDetalleModal({
               </div>
 
               {agregado ? (
-                <p className="mt-2 text-sm font-semibold text-emerald-700">
-                  Agregado al carrito.
-                </p>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  <p className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    Agregado al carrito.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onIrAlCarrito}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+                    Ir al carrito
+                  </button>
+                </div>
               ) : null}
             </div>
           </div>

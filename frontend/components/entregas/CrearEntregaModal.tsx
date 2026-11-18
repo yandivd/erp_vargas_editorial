@@ -7,6 +7,8 @@ import { apiFetch } from "@/lib/api";
 import { redondear2 } from "@/lib/costos";
 import type { EntregaDetail } from "@/lib/entregas";
 import { money } from "@/lib/format";
+import { PROVINCIAS, municipiosDe } from "@/lib/lugares";
+import { costoMensajeriaDe, provinciaDeMunicipio } from "@/lib/mensajeria";
 import type { PedidoListItem } from "@/lib/pedidos";
 
 type GrupoCliente = {
@@ -14,6 +16,9 @@ type GrupoCliente = {
   clienteNombre: string;
   pedidos: PedidoListItem[];
 };
+
+const selectClass =
+  "w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-50";
 
 export default function CrearEntregaModal() {
   const router = useRouter();
@@ -23,7 +28,13 @@ export default function CrearEntregaModal() {
   const [direccion, setDireccion] = useState("");
   const [direccionError, setDireccionError] = useState<string | null>(null);
   const [direccionAutocompletada, setDireccionAutocompletada] = useState("");
+  const [provincia, setProvincia] = useState("");
+  const [municipio, setMunicipio] = useState("");
+  const [clienteUbicacionId, setClienteUbicacionId] = useState<number | null>(
+    null,
+  );
   const [costoMensajeria, setCostoMensajeria] = useState("0");
+  const [clienteCostoId, setClienteCostoId] = useState<number | null>(null);
   const [fechaEntrega, setFechaEntrega] = useState("");
   const [notas, setNotas] = useState("");
   const [cargando, setCargando] = useState(false);
@@ -37,6 +48,7 @@ export default function CrearEntregaModal() {
   );
 
   const clienteSeleccionado = seleccionadosPedidos[0] ?? null;
+  const municipios = municipiosDe(provincia);
   const direccionCliente = (
     clienteSeleccionado?.cliente_direccion ?? ""
   ).trim();
@@ -133,7 +145,11 @@ export default function CrearEntregaModal() {
     setDireccion("");
     setDireccionError(null);
     setDireccionAutocompletada("");
+    setProvincia("");
+    setMunicipio("");
+    setClienteUbicacionId(null);
     setCostoMensajeria("0");
+    setClienteCostoId(null);
     setFechaEntrega("");
     setNotas("");
     setError(null);
@@ -170,6 +186,45 @@ export default function CrearEntregaModal() {
     setDireccionError(null);
   }
 
+  function sincronizarCosto(cliente: PedidoListItem | null) {
+    const clienteId = cliente?.cliente_id ?? null;
+
+    if (clienteId === null) {
+      if (clienteCostoId !== null) {
+        setCostoMensajeria("0");
+      }
+      setClienteCostoId(null);
+      return;
+    }
+
+    if (clienteId !== clienteCostoId) {
+      const sugerido = Number(cliente?.cliente_costo_mensajeria ?? 0);
+      setCostoMensajeria(String(Number.isFinite(sugerido) ? sugerido : 0));
+      setClienteCostoId(clienteId);
+    }
+  }
+
+  function sincronizarUbicacion(cliente: PedidoListItem | null) {
+    const clienteId = cliente?.cliente_id ?? null;
+
+    if (clienteId === null) {
+      setProvincia("");
+      setMunicipio("");
+      setClienteUbicacionId(null);
+      return;
+    }
+
+    if (clienteId !== clienteUbicacionId) {
+      const provinciaCliente = (cliente?.cliente_provincia ?? "").trim();
+      const municipioCliente = (cliente?.cliente_municipio ?? "").trim();
+      setProvincia(
+        provinciaCliente || provinciaDeMunicipio(municipioCliente),
+      );
+      setMunicipio(municipioCliente);
+      setClienteUbicacionId(clienteId);
+    }
+  }
+
   function togglePedido(pedido: PedidoListItem) {
     if (guardando) {
       return;
@@ -195,10 +250,12 @@ export default function CrearEntregaModal() {
       siguiente.add(pedido.id);
     }
 
+    const siguienteCliente =
+      pedidos.find((item) => siguiente.has(item.id)) ?? null;
     setSeleccionados(siguiente);
-    sincronizarDireccion(
-      pedidos.find((item) => siguiente.has(item.id)) ?? null,
-    );
+    sincronizarDireccion(siguienteCliente);
+    sincronizarCosto(siguienteCliente);
+    sincronizarUbicacion(siguienteCliente);
   }
 
   function toggleGrupo(grupo: GrupoCliente) {
@@ -230,10 +287,12 @@ export default function CrearEntregaModal() {
       }
     }
 
+    const siguienteCliente =
+      pedidos.find((item) => siguiente.has(item.id)) ?? null;
     setSeleccionados(siguiente);
-    sincronizarDireccion(
-      pedidos.find((item) => siguiente.has(item.id)) ?? null,
-    );
+    sincronizarDireccion(siguienteCliente);
+    sincronizarCosto(siguienteCliente);
+    sincronizarUbicacion(siguienteCliente);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -268,9 +327,10 @@ export default function CrearEntregaModal() {
       return;
     }
 
-    const costo = Number(costoMensajeria || 0);
+    const costoTexto = costoMensajeria.trim();
+    const costo = costoTexto === "" ? null : Number(costoTexto);
 
-    if (!Number.isFinite(costo) || costo < 0) {
+    if (costo !== null && (!Number.isFinite(costo) || costo < 0)) {
       setError("El costo de mensajería no es válido.");
       return;
     }
@@ -285,7 +345,9 @@ export default function CrearEntregaModal() {
         body: JSON.stringify({
           pedido_ids: Array.from(seleccionados),
           direccion: direccionLimpia,
-          costo_mensajeria: redondear2(costo),
+          provincia,
+          municipio,
+          costo_mensajeria: costo === null ? null : redondear2(costo),
           fecha_entrega: fechaEntrega || null,
           notas: notas.trim(),
         }),
@@ -393,6 +455,64 @@ export default function CrearEntregaModal() {
 
                 <div>
                   <label
+                    htmlFor="entrega-provincia"
+                    className="mb-1.5 block text-sm font-semibold text-ink"
+                  >
+                    Provincia
+                  </label>
+                  <select
+                    id="entrega-provincia"
+                    value={provincia}
+                    onChange={(event) => {
+                      setProvincia(event.target.value);
+                      setMunicipio("");
+                      setCostoMensajeria("0");
+                    }}
+                    disabled={guardando}
+                    className={selectClass}
+                  >
+                    <option value="">Sin especificar</option>
+                    {PROVINCIAS.map((opcion) => (
+                      <option key={opcion} value={opcion}>
+                        {opcion}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="entrega-municipio"
+                    className="mb-1.5 block text-sm font-semibold text-ink"
+                  >
+                    Municipio
+                  </label>
+                  <select
+                    id="entrega-municipio"
+                    value={municipio}
+                    onChange={(event) => {
+                      const nuevo = event.target.value;
+                      setMunicipio(nuevo);
+                      setCostoMensajeria(
+                        nuevo
+                          ? String(costoMensajeriaDe(nuevo, provincia))
+                          : "0",
+                      );
+                    }}
+                    disabled={guardando || !provincia}
+                    className={selectClass}
+                  >
+                    <option value="">Sin especificar</option>
+                    {municipios.map((opcion) => (
+                      <option key={opcion} value={opcion}>
+                        {opcion}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
                     htmlFor="entrega-fecha"
                     className="mb-1.5 block text-sm font-semibold text-ink"
                   >
@@ -426,6 +546,11 @@ export default function CrearEntregaModal() {
                     disabled={guardando}
                     className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-50"
                   />
+                  <p className="mt-1 text-xs text-muted">
+                    {clienteSeleccionado
+                      ? "Sugerido según el municipio del cliente. Puedes ajustarlo."
+                      : "Selecciona un pedido para sugerir el costo según el municipio del cliente."}
+                  </p>
                 </div>
 
                 <div className="sm:col-span-2">
