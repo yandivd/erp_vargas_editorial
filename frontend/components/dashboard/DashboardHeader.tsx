@@ -51,11 +51,8 @@ export default function DashboardHeader({
   hasta: string;
   meta?: DashboardMeta;
 }) {
-  const djangoUrl = (process.env.NEXT_PUBLIC_DJANGO_URL ?? "").replace(/\/+$/, "");
   const filterQuery = buildFilterQuery(desde, hasta);
-  const exportHref = djangoUrl
-    ? `${djangoUrl}/exportar-ia/${filterQuery ? `?${filterQuery}` : ""}`
-    : "#";
+  const exportHref = `/api/bff/exportar-ia${filterQuery ? `?${filterQuery}` : ""}`;
 
   return (
     <>
