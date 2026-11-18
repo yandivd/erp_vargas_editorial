@@ -135,9 +135,6 @@ def _mes_actual_texto():
 
 
 def _parametros_costo():
-    material_esquineros = Material.objects.filter(
-        nombre__iexact='esquineros'
-    ).first()
     return {
         'paginas_por_hoja': int(Parametro.get('paginas_por_hoja', 4)),
         'precio_papel_paquete': float(Parametro.get('precio_papel_paquete', 1800)),
@@ -147,11 +144,14 @@ def _parametros_costo():
         'precio_pegamento': float(Parametro.get('precio_pegamento', 3500)),
         'rinde_pegamento_lomos': float(Parametro.get('rinde_pegamento_lomos', 70)),
         'esquineros_por_libro': float(Parametro.get('esquineros_por_libro', 4)),
-        'costo_esquineros_material': (
-            float(material_esquineros.costo_promedio)
-            if material_esquineros
-            else 0
+        'esquineros_por_paquete': float(Parametro.get('esquineros_por_paquete', 100)),
+        'precio_esquineros_paquete_usd': float(
+            Parametro.get('precio_esquineros_paquete_usd', 6)
         ),
+        'precio_cantos_pintados': float(
+            Parametro.get('precio_cantos_pintados', 2500)
+        ),
+        'tasa_cambio': float(ServicioFinanzas.obtener_tasa_usd_cup()),
         'precio_scotch': float(Parametro.get('precio_scotch', 1000)),
         'rinde_scotch_libros': float(Parametro.get('rinde_scotch_libros', 30)),
         'precio_portada': float(Parametro.get('precio_portada', 1000)),

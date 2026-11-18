@@ -4,7 +4,6 @@ from clientes.models import Cliente
 from django.utils import timezone
 from django.db import transaction
 from core.models import Parametro
-from inventario.models import Material
 from .models import Book, Entrega, HistorialEstado, LoteServicio, Pedido, ServicioExterno, Estado
 from proveedores.models import Proveedor
 from datetime import date, timedelta
@@ -45,6 +44,11 @@ class CosteadorPedido:
     def _param(self, clave, default=0):
         return Decimal(str(Parametro.get(clave, default)))
 
+    def _tasa_cambio(self):
+        from core.services import tasa_cambio
+
+        return tasa_cambio()[0]
+
     def calcular(self):
         p = self.pedido
         paginas = p.paginas
@@ -71,17 +75,22 @@ class CosteadorPedido:
         # --- ESQUINEROS ---
         costo_esquineros = Decimal('0')
         if p.lleva_esquineros:
-            material_esquineros = Material.objects.filter(nombre__iexact='esquineros').first()
-            if material_esquineros:
-                cant_esquineros = self._param('esquineros_por_libro', 4)
-                costo_esquineros = cant_esquineros * material_esquineros.costo_promedio
+            precio_paquete_usd = self._param('precio_esquineros_paquete_usd', 6)
+            piezas_por_paquete = self._param('esquineros_por_paquete', 100)
+            piezas_por_libro = self._param('esquineros_por_libro', 4)
+            costo_pieza_usd = (
+                precio_paquete_usd / piezas_por_paquete
+                if piezas_por_paquete
+                else Decimal('0')
+            )
+            costo_esquineros = (
+                costo_pieza_usd * piezas_por_libro * self._tasa_cambio()
+            )
 
         # --- CANTOS TINTADOS ---
         costo_scotch = Decimal('0')
         if p.lleva_cantos_tintados:
-            precio_scotch = self._param('precio_scotch', 1000)
-            rinde_scotch = self._param('rinde_scotch_libros', 30)
-            costo_scotch = precio_scotch / rinde_scotch if rinde_scotch else 0
+            costo_scotch = self._param('precio_cantos_pintados', 2500)
 
         # --- PORTADA ---
         costo_portada = self._param('precio_portada', 1000)

@@ -7,9 +7,10 @@ export type ParametrosCosto = {
   precio_pegamento: number;
   rinde_pegamento_lomos: number;
   esquineros_por_libro: number;
-  costo_esquineros_material: number;
-  precio_scotch: number;
-  rinde_scotch_libros: number;
+  esquineros_por_paquete: number;
+  precio_esquineros_paquete_usd: number;
+  precio_cantos_pintados: number;
+  tasa_cambio: number;
   precio_portada: number;
   paginas_para_grueso: number;
   precio_encuadernacion: number;
@@ -98,13 +99,17 @@ export function calcularCostoPorUnidad(
   const costoPegamento = parametros.rinde_pegamento_lomos
     ? parametros.precio_pegamento / parametros.rinde_pegamento_lomos
     : 0;
-  const costoEsquineros = llevaEsquineros
-    ? parametros.esquineros_por_libro * parametros.costo_esquineros_material
+  const costoEsquinerosUsd = parametros.esquineros_por_paquete
+    ? (parametros.precio_esquineros_paquete_usd /
+        parametros.esquineros_por_paquete) *
+      parametros.esquineros_por_libro
     : 0;
-  const costoCantosTintados =
-    llevaCantosTintados && parametros.rinde_scotch_libros
-      ? parametros.precio_scotch / parametros.rinde_scotch_libros
-      : 0;
+  const costoEsquineros = llevaEsquineros
+    ? costoEsquinerosUsd * parametros.tasa_cambio
+    : 0;
+  const costoCantosTintados = llevaCantosTintados
+    ? parametros.precio_cantos_pintados
+    : 0;
   const costoPortada = parametros.precio_portada;
   const costoEncuadernacion =
     paginas > parametros.paginas_para_grueso
