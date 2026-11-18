@@ -291,7 +291,7 @@ export default function LibroDetalleModal({
                   type="button"
                   onClick={handleAddToCart}
                   disabled={!libro.disponible}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand/90 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   <ShoppingCart className="h-4 w-4" aria-hidden="true" />
                   {libro.disponible ? "Agregar al carrito" : "Agotado"}

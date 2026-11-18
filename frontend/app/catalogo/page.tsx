@@ -3,18 +3,23 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import {
+  Gift,
   Heart,
   Library,
   Loader2,
   Minus,
   Plus,
-  ShoppingCart,
   Trash2,
 } from "lucide-react";
 import BookCatalog from "@/components/catalogos/BookCatalog";
+import Garland from "@/components/catalogos/Garland";
 import LibroDetalleModal from "@/components/catalogos/LibroDetalleModal";
+import SantaIcon from "@/components/catalogos/SantaIcon";
+import SeasonBanner from "@/components/catalogos/SeasonBanner";
 import ShopBookCard from "@/components/catalogos/ShopBookCard";
+import Snowfall from "@/components/catalogos/Snowfall";
 import {
   fetchCatalogoLibro,
   fetchCatalogoPage,
@@ -44,6 +49,7 @@ function mismoItem(a: CarritoItem, b: CarritoItem): boolean {
 }
 
 export default function CatalogoPage() {
+  const reduceMotion = useReducedMotion();
   const [books, setBooks] = useState<LibroPublico[]>([]);
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
@@ -400,24 +406,67 @@ export default function CatalogoPage() {
   const tabs: { id: TabId; label: string; icon: typeof Library; badge: number }[] = [
     { id: "catalogo", label: "Catálogo", icon: Library, badge: 0 },
     { id: "favoritos", label: "Favoritos", icon: Heart, badge: favoritos.length },
-    { id: "carrito", label: "Carrito", icon: ShoppingCart, badge: carritoCount },
   ];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 md:px-8">
+    <div
+      className="relative min-h-screen overflow-x-hidden bg-slate-950"
+      style={{
+        backgroundImage:
+          "url('/img/navidad/stars.svg'), linear-gradient(to bottom, #020617 0%, #0f172a 55%, #020617 100%)",
+        backgroundRepeat: "repeat, no-repeat",
+        backgroundSize: "auto, cover",
+      }}
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-y-0 left-0 z-0 hidden w-24 opacity-70 sm:block md:w-40 lg:w-56"
+        style={{
+          backgroundImage: "url('/img/navidad/pine-left.svg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-y-0 right-0 z-0 hidden w-24 opacity-70 sm:block md:w-40 lg:w-56"
+        style={{
+          backgroundImage: "url('/img/navidad/pine-right.svg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-0 h-24 w-full md:h-32"
+        style={{
+          backgroundImage: "url('/img/navidad/snow-bottom.svg')",
+          backgroundSize: "100% 100%",
+          backgroundPosition: "bottom",
+          backgroundRepeat: "no-repeat",
+        }}
+      />
+      <Snowfall />
+      <Garland />
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pb-20 pt-28 md:px-8 md:pt-32">
       <header className="mb-8 flex flex-col items-center text-center">
-        <Image
-          src="/img/logo.jpg"
-          alt="Vargas Editorial"
-          width={260}
-          height={120}
-          priority
-          className="h-auto max-h-16 w-auto object-contain"
-        />
-        <h1 className="mt-4 text-3xl font-extrabold text-ink">
+        <div className="rounded-2xl border border-amber-300/40 bg-white/95 p-3 shadow-[0_0_50px_rgba(251,191,36,0.18)]">
+          <Image
+            src="/img/logo.jpg"
+            alt="Vargas Editorial"
+            width={260}
+            height={120}
+            priority
+            className="h-auto max-h-16 w-auto object-contain"
+          />
+        </div>
+        <SeasonBanner />
+        <h1 className="mt-5 bg-gradient-to-r from-amber-200 via-yellow-50 to-amber-200 bg-clip-text text-4xl font-black tracking-tight text-transparent drop-shadow-[0_2px_10px_rgba(251,191,36,0.25)] md:text-5xl">
           Vargas Editorial
         </h1>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-2 text-sm text-slate-300 md:text-base">
           Catálogo público de encuadernación y edición.
         </p>
       </header>
@@ -438,8 +487,8 @@ export default function CatalogoPage() {
               aria-pressed={activo}
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
                 activo
-                  ? "border-brand bg-brand text-white"
-                  : "border-line bg-white text-ink hover:bg-slate-50"
+                  ? "border-amber-300 bg-red-600 text-white shadow-lg shadow-red-900/40"
+                  : "border-white/15 bg-white/10 text-slate-100 backdrop-blur hover:bg-white/20"
               }`}
             >
               <Icon className="h-4 w-4" aria-hidden="true" />
@@ -447,7 +496,9 @@ export default function CatalogoPage() {
               {item.badge > 0 ? (
                 <span
                   className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${
-                    activo ? "bg-white/20 text-white" : "bg-brand/10 text-brand"
+                    activo
+                      ? "bg-amber-300 text-red-950"
+                      : "bg-white/15 text-slate-100"
                   }`}
                 >
                   {item.badge}
@@ -456,6 +507,35 @@ export default function CatalogoPage() {
             </button>
           );
         })}
+
+        <motion.button
+          type="button"
+          onClick={() => setTab("carrito")}
+          aria-pressed={tab === "carrito"}
+          whileHover={reduceMotion ? undefined : { scale: 1.05, rotate: 2 }}
+          whileTap={reduceMotion ? undefined : { scale: 0.92, rotate: -8 }}
+          transition={{ type: "spring", stiffness: 400, damping: 15 }}
+          className={`relative inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+            tab === "carrito"
+              ? "border-amber-300 bg-red-600 text-white shadow-lg shadow-red-900/40"
+              : "border-white/15 bg-white/10 text-slate-100 backdrop-blur hover:bg-white/20"
+          }`}
+        >
+          <span className="relative inline-flex">
+            <SantaIcon className="h-5 w-5" />
+            {carritoCount > 0 ? (
+              <motion.span
+                key={carritoCount}
+                initial={{ scale: 0.6 }}
+                animate={{ scale: 1 }}
+                className="absolute -right-2 -top-2 inline-flex min-w-5 items-center justify-center rounded-full bg-amber-300 px-1.5 text-[10px] font-extrabold text-red-950 shadow"
+              >
+                {carritoCount}
+              </motion.span>
+            ) : null}
+          </span>
+          Carrito
+        </motion.button>
       </nav>
 
       {tab === "catalogo" ? (
@@ -476,34 +556,37 @@ export default function CatalogoPage() {
       ) : null}
 
       {tab === "favoritos" ? (
-        <section className="rounded-xl border border-line bg-white p-4 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.02)] md:p-6">
+        <section className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-2xl shadow-black/30 backdrop-blur md:p-6">
           <div className="mb-6">
-            <h2 className="text-xl font-extrabold text-ink">Tus favoritos</h2>
-            <p className="mt-1 text-sm text-muted">
+            <h2 className="text-xl font-extrabold text-amber-100">
+              Tus favoritos
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
               Los libros que guardaste para comprar más tarde.
             </p>
           </div>
 
           {cargandoFavoritos ? (
-            <div className="flex items-center justify-center gap-2 py-12 text-sm font-medium text-muted">
+            <div className="flex items-center justify-center gap-2 py-12 text-sm font-medium text-slate-400">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               Cargando favoritos...
             </div>
           ) : errorFavoritos ? (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-6 text-center text-sm text-red-800">
+            <p className="rounded-lg border border-red-400/30 bg-red-950/40 px-4 py-6 text-center text-sm text-red-200">
               {errorFavoritos}
             </p>
           ) : favoritosLibros.length === 0 ? (
-            <div className="px-4 py-12 text-center text-sm text-muted">
+            <div className="px-4 py-12 text-center text-sm text-slate-400">
               <Heart
-                className="mx-auto mb-3 h-8 w-8 text-slate-300"
+                className="mx-auto mb-3 h-8 w-8 text-slate-600"
                 aria-hidden="true"
               />
-              <p className="font-semibold text-ink">
+              <p className="font-semibold text-slate-200">
                 Aún no tienes libros favoritos.
               </p>
               <p className="mt-1">
-                Toca el corazón en cualquier libro para guardarlo aquí.
+                Toca el corazón (o el regalo) en cualquier libro para guardarlo
+                aquí.
               </p>
             </div>
           ) : (
@@ -523,21 +606,22 @@ export default function CatalogoPage() {
       ) : null}
 
       {tab === "carrito" ? (
-        <section className="rounded-xl border border-line bg-white p-4 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.02)] md:p-6">
+        <section className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-2xl shadow-black/30 backdrop-blur md:p-6">
           <div className="mb-6">
-            <h2 className="text-xl font-extrabold text-ink">Tu carrito</h2>
-            <p className="mt-1 text-sm text-muted">
+            <h2 className="text-xl font-extrabold text-amber-100">
+              Tu carrito
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
               Revisa los libros y acabados antes de confirmar tu pedido.
             </p>
           </div>
 
           {carrito.length === 0 ? (
-            <div className="px-4 py-12 text-center text-sm text-muted">
-              <ShoppingCart
-                className="mx-auto mb-3 h-8 w-8 text-slate-300"
-                aria-hidden="true"
-              />
-              <p className="font-semibold text-ink">Tu carrito está vacío.</p>
+            <div className="px-4 py-12 text-center text-sm text-slate-400">
+              <SantaIcon className="mx-auto mb-3 h-10 w-10" />
+              <p className="font-semibold text-slate-200">
+                Tu carrito está vacío.
+              </p>
               <p className="mt-1">
                 Explora el catálogo y agrega los libros que quieras comprar.
               </p>
@@ -551,35 +635,37 @@ export default function CatalogoPage() {
                 return (
                   <div
                     key={`${item.libroId}-${item.esquineros}-${item.cantosPintados}`}
-                    className="flex flex-col gap-4 rounded-lg border border-line p-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-4 rounded-xl border border-white/10 bg-slate-950/40 p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="truncate text-base font-bold text-ink">
+                        <p className="truncate text-base font-bold text-slate-100">
                           {libro ? libro.titulo : `Libro #${item.libroId}`}
                         </p>
                         {libro && !libro.disponible ? (
-                          <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                          <span className="shrink-0 rounded-full border border-amber-400/30 bg-amber-950/40 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
                             Agotado
                           </span>
                         ) : null}
                       </div>
-                      <p className="truncate text-sm text-muted">
-                        {libro ? libro.autor || "Autor desconocido" : "No disponible"}
+                      <p className="truncate text-sm text-slate-400">
+                        {libro
+                          ? libro.autor || "Autor desconocido"
+                          : "No disponible"}
                       </p>
                       <div className="mt-1 flex flex-wrap gap-2 text-xs">
                         {item.esquineros ? (
-                          <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
+                          <span className="rounded-full bg-white/10 px-2 py-1 font-semibold text-slate-300">
                             Esquineros
                           </span>
                         ) : null}
                         {item.cantosPintados ? (
-                          <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
+                          <span className="rounded-full bg-white/10 px-2 py-1 font-semibold text-slate-300">
                             Cantos pintados
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-2 text-sm text-muted">
+                      <p className="mt-2 text-sm text-slate-400">
                         {money(precioUnitario, "CUP")} por unidad
                       </p>
                     </div>
@@ -589,32 +675,32 @@ export default function CatalogoPage() {
                         <button
                           type="button"
                           onClick={() => actualizarCantidad(item, -1)}
-                          className="rounded-md border border-line bg-white p-1.5 text-ink transition hover:bg-slate-100"
+                          className="rounded-md border border-white/10 bg-slate-800 p-1.5 text-slate-100 transition hover:bg-slate-700"
                           aria-label="Disminuir cantidad"
                         >
                           <Minus className="h-4 w-4" aria-hidden="true" />
                         </button>
-                        <span className="w-8 text-center text-sm font-bold text-ink">
+                        <span className="w-8 text-center text-sm font-bold text-slate-100">
                           {item.cantidad}
                         </span>
                         <button
                           type="button"
                           onClick={() => actualizarCantidad(item, 1)}
-                          className="rounded-md border border-line bg-white p-1.5 text-ink transition hover:bg-slate-100"
+                          className="rounded-md border border-white/10 bg-slate-800 p-1.5 text-slate-100 transition hover:bg-slate-700"
                           aria-label="Aumentar cantidad"
                         >
                           <Plus className="h-4 w-4" aria-hidden="true" />
                         </button>
                       </div>
 
-                      <span className="min-w-24 text-right text-base font-extrabold text-brand">
+                      <span className="min-w-24 text-right text-base font-extrabold text-amber-300">
                         {money(precioUnitario * item.cantidad, "CUP")}
                       </span>
 
                       <button
                         type="button"
                         onClick={() => quitarDelCarrito(item)}
-                        className="rounded-md p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                        className="rounded-md p-2 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400"
                         aria-label="Quitar del carrito"
                       >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -624,14 +710,14 @@ export default function CatalogoPage() {
                 );
               })}
 
-              <div className="flex flex-col gap-4 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-4 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm text-muted">Total del carrito</p>
-                  <p className="text-2xl font-extrabold text-brand">
+                  <p className="text-sm text-slate-400">Total del carrito</p>
+                  <p className="text-2xl font-extrabold text-amber-300">
                     {money(totalCarrito, "CUP")}
                   </p>
                   {cargandoCarrito ? (
-                    <p className="mt-1 flex items-center gap-1 text-xs text-muted">
+                    <p className="mt-1 flex items-center gap-1 text-xs text-slate-400">
                       <Loader2
                         className="h-3 w-3 animate-spin"
                         aria-hidden="true"
@@ -642,8 +728,9 @@ export default function CatalogoPage() {
                 </div>
                 <Link
                   href="/catalogo/checkout"
-                  className="inline-flex items-center justify-center rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand/90"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-300/50 bg-gradient-to-r from-red-600 to-red-700 px-5 py-2.5 text-sm font-bold text-amber-50 shadow-lg shadow-red-900/40 transition hover:from-red-500 hover:to-red-600"
                 >
+                  <Gift className="h-4 w-4" aria-hidden="true" />
                   Ir a confirmar pedido
                 </Link>
               </div>
@@ -664,6 +751,7 @@ export default function CatalogoPage() {
           onSelectLibro={setLibroSeleccionado}
         />
       ) : null}
+      </div>
     </div>
   );
 }

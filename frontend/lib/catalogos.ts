@@ -9,6 +9,7 @@ export type LibroPublico = {
   precio: string;
   imagen?: string | null;
   disponible: boolean;
+  descuento?: boolean | number | null;
 };
 
 export type CatalogoPage = {

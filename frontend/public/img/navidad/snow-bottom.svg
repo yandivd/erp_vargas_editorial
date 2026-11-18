@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 220" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="snowBack" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#cbd5e1"/>
+      <stop offset="1" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="snowFront" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f1f5f9"/>
+    </linearGradient>
+  </defs>
+  <path d="M0 112C120 76 240 148 360 108C480 68 600 138 720 98C840 58 960 128 1080 92C1200 58 1320 118 1440 88V220H0Z" fill="url(#snowBack)" opacity=".55"/>
+  <path d="M0 152C140 112 260 182 400 142C540 102 660 172 800 132C940 92 1060 162 1200 127C1300 102 1380 142 1440 122V220H0Z" fill="url(#snowFront)"/>
+  <path d="M0 186C160 161 300 211 460 181C620 151 760 206 920 176C1080 146 1240 196 1440 166V220H0Z" fill="#ffffff"/>
+  <g fill="#ffffff" opacity=".85">
+    <circle cx="132" cy="178" r="3"/>
+    <circle cx="318" cy="166" r="2"/>
+    <circle cx="506" cy="184" r="2.5"/>
+    <circle cx="742" cy="168" r="2"/>
+    <circle cx="948" cy="186" r="3"/>
+    <circle cx="1164" cy="170" r="2"/>
+    <circle cx="1326" cy="182" r="2.5"/>
+  </g>
+</svg>
