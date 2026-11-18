@@ -1,9 +1,12 @@
 import logging
+import re
+import unicodedata
 from decimal import Decimal, InvalidOperation, ROUND_FLOOR
 from clientes.models import Cliente
 from django.utils import timezone
 from django.db import transaction
 from core.models import Parametro
+from core.ubicaciones import MUNICIPIOS_POR_PROVINCIA
 from .models import Book, Entrega, HistorialEstado, LoteServicio, Pedido, ServicioExterno, Estado
 from proveedores.models import Proveedor
 from datetime import date, timedelta
@@ -24,6 +27,167 @@ INCREMENTO_ESQUINEROS = {
     'medio': Decimal('500'),
     'alto': Decimal('800'),
 }
+
+# ============================================================
+# MENSAJERÍA
+# ============================================================
+ARTEMISA_COSTO = Decimal('0')
+
+MUNICIPIOS_ARTEMISA = MUNICIPIOS_POR_PROVINCIA['Artemisa']
+
+COSTOS_MENSAJERIA_LA_HABANA = {
+    'Arroyo Naranjo': Decimal('1500'),
+    'Boyeros': Decimal('2375'),
+    'Centro Habana': Decimal('1250'),
+    'Cerro': Decimal('1250'),
+    'Cotorro': Decimal('1000'),
+    'Diez de Octubre': Decimal('1250'),
+    'Guanabacoa': Decimal('2000'),
+    'Habana del Este': Decimal('2500'),
+    'Habana Vieja': Decimal('1250'),
+    'La Habana Vieja': Decimal('1250'),
+    'La Lisa': Decimal('2625'),
+    'Marianao': Decimal('2000'),
+    'Playa': Decimal('2125'),
+    'Plaza': Decimal('1500'),
+    'Plaza de la Revolución': Decimal('1500'),
+    'Regla': Decimal('1500'),
+    'San Miguel del Padrón': Decimal('1000'),
+}
+
+COSTOS_MENSAJERIA = {
+    **COSTOS_MENSAJERIA_LA_HABANA,
+    **{municipio: ARTEMISA_COSTO for municipio in MUNICIPIOS_ARTEMISA},
+    'Artemisa': Decimal('0'),
+}
+
+
+def normalizar_municipio(valor):
+    """Normaliza un municipio para comparar sin mayúsculas, tildes ni signos."""
+    if valor is None:
+        return ''
+    texto = unicodedata.normalize('NFKD', str(valor))
+    texto = ''.join(
+        caracter for caracter in texto
+        if not unicodedata.combining(caracter)
+    )
+    texto = re.sub(r'[^a-z0-9]+', ' ', texto.lower())
+    return ' '.join(texto.split())
+
+
+_COSTOS_NORMALIZADOS = {}
+_NOMBRES_NORMALIZADOS = {}
+for _municipio, _costo in COSTOS_MENSAJERIA.items():
+    _clave = normalizar_municipio(_municipio)
+    _COSTOS_NORMALIZADOS[_clave] = _costo
+    _NOMBRES_NORMALIZADOS[_clave] = _municipio
+
+_PROVINCIA_POR_MUNICIPIO = {}
+for _provincia, _municipios in MUNICIPIOS_POR_PROVINCIA.items():
+    for _municipio in _municipios:
+        _PROVINCIA_POR_MUNICIPIO[normalizar_municipio(_municipio)] = _provincia
+_PROVINCIA_POR_MUNICIPIO[normalizar_municipio('Habana Vieja')] = 'La Habana'
+_PROVINCIA_POR_MUNICIPIO[normalizar_municipio('Plaza')] = 'La Habana'
+
+_PROVINCIAS_NORMALIZADAS = {
+    normalizar_municipio(provincia)
+    for provincia in MUNICIPIOS_POR_PROVINCIA
+}
+
+
+def _municipio_coincidente(texto_normalizado):
+    """Devuelve la clave normalizada del municipio más específico del texto."""
+    if not texto_normalizado:
+        return None
+
+    coincidencias = [
+        clave
+        for clave in sorted(_COSTOS_NORMALIZADOS, key=len, reverse=True)
+        if re.search(
+            r'(?<!\w)' + re.escape(clave) + r'(?!\w)',
+            texto_normalizado,
+        )
+    ]
+
+    for clave in coincidencias:
+        if clave not in _PROVINCIAS_NORMALIZADAS:
+            return clave
+
+    return coincidencias[0] if coincidencias else None
+
+
+def municipio_en_texto(texto):
+    """Busca un municipio dentro de un texto libre (por ejemplo, una dirección)."""
+    clave = _municipio_coincidente(normalizar_municipio(texto))
+    return _NOMBRES_NORMALIZADOS.get(clave) if clave else None
+
+
+def provincia_para_municipio(municipio):
+    """Devuelve la provincia de un municipio (vacío si no se reconoce)."""
+    clave = normalizar_municipio(municipio)
+    if not clave:
+        return ''
+
+    provincia = _PROVINCIA_POR_MUNICIPIO.get(clave)
+    if provincia:
+        return provincia
+
+    coincidente = _municipio_coincidente(clave)
+    if coincidente:
+        return _PROVINCIA_POR_MUNICIPIO.get(coincidente, '')
+
+    return ''
+
+
+def ubicacion_para_cliente(cliente):
+    """Devuelve (provincia, municipio) del cliente, infiriéndolos si hace falta."""
+    if cliente is None:
+        return '', ''
+
+    provincia = (getattr(cliente, 'provincia', '') or '').strip()
+    municipio = (getattr(cliente, 'municipio', '') or '').strip()
+
+    if municipio:
+        if not provincia:
+            provincia = provincia_para_municipio(municipio)
+        return provincia, municipio
+
+    for texto in (
+        getattr(cliente, 'direccion', '') or '',
+        getattr(cliente, 'notas', '') or '',
+    ):
+        municipio_detectado = municipio_en_texto(texto)
+        if municipio_detectado:
+            return provincia_para_municipio(municipio_detectado), municipio_detectado
+
+    return provincia, ''
+
+
+def costo_mensajeria_para_municipio(municipio, provincia=None):
+    """Devuelve el costo de mensajería de un municipio (0 si no se reconoce)."""
+    clave = normalizar_municipio(municipio)
+    if not clave:
+        return Decimal('0')
+
+    if clave in _COSTOS_NORMALIZADOS:
+        return _COSTOS_NORMALIZADOS[clave]
+
+    coincidente = _municipio_coincidente(clave)
+    if coincidente:
+        return _COSTOS_NORMALIZADOS[coincidente]
+
+    if normalizar_municipio(provincia) == 'artemisa':
+        return ARTEMISA_COSTO
+
+    return Decimal('0')
+
+
+def costo_mensajeria_para_cliente(cliente):
+    """Sugiere el costo de mensajería a partir del municipio/dirección del cliente."""
+    provincia, municipio = ubicacion_para_cliente(cliente)
+    if not municipio:
+        return Decimal('0')
+    return costo_mensajeria_para_municipio(municipio, provincia)
 
 
 def _incremento_por_precio_base(precio_base, incrementos):

@@ -1,4 +1,4 @@
-from pyexpat.errors import messages
+from django.contrib import messages
 from django.shortcuts import redirect, render, get_object_or_404
 from django.db.models import Count
 from django.db.models import Q, Sum
@@ -73,15 +73,24 @@ def crear_cliente(request):
         nombre = request.POST.get('nombre')
         telefono = request.POST.get('telefono', '')
         direccion = request.POST.get('direccion', '')
-        
+        provincia = (request.POST.get('provincia') or '').strip()
+        municipio = (request.POST.get('municipio') or '').strip()
+
+        if municipio and not provincia:
+            from pedidos.services import provincia_para_municipio
+
+            provincia = provincia_para_municipio(municipio)
+
         if nombre:
             Cliente.objects.create(
                 nombre=nombre,
                 telefono=telefono,
-                direccion=direccion
+                direccion=direccion,
+                provincia=provincia,
+                municipio=municipio,
             )
             messages.success(request, f'Cliente "{nombre}" registrado.')
         else:
             messages.error(request, 'El nombre es obligatorio.')
-            
+
     return redirect('clientes:lista')

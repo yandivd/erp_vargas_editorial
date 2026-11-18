@@ -53,7 +53,14 @@ from pedidos.models import (
     Pedido,
     ServicioExterno,
 )
-from pedidos.services import CosteadorPedido, ServicioPedido
+from pedidos.services import (
+    CosteadorPedido,
+    ServicioPedido,
+    costo_mensajeria_para_cliente,
+    costo_mensajeria_para_municipio,
+    provincia_para_municipio,
+    ubicacion_para_cliente,
+)
 from proveedores.models import Proveedor
 
 from .serializers import (
@@ -282,6 +289,48 @@ class CatalogoPagination(PageNumberPagination):
         })
 
 
+def _libro_publico_data(libro, request):
+    return {
+        'id': libro.id,
+        'titulo': libro.titulo,
+        'autor': libro.autor or '',
+        'descripcion': libro.descripcion or '',
+        'paginas': libro.paginas,
+        'precio': str(libro.precio),
+        'imagen': (
+            request.build_absolute_uri(libro.imagen.url)
+            if libro.imagen
+            else None
+        ),
+        'disponible': libro.disponible,
+    }
+
+
+def _libros_comprados_junto_a(libro_ids, excluir_ids):
+    if not libro_ids:
+        return Book.objects.none()
+
+    clientes = (
+        Pedido.objects.filter(
+            libro_id__in=libro_ids,
+            cliente__isnull=False,
+        )
+        .values_list('cliente_id', flat=True)
+        .distinct()
+    )
+
+    return (
+        Book.objects.filter(
+            pedidos__cliente_id__in=clientes,
+            pedidos__cliente__isnull=False,
+            disponible=True,
+        )
+        .exclude(id__in=excluir_ids)
+        .annotate(compras=Count('pedidos__cliente', distinct=True))
+        .order_by('-compras', 'titulo', 'id')
+    )
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def catalogo(request):
@@ -294,24 +343,101 @@ def catalogo(request):
 
     paginador = CatalogoPagination()
     pagina = paginador.paginate_queryset(libros, request, view=catalogo)
-    data = [
-        {
-            'id': libro.id,
-            'titulo': libro.titulo,
-            'autor': libro.autor or '',
-            'descripcion': libro.descripcion or '',
-            'paginas': libro.paginas,
-            'precio': str(libro.precio),
-            'imagen': (
-                request.build_absolute_uri(libro.imagen.url)
-                if libro.imagen
-                else None
-            ),
-        }
-        for libro in pagina
-    ]
+    data = [_libro_publico_data(libro, request) for libro in pagina]
 
     return paginador.get_paginated_response(data)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def catalogo_libro(request, pk):
+    libro = get_object_or_404(Book, pk=pk)
+    return Response({'ok': True, 'data': _libro_publico_data(libro, request)})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def catalogo_recomendaciones(request, pk):
+    libro = get_object_or_404(Book, pk=pk)
+
+    favoritos_ids = []
+    for valor in request.query_params.get('favoritos', '').split(','):
+        valor = valor.strip()
+        if valor.isdigit():
+            favoritos_ids.append(int(valor))
+    favoritos_ids = [
+        favorito_id
+        for favorito_id in dict.fromkeys(favoritos_ids)
+        if favorito_id != libro.id
+    ]
+
+    excluir_ids = {libro.id, *favoritos_ids}
+    recomendados = []
+
+    def agregar(queryset):
+        for candidato in queryset:
+            if candidato.id in excluir_ids:
+                continue
+            excluir_ids.add(candidato.id)
+            recomendados.append(candidato)
+            if len(recomendados) >= 3:
+                return
+
+    agregar(_libros_comprados_junto_a([libro.id], excluir_ids))
+
+    if len(recomendados) < 3 and favoritos_ids:
+        agregar(_libros_comprados_junto_a(favoritos_ids, excluir_ids))
+
+    if len(recomendados) < 3 and libro.autor:
+        agregar(
+            Book.objects.filter(
+                autor__iexact=libro.autor,
+                disponible=True,
+            )
+            .exclude(id__in=excluir_ids)
+            .order_by('?')
+        )
+
+    categoria = getattr(libro, 'categoria', None)
+    if len(recomendados) < 3 and categoria:
+        agregar(
+            Book.objects.filter(
+                categoria=categoria,
+                disponible=True,
+            )
+            .exclude(id__in=excluir_ids)
+            .order_by('?')
+        )
+
+    if len(recomendados) < 3 and favoritos_ids:
+        autores_favoritos = (
+            Book.objects.filter(id__in=favoritos_ids)
+            .exclude(autor='')
+            .values_list('autor', flat=True)
+        )
+        agregar(
+            Book.objects.filter(
+                autor__in=autores_favoritos,
+                disponible=True,
+            )
+            .exclude(id__in=excluir_ids)
+            .order_by('?')
+        )
+
+    if len(recomendados) < 3:
+        agregar(
+            Book.objects.filter(disponible=True)
+            .exclude(id__in=excluir_ids)
+            .order_by('?')
+        )
+
+    return Response({
+        'ok': True,
+        'data': [
+            _libro_publico_data(item, request)
+            for item in recomendados[:3]
+        ],
+    })
 
 
 @api_view(['GET'])
@@ -837,6 +963,27 @@ def entrega_crear(request):
         )
 
     cliente = next((pedido.cliente for pedido in pedidos if pedido.cliente_id), None)
+    provincia = (datos.get('provincia') or '').strip()
+    municipio = (datos.get('municipio') or '').strip()
+
+    provincia_cliente, municipio_cliente = ubicacion_para_cliente(cliente)
+    if not provincia:
+        provincia = provincia_cliente
+    if not municipio:
+        municipio = municipio_cliente
+    if municipio and not provincia:
+        provincia = provincia_para_municipio(municipio)
+
+    costo_mensajeria = datos.get('costo_mensajeria')
+    if costo_mensajeria is None:
+        if municipio:
+            costo_mensajeria = costo_mensajeria_para_municipio(
+                municipio,
+                provincia,
+            )
+        else:
+            costo_mensajeria = costo_mensajeria_para_cliente(cliente)
+
     direccion = (datos.get('direccion') or '').strip()
     if not direccion:
         direccion = (cliente.direccion or '').strip()
@@ -856,7 +1003,9 @@ def entrega_crear(request):
         entrega = Entrega.objects.create(
             cliente=cliente,
             direccion=direccion,
-            costo_mensajeria=datos.get('costo_mensajeria') or Decimal('0'),
+            provincia=provincia,
+            municipio=municipio,
+            costo_mensajeria=costo_mensajeria,
             fecha_entrega=datos.get('fecha_entrega'),
             notas=datos.get('notas') or '',
         )
@@ -985,6 +1134,8 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                     nombre=data.get('cliente_nombre') or '',
                     telefono=data.get('cliente_telefono') or '',
                     direccion=data.get('cliente_direccion') or '',
+                    provincia=data.get('cliente_provincia') or '',
+                    municipio=data.get('cliente_municipio') or '',
                 )
                 ServicioFidelidad.obtener_tarjeta(cliente)
 

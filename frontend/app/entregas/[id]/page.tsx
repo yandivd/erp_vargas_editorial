@@ -170,6 +170,14 @@ export default async function EntregaDetailPage({
           value={entrega.direccion || "Sin dirección"}
         />
         <InfoItem
+          icon={<MapPin className="h-4 w-4" />}
+          label="Provincia / Municipio"
+          value={
+            [entrega.provincia, entrega.municipio].filter(Boolean).join(" / ") ||
+            "Sin especificar"
+          }
+        />
+        <InfoItem
           icon={<CalendarDays className="h-4 w-4" />}
           label="Fecha prevista"
           value={formatDate(entrega.fecha_entrega) || "Sin fecha"}

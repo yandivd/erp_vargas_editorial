@@ -1,6 +1,6 @@
 import logging
 import os
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import json
 
 from django.db import transaction
@@ -23,11 +23,17 @@ from .models import (
     Book, Estado, LoteServicio, Entrega
 )
 from .services import (
+    COSTOS_MENSAJERIA,
     ServicioPedido,
     CosteadorPedido,
     ServicioCatalogo,
     cobrar_saldo_anticipado as cobrar_saldo_anticipado_service,
+    costo_mensajeria_para_cliente,
+    costo_mensajeria_para_municipio,
+    provincia_para_municipio,
+    ubicacion_para_cliente,
 )
+from core.ubicaciones import MUNICIPIOS_POR_PROVINCIA, PROVINCIAS
 from clientes.models import Cliente
 from clientes.services import ServicioFidelidad
 from erp.utils.qr import generar_qr_base64
@@ -79,6 +85,8 @@ class NuevoPedidoForm(forms.Form):
     nuevo_cliente_nombre = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre nuevo'}))
     nuevo_cliente_telefono = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono'}))
     nuevo_cliente_direccion = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Dirección (opcional)'}))
+    nuevo_cliente_provincia = forms.CharField(required=False)
+    nuevo_cliente_municipio = forms.CharField(required=False)
     codigo_descuento = forms.CharField(required=False, widget=forms.HiddenInput())
     
     libro = forms.ModelChoiceField(
@@ -110,6 +118,33 @@ class NuevoPedidoForm(forms.Form):
             raise forms.ValidationError('Debes seleccionar un libro o crear uno nuevo.')
         if not cleaned_data.get('libro') and not cleaned_data.get('nuevo_libro_paginas'):
             raise forms.ValidationError('Si creas un libro nuevo, debes indicar las páginas.')
+
+        provincia = (cleaned_data.get('nuevo_cliente_provincia') or '').strip()
+        municipio = (cleaned_data.get('nuevo_cliente_municipio') or '').strip()
+
+        if provincia and provincia not in PROVINCIAS:
+            self.add_error(
+                'nuevo_cliente_provincia',
+                'Selecciona una provincia válida.',
+            )
+
+        if municipio:
+            provincia_municipio = provincia_para_municipio(municipio)
+            if not provincia_municipio:
+                self.add_error(
+                    'nuevo_cliente_municipio',
+                    'Selecciona un municipio válido.',
+                )
+            elif provincia and provincia != provincia_municipio:
+                self.add_error(
+                    'nuevo_cliente_municipio',
+                    'El municipio no pertenece a la provincia seleccionada.',
+                )
+            elif not provincia:
+                provincia = provincia_municipio
+
+        cleaned_data['nuevo_cliente_provincia'] = provincia
+        cleaned_data['nuevo_cliente_municipio'] = municipio
         return cleaned_data
 
 
@@ -192,6 +227,8 @@ def lista(request):
         'hasta': request.GET.get('hasta', ''),
         'pago_actual': request.GET.get('pago', ''),
         'form': NuevoPedidoForm(),
+        'provincias': PROVINCIAS,
+        'municipios_opciones': _municipios_opciones(),
     })
 
 
@@ -385,7 +422,9 @@ def nuevo_pedido_modal(request):
                 cliente = Cliente.objects.create(
                     nombre=form.cleaned_data['nuevo_cliente_nombre'],
                     telefono=form.cleaned_data.get('nuevo_cliente_telefono', ''),
-                    direccion=form.cleaned_data.get('nuevo_cliente_direccion', '')
+                    direccion=form.cleaned_data.get('nuevo_cliente_direccion', ''),
+                    provincia=form.cleaned_data.get('nuevo_cliente_provincia', ''),
+                    municipio=form.cleaned_data.get('nuevo_cliente_municipio', ''),
                 )
 
             # 2. Resolver Libro
@@ -987,11 +1026,25 @@ def lista_entregas(request):
     })
 
 
+def _municipios_opciones():
+    return [
+        (
+            provincia,
+            municipio,
+            COSTOS_MENSAJERIA.get(municipio, Decimal('0')),
+        )
+        for provincia, municipios in MUNICIPIOS_POR_PROVINCIA.items()
+        for municipio in municipios
+    ]
+
+
 def crear_entrega(request):
     if request.method == 'POST':
         pedido_ids = request.POST.getlist('pedido_ids')
-        direccion = request.POST.get('direccion', '')
-        costo_mensajeria = Decimal(request.POST.get('costo_mensajeria', 0) or 0)
+        direccion = request.POST.get('direccion', '').strip()
+        provincia = (request.POST.get('provincia') or '').strip()
+        municipio = (request.POST.get('municipio') or '').strip()
+        costo_raw = request.POST.get('costo_mensajeria')
         fecha_entrega = request.POST.get('fecha_entrega') or None
         notas = request.POST.get('notas', '')
 
@@ -1014,12 +1067,38 @@ def crear_entrega(request):
             messages.error(request, 'Los pedidos deben tener un cliente asignado.')
             return redirect('pedidos:crear_entrega')
 
-        cliente = pedidos.first().cliente
+        cliente = next(p.cliente for p in pedidos if p.cliente_id)
+
+        provincia_cliente, municipio_cliente = ubicacion_para_cliente(cliente)
+        if not provincia:
+            provincia = provincia_cliente
+        if not municipio:
+            municipio = municipio_cliente
+        if municipio and not provincia:
+            provincia = provincia_para_municipio(municipio)
+
+        if municipio:
+            costo_sugerido = costo_mensajeria_para_municipio(
+                municipio,
+                provincia,
+            )
+        else:
+            costo_sugerido = costo_mensajeria_para_cliente(cliente)
+
+        if costo_raw is None or costo_raw.strip() == '':
+            costo_mensajeria = costo_sugerido
+        else:
+            try:
+                costo_mensajeria = Decimal(costo_raw)
+            except (InvalidOperation, TypeError, ValueError):
+                costo_mensajeria = costo_sugerido
 
         with transaction.atomic():
             entrega = Entrega.objects.create(
                 cliente=cliente,
                 direccion=direccion,
+                provincia=provincia,
+                municipio=municipio,
                 costo_mensajeria=costo_mensajeria,
                 fecha_entrega=fecha_entrega,
                 notas=notas,
@@ -1029,15 +1108,44 @@ def crear_entrega(request):
         messages.success(request, f'Entrega #{entrega.id} creada con {pedidos.count()} pedidos de {cliente.nombre}.')
         return redirect('pedidos:detalle_entrega', pk=entrega.id)
 
-    pedidos_disponibles = Pedido.objects.filter(
-        estado__nombre='Listo para Entregar',
-        cliente__isnull=False,
-    ).exclude(
-        entregas__isnull=False
-    ).select_related('cliente', 'libro', 'estado').order_by('referencia_externa')
+    pedidos_disponibles = list(
+        Pedido.objects.filter(
+            estado__nombre='Listo para Entregar',
+            cliente__isnull=False,
+        ).exclude(
+            entregas__isnull=False
+        ).select_related('cliente', 'libro', 'estado').order_by('referencia_externa')
+    )
+
+    costos_clientes = {}
+    for pedido in pedidos_disponibles:
+        if pedido.cliente_id not in costos_clientes:
+            provincia_cliente, municipio_cliente = ubicacion_para_cliente(
+                pedido.cliente,
+            )
+            if municipio_cliente:
+                costo = costo_mensajeria_para_municipio(
+                    municipio_cliente,
+                    provincia_cliente,
+                )
+            else:
+                costo = Decimal('0')
+            costos_clientes[pedido.cliente_id] = (
+                provincia_cliente,
+                municipio_cliente,
+                costo,
+            )
+        provincia_cliente, municipio_cliente, costo = costos_clientes[
+            pedido.cliente_id
+        ]
+        pedido.cliente_provincia = provincia_cliente
+        pedido.cliente_municipio = municipio_cliente
+        pedido.costo_mensajeria_sugerido = costo
 
     return render(request, 'pedidos/crear_entrega.html', {
         'pedidos_disponibles': pedidos_disponibles,
+        'provincias': PROVINCIAS,
+        'municipios_opciones': _municipios_opciones(),
     })
 
 
@@ -1073,8 +1181,14 @@ def detalle_entrega(request, pk):
 
             messages.success(request, f'Entrega #{entrega.id} marcada como entregada. {pedidos.count()} pedidos actualizados.')
         elif accion == 'actualizar':
-            entrega.direccion = request.POST.get('direccion', '')
-            entrega.costo_mensajeria = Decimal(request.POST.get('costo_mensajeria', 0) or 0)
+            provincia = (request.POST.get('provincia') or '').strip()
+            municipio = (request.POST.get('municipio') or '').strip()
+            if municipio and not provincia:
+                provincia = provincia_para_municipio(municipio)
+            entrega.direccion = request.POST.get('direccion', '').strip()
+            entrega.provincia = provincia
+            entrega.municipio = municipio
+            entrega.costo_mensajeria = Decimal(request.POST.get('costo_mensajeria') or 0)
             entrega.fecha_entrega = request.POST.get('fecha_entrega') or None
             entrega.notas = request.POST.get('notas', '')
             entrega.save()
@@ -1084,6 +1198,8 @@ def detalle_entrega(request, pk):
     return render(request, 'pedidos/detalle_entrega.html', {
         'entrega': entrega,
         'pedidos': pedidos,
+        'provincias': PROVINCIAS,
+        'municipios_opciones': _municipios_opciones(),
     })
 
 

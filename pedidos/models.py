@@ -9,7 +9,7 @@ from django.db import models
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.db.models import Sum
-from clientes.models import Cliente
+from clientes.models import Cliente, PROVINCIA_CHOICES
 from proveedores.models import Proveedor
 
 
@@ -59,6 +59,7 @@ class Book(models.Model):
     notas = models.TextField(blank=True, verbose_name='Notas')
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de creación')
     precio = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Precio base') # <-- NUEVO CAMPO
+    disponible = models.BooleanField(default=True, verbose_name='Disponible')
     imagen = models.ImageField(upload_to='libros/', blank=True, null=True, verbose_name='Imagen')
 
     class Meta:
@@ -418,6 +419,17 @@ class Entrega(models.Model):
         Pedido, related_name='entregas', verbose_name='Pedidos'
     )
     direccion = models.TextField(blank=True, verbose_name='Dirección de entrega')
+    provincia = models.CharField(
+        max_length=50,
+        blank=True,
+        choices=PROVINCIA_CHOICES,
+        verbose_name='Provincia',
+    )
+    municipio = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Municipio',
+    )
     costo_mensajeria = models.DecimalField(
         max_digits=10, decimal_places=2, default=0,
         verbose_name='Costo de mensajería'
