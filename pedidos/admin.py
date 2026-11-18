@@ -196,7 +196,7 @@ class ServicioExternoAdmin(admin.ModelAdmin):
         }),
         ('Lote', {
             'fields': ('lote',),
-            'description': 'Lote al que pertenece este servicio. Se asigna automáticamente al cambiar el pedido a "Pendiente a Carátula" o "Pendiente a Encuadernado".'
+            'description': 'Lote al que pertenece este servicio. Se asigna automáticamente al cambiar el pedido a "Pendiente a Cantos Pintados", "Pendiente a Carátula" o "Pendiente a Encuadernado".'
         }),
         ('Estado y fechas', {
             'fields': ('estado', 'fecha_solicitud', 'fecha_recepcion', 'fecha_pago')

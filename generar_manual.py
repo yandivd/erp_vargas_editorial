@@ -78,7 +78,7 @@ def crear_manual():
     Story.append(Paragraph("• Cuando te pague, usa el botón <b>'Registrar Anticipo'</b>. La fecha de entrega se calculará automáticamente (+28 días).", paso_lista))
     
     Story.append(Paragraph("<b>Paso 4: Producción</b>", texto_normal))
-    Story.append(Paragraph("• Avanza el pedido por los estados: <i>Pendiente a Impresión -> Impreso -> Pegado -> Pendiente a Portada -> Pendiente a Carátula -> Pendiente a Encuadernado -> Listo para Entregar</i>.", paso_lista))
+    Story.append(Paragraph("• Avanza el pedido por los estados: <i>Pendiente a Impresión -> Impreso -> Pegado -> Pendiente a Cantos Pintados -> Pendiente a Portada -> Pendiente a Carátula -> Pendiente a Encuadernado -> Listo para Entregar</i>.", paso_lista))
     Story.append(Paragraph("• El sistema descontará los materiales del inventario automáticamente y creará las deudas con tus proveedores.", paso_lista))
     
     Story.append(Paragraph("<b>Paso 5: Entrega y Cobro Final</b>", texto_normal))

@@ -334,7 +334,10 @@ class ServicioPedido:
         )
 
         # Acciones automáticas
-        if nuevo_estado.nombre == 'Pendiente a Carátula':
+        if nuevo_estado.nombre == 'Pendiente a Cantos Pintados':
+            ServicioPedido.crear_servicio_cantos_pintados(pedido)
+
+        elif nuevo_estado.nombre == 'Pendiente a Carátula':
             ServicioPedido.crear_servicio_portada(pedido)
 
         elif nuevo_estado.nombre == 'Pendiente a Encuadernado':
@@ -413,6 +416,23 @@ class ServicioPedido:
                 pedido=pedido,
                 proveedor=proveedor,
                 tipo='ENCUADERNADO',
+                monto=monto,
+                estado='SOLICITADO',
+                lote=lote
+            )
+
+    @staticmethod
+    def crear_servicio_cantos_pintados(pedido):
+        proveedor = Proveedor.objects.filter(tipo='CANTOS_PINTADOS', activo=True).first()
+        if not proveedor:
+            return
+        monto = Parametro.get('precio_cantos_pintados', 2500)
+        if not ServicioExterno.objects.filter(pedido=pedido, tipo='CANTOS_PINTADOS').exists():
+            lote = ServicioPedido._obtener_o_crear_lote(proveedor, 'CANTOS_PINTADOS')
+            ServicioExterno.objects.create(
+                pedido=pedido,
+                proveedor=proveedor,
+                tipo='CANTOS_PINTADOS',
                 monto=monto,
                 estado='SOLICITADO',
                 lote=lote

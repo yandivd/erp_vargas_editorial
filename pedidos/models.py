@@ -322,6 +322,7 @@ class ServicioExterno(models.Model):
     TIPO_CHOICES = [
         ('PORTADA', 'Portada'),
         ('ENCUADERNADO', 'Encuadernado'),
+        ('CANTOS_PINTADOS', 'Cantos pintados'),
         ('OTRO', 'Otro'),
     ]
     ESTADO_CHOICES = [

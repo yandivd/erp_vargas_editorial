@@ -1,6 +1,7 @@
 export type ProveedorTipo =
   | "IMPRENTA_PORTADA"
   | "ENCUADERNADOR"
+  | "CANTOS_PINTADOS"
   | "PAPELERIA"
   | "OTRO";
 
@@ -92,6 +93,7 @@ export type PagoLoteData = {
 export const TIPOS_PROVEEDOR: { value: ProveedorTipo; label: string }[] = [
   { value: "IMPRENTA_PORTADA", label: "Imprenta de portada" },
   { value: "ENCUADERNADOR", label: "Encuadernador" },
+  { value: "CANTOS_PINTADOS", label: "Cantos pintados" },
   { value: "PAPELERIA", label: "Papelería" },
   { value: "OTRO", label: "Otro" },
 ];

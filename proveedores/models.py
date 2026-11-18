@@ -5,6 +5,7 @@ class Proveedor(models.Model):
     TIPO_CHOICES = [
         ('IMPRENTA_PORTADA', 'Imprenta de portada'),
         ('ENCUADERNADOR', 'Encuadernador'),
+        ('CANTOS_PINTADOS', 'Cantos pintados'),
         ('PAPELERIA', 'Papelería'),
         ('OTRO', 'Otro'),
     ]

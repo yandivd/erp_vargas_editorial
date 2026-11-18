@@ -61,6 +61,7 @@ ESTADOS_PEDIDO_INACTIVO = ['Borrador', 'Cancelado', 'En Stock']
 ESTADOS_TIEMPO_ORDEN = [
     'Impreso',
     'Pegado',
+    'Pendiente a Cantos Pintados',
     'Pendiente a Portada',
     'Pendiente a Carátula',
     'Pendiente a Encuadernado',
