@@ -1552,3 +1552,184 @@ def exportar_rentabilidad_para_ia():
         'clientes': clientes,
         'ingresos_caja': ingresos_caja,
     }
+
+
+def secciones_rentabilidad_ia(desde=None, hasta=None):
+    """Secciones adicionales del export de IA enfocadas en rentabilidad.
+
+    Calcula el margen real por pedido y por libro usando ``CosteadorPedido``
+    con los parámetros y la tasa de cambio precargados (una sola consulta),
+    y agrega nómina, servicios externos, mejores clientes, deudores, flujo por
+    moneda y KPIs de fidelidad.
+    """
+    from core.models import Parametro
+    from empleados.models import PagoNomina
+    from proveedores.models import Proveedor
+
+    tasa, _ = tasa_cambio()
+    parametros = {param.clave: param.valor for param in Parametro.objects.all()}
+
+    pedidos_qs = (
+        Pedido.objects.filter(cliente__isnull=False)
+        .exclude(estado__nombre__in=['Cancelado', 'Borrador'])
+        .select_related('cliente', 'libro')
+    )
+    if desde:
+        pedidos_qs = pedidos_qs.filter(fecha_pedido__date__gte=desde)
+    if hasta:
+        pedidos_qs = pedidos_qs.filter(fecha_pedido__date__lte=hasta)
+
+    por_libro = {}
+    rentabilidad_pedidos = []
+    for pedido in pedidos_qs.order_by('fecha_pedido'):
+        ingreso = Decimal(str(pedido.precio_venta or 0)) - Decimal(
+            str(pedido.descuento_aplicado or 0)
+        )
+        costo = Decimal(
+            str(
+                CosteadorPedido(
+                    pedido, parametros=parametros, tasa_cambio=tasa
+                ).calcular()['costo_total']
+            )
+        )
+        ganancia = ingreso - costo
+        margen = (ganancia / ingreso * 100) if ingreso else Decimal('0')
+        titulo = pedido.libro.titulo if pedido.libro else 'Sin libro'
+
+        rentabilidad_pedidos.append({
+            'pedido_id': pedido.id,
+            'cliente': pedido.cliente.nombre if pedido.cliente else '',
+            'libro': titulo,
+            'fecha': pedido.fecha_pedido.date().isoformat() if pedido.fecha_pedido else '',
+            'ingreso': float(ingreso),
+            'costo': float(costo),
+            'ganancia': float(ganancia),
+            'margen_%': round(float(margen), 2),
+        })
+
+        libro_data = por_libro.setdefault(
+            titulo,
+            {
+                'libro': titulo,
+                'pedidos': 0,
+                'ingreso_total': 0.0,
+                'costo_total': 0.0,
+                'ganancia_total': 0.0,
+            },
+        )
+        libro_data['pedidos'] += 1
+        libro_data['ingreso_total'] += float(ingreso)
+        libro_data['costo_total'] += float(costo)
+        libro_data['ganancia_total'] += float(ganancia)
+
+    margenes_libro = []
+    for data in por_libro.values():
+        ingreso_total = data['ingreso_total']
+        data['margen_%'] = (
+            round(data['ganancia_total'] / ingreso_total * 100, 2)
+            if ingreso_total
+            else 0
+        )
+        margenes_libro.append(data)
+    margenes_libro.sort(key=lambda item: item['ganancia_total'], reverse=True)
+
+    top_clientes = [
+        {
+            'cliente': fila['cliente__nombre'],
+            'pedidos': fila['pedidos'],
+            'ingreso': float(fila['ingreso'] or 0),
+        }
+        for fila in (
+            pedidos_qs.values('cliente__nombre')
+            .annotate(pedidos=Count('id'), ingreso=Sum('precio_venta'))
+            .order_by('-ingreso')[:10]
+        )
+    ]
+
+    deudores = [
+        {
+            'cliente': fila['cliente__nombre'],
+            'pedidos_con_deuda': fila['pedidos_con_deuda'],
+            'deuda': float(fila['deuda'] or 0),
+        }
+        for fila in (
+            Pedido.objects.filter(cliente__isnull=False, saldo_pendiente__gt=0)
+            .values('cliente__nombre')
+            .annotate(
+                pedidos_con_deuda=Count('id'),
+                deuda=Sum('saldo_pendiente'),
+            )
+            .order_by('-deuda')[:10]
+        )
+    ]
+
+    nomina_qs = PagoNomina.objects.all()
+    if desde:
+        nomina_qs = nomina_qs.filter(fecha__gte=desde)
+    if hasta:
+        nomina_qs = nomina_qs.filter(fecha__lte=hasta)
+    nomina = {
+        'total_pagado': float(nomina_qs.aggregate(t=Sum('monto_pagado'))['t'] or 0),
+        'por_tipo': {
+            dict(PagoNomina.TIPO_PAGO).get(fila['tipo'], fila['tipo']): float(
+                fila['total'] or 0
+            )
+            for fila in nomina_qs.values('tipo').annotate(total=Sum('monto_pagado'))
+        },
+        'por_moneda': {
+            fila['moneda']: float(fila['total'] or 0)
+            for fila in nomina_qs.values('moneda').annotate(total=Sum('monto_pagado'))
+        },
+    }
+
+    servicios_qs = ServicioExterno.objects.select_related('proveedor')
+    if desde:
+        servicios_qs = servicios_qs.filter(fecha_solicitud__date__gte=desde)
+    if hasta:
+        servicios_qs = servicios_qs.filter(fecha_solicitud__date__lte=hasta)
+    servicios = {
+        'total': float(servicios_qs.aggregate(t=Sum('monto'))['t'] or 0),
+        'por_estado': {
+            dict(ServicioExterno.ESTADO_CHOICES).get(fila['estado'], fila['estado']): float(
+                fila['total'] or 0
+            )
+            for fila in servicios_qs.values('estado').annotate(total=Sum('monto'))
+        },
+        'por_proveedor': [
+            {
+                'proveedor': fila['proveedor__nombre'],
+                'tipo_proveedor': dict(Proveedor.TIPO_CHOICES).get(
+                    fila['proveedor__tipo'], fila['proveedor__tipo']
+                ),
+                'tipo_servicio': dict(ServicioExterno.TIPO_CHOICES).get(
+                    fila['tipo'], fila['tipo']
+                ),
+                'cantidad': fila['cantidad'],
+                'monto': float(fila['monto'] or 0),
+            }
+            for fila in (
+                servicios_qs.values('proveedor__nombre', 'proveedor__tipo', 'tipo')
+                .annotate(cantidad=Count('id'), monto=Sum('monto'))
+                .order_by('-monto')
+            )
+        ],
+    }
+
+    consumo_cup = (
+        consumos_inventario(desde, hasta).aggregate(t=Sum('costo_total'))['t']
+        or Decimal('0')
+    )
+    flujo_monedas = resumen_monedas(desde, hasta, consumo_cup=consumo_cup)
+
+    fidelidad = dashboard_fidelidad(desde, hasta)['kpis']
+
+    return {
+        'rentabilidad_por_pedido': rentabilidad_pedidos,
+        'margenes_por_libro': margenes_libro,
+        'top_clientes': top_clientes,
+        'deudores': deudores,
+        'nomina': nomina,
+        'servicios_externos': servicios,
+        'flujo_por_moneda': flujo_monedas,
+        'fidelidad': fidelidad,
+    }

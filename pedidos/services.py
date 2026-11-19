@@ -38,13 +38,23 @@ def _incremento_por_precio_base(precio_base, incrementos):
 # COSTEADOR
 # ============================================================
 class CosteadorPedido:
-    def __init__(self, pedido):
+    def __init__(self, pedido, parametros=None, tasa_cambio=None):
         self.pedido = pedido
+        self._parametros = parametros
+        self._tasa_override = tasa_cambio
 
     def _param(self, clave, default=0):
+        if self._parametros is not None:
+            valor = self._parametros.get(clave)
+            if valor is not None:
+                return Decimal(str(valor))
+            return Decimal(str(default))
         return Decimal(str(Parametro.get(clave, default)))
 
     def _tasa_cambio(self):
+        if self._tasa_override is not None:
+            return Decimal(str(self._tasa_override))
+
         from core.services import tasa_cambio
 
         return tasa_cambio()[0]

@@ -18,6 +18,7 @@ from .services import (
     Q_NO_INGRESO_OPERATIVO,
     depreciacion_activos_mensual,
     exportar_rentabilidad_para_ia,
+    secciones_rentabilidad_ia,
 )
 
 
@@ -414,6 +415,7 @@ def exportar_datos_ia(request):
     hoy = timezone.now().date()
     desde_str = request.GET.get('desde', '')
     hasta_str = request.GET.get('hasta', '')
+    desde = hasta = None
     
     movimientos = MovimientoCaja.objects.all()
     pedidos = Pedido.objects.filter(cliente__isnull=False)
@@ -597,6 +599,8 @@ def exportar_datos_ia(request):
             "top_consumo": list(materiales_mas_consumidos)
         }
     }
+
+    data.update(secciones_rentabilidad_ia(desde, hasta))
 
     response = JsonResponse(data, json_dumps_params={'indent': 2, 'ensure_ascii': False})
     filename = f'data_ia_{desde_str}_{hasta_str}.json' if desde_str and hasta_str else 'data_ia_completo.json'
