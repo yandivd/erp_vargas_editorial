@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load l10n %}
 {% block title %}Entrega #{{ entrega.id }}{% endblock %}
 {% block content %}
 <!-- Cabecera responsive -->
@@ -76,6 +77,24 @@
                 <input type="date" name="fecha_entrega" class="form-control" value="{{ entrega.fecha_entrega|date:'Y-m-d' }}">
             </div>
             <div class="col-12 col-md-6">
+                <label class="form-label fw-bold small text-muted">Provincia</label>
+                <select name="provincia" id="provinciaEntregaDetalle" class="form-select">
+                    <option value="">Selecciona una provincia</option>
+                    {% for provincia in provincias %}
+                        <option value="{{ provincia }}" {% if entrega.provincia == provincia %}selected{% endif %}>{{ provincia }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-bold small text-muted">Municipio</label>
+                <select name="municipio" id="municipioEntregaDetalle" class="form-select">
+                    <option value="">Selecciona un municipio</option>
+                    {% for provincia, municipio, costo in municipios_opciones %}
+                        <option value="{{ municipio }}" data-provincia="{{ provincia }}" data-costo="{{ costo|unlocalize }}" {% if entrega.municipio == municipio %}selected{% endif %}>{{ municipio }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-6">
                 <label class="form-label fw-bold small text-muted">Costo de mensajería</label>
                 <div class="input-group">
                     <span class="input-group-text">$</span>
@@ -127,4 +146,49 @@
         </table>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const provincia = document.getElementById('provinciaEntregaDetalle');
+    const municipio = document.getElementById('municipioEntregaDetalle');
+    const costo = document.querySelector('input[name="costo_mensajeria"]');
+
+    if (!provincia || !municipio) {
+        return;
+    }
+
+    function actualizarCosto() {
+        if (!costo) {
+            return;
+        }
+        const opcion = municipio.selectedOptions[0];
+        costo.value = opcion && opcion.value
+            ? (opcion.dataset.costo || '0')
+            : '0';
+    }
+
+    function filtrarMunicipios() {
+        Array.from(municipio.options).forEach(opcion => {
+            if (!opcion.value) return;
+            const coincide = !provincia.value || opcion.dataset.provincia === provincia.value;
+            opcion.hidden = !coincide;
+            opcion.disabled = !coincide;
+        });
+        const seleccionada = municipio.selectedOptions[0];
+        if (seleccionada && seleccionada.disabled) {
+            municipio.value = '';
+        }
+    }
+
+    provincia.addEventListener('change', function() {
+        municipio.value = '';
+        filtrarMunicipios();
+        actualizarCosto();
+    });
+
+    municipio.addEventListener('change', actualizarCosto);
+
+    filtrarMunicipios();
+});
+</script>
 {% endblock %}

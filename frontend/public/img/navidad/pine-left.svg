@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="900" viewBox="0 0 260 900" fill="none">
+  <defs>
+    <linearGradient id="pine" x1="30" y1="0" x2="230" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#166534"/>
+      <stop offset=".45" stop-color="#14532d"/>
+      <stop offset="1" stop-color="#052e16"/>
+    </linearGradient>
+    <linearGradient id="pineLight" x1="80" y1="0" x2="220" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#15803d"/>
+    </linearGradient>
+    <linearGradient id="snow" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#cbd5e1"/>
+    </linearGradient>
+    <radialGradient id="redOrnament" cx=".35" cy=".25" r=".8">
+      <stop stop-color="#fca5a5"/>
+      <stop offset=".35" stop-color="#ef4444"/>
+      <stop offset="1" stop-color="#991b1b"/>
+    </radialGradient>
+    <radialGradient id="goldOrnament" cx=".35" cy=".25" r=".8">
+      <stop stop-color="#fef3c7"/>
+      <stop offset=".4" stop-color="#fbbf24"/>
+      <stop offset="1" stop-color="#b45309"/>
+    </radialGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <path d="M8 -20C80 120 30 260 100 400C170 540 100 680 170 920" stroke="#14532d" stroke-width="11" stroke-linecap="round"/>
+
+  <g fill="url(#pine)">
+    <path d="M40 60C90 30 160 40 220 90C170 100 110 95 40 60Z"/>
+    <path d="M20 140C80 110 160 120 230 170C170 185 100 175 20 140Z"/>
+    <path d="M50 220C110 190 180 200 245 250C185 265 120 255 50 220Z"/>
+    <path d="M30 310C90 280 170 290 235 340C175 355 105 345 30 310Z"/>
+    <path d="M70 400C130 370 200 380 250 430C190 445 130 435 70 400Z"/>
+    <path d="M40 490C100 460 180 470 240 520C180 535 110 525 40 490Z"/>
+    <path d="M70 580C130 550 200 560 255 610C195 625 130 615 70 580Z"/>
+    <path d="M30 670C90 640 170 650 235 700C175 715 105 705 30 670Z"/>
+    <path d="M60 760C120 730 190 740 245 790C185 805 120 795 60 760Z"/>
+    <path d="M50 850C110 820 180 830 240 880C180 895 110 885 50 850Z"/>
+  </g>
+
+  <g fill="url(#pineLight)" opacity=".3">
+    <path d="M60 76C105 51 160 59 205 96C165 101 115 97 60 76Z"/>
+    <path d="M46 158C100 132 160 141 214 176C164 184 106 178 46 158Z"/>
+    <path d="M92 412C138 389 188 398 232 432C188 440 138 434 92 412Z"/>
+    <path d="M82 594C134 570 190 579 240 616C192 624 136 618 82 594Z"/>
+    <path d="M72 774C124 750 180 759 230 796C182 804 126 798 72 774Z"/>
+  </g>
+
+  <g fill="url(#snow)" opacity=".92">
+    <path d="M40 60C90 30 160 40 220 90C182 78 142 68 102 68C76 68 56 62 40 60Z"/>
+    <path d="M50 220C110 190 180 200 245 250C206 238 166 228 126 228C100 228 68 222 50 220Z"/>
+    <path d="M70 400C130 370 200 380 250 430C210 418 170 408 130 408C104 408 88 402 70 400Z"/>
+    <path d="M70 580C130 550 200 560 255 610C215 598 175 588 135 588C109 588 88 582 70 580Z"/>
+    <path d="M60 760C120 730 190 740 245 790C205 778 165 768 125 768C99 768 78 762 60 760Z"/>
+  </g>
+
+  <g opacity=".55" fill="#f8fafc">
+    <ellipse cx="130" cy="66" rx="34" ry="5" transform="rotate(-10 130 66)"/>
+    <ellipse cx="160" cy="230" rx="30" ry="4" transform="rotate(-8 160 230)"/>
+    <ellipse cx="176" cy="410" rx="28" ry="4" transform="rotate(-7 176 410)"/>
+    <ellipse cx="164" cy="590" rx="30" ry="4" transform="rotate(-7 164 590)"/>
+    <ellipse cx="150" cy="770" rx="30" ry="4" transform="rotate(-7 150 770)"/>
+  </g>
+
+  <g stroke="#fbbf24" stroke-width="1.6" opacity=".9">
+    <path d="M160 96v18"/>
+    <path d="M112 250v16"/>
+    <path d="M204 360v18"/>
+    <path d="M146 506v18"/>
+    <path d="M214 646v16"/>
+    <path d="M128 762v18"/>
+  </g>
+
+  <g>
+    <circle cx="160" cy="128" r="15" fill="url(#redOrnament)" stroke="#7f1d1d" stroke-width="1.5"/>
+    <ellipse cx="154" cy="122" rx="4" ry="6" fill="#fecaca" opacity=".7"/>
+    <circle cx="112" cy="280" r="13" fill="url(#goldOrnament)" stroke="#92400e" stroke-width="1.5"/>
+    <ellipse cx="107" cy="275" rx="3.5" ry="5" fill="#fef9c3" opacity=".8"/>
+    <circle cx="204" cy="392" r="14" fill="url(#redOrnament)" stroke="#7f1d1d" stroke-width="1.5"/>
+    <ellipse cx="198" cy="386" rx="3.5" ry="5.5" fill="#fecaca" opacity=".7"/>
+    <circle cx="146" cy="538" r="13" fill="url(#goldOrnament)" stroke="#92400e" stroke-width="1.5"/>
+    <ellipse cx="141" cy="533" rx="3.5" ry="5" fill="#fef9c3" opacity=".8"/>
+    <circle cx="214" cy="676" r="14" fill="url(#redOrnament)" stroke="#7f1d1d" stroke-width="1.5"/>
+    <ellipse cx="208" cy="670" rx="3.5" ry="5.5" fill="#fecaca" opacity=".7"/>
+    <circle cx="128" cy="794" r="13" fill="url(#goldOrnament)" stroke="#92400e" stroke-width="1.5"/>
+    <ellipse cx="123" cy="789" rx="3.5" ry="5" fill="#fef9c3" opacity=".8"/>
+  </g>
+
+  <g fill="#fde68a" filter="url(#glow)">
+    <circle cx="88" cy="118" r="3.2"/>
+    <circle cx="190" cy="212" r="3"/>
+    <circle cx="108" cy="342" r="3.2"/>
+    <circle cx="222" cy="486" r="3"/>
+    <circle cx="92" cy="618" r="3.2"/>
+    <circle cx="188" cy="738" r="3"/>
+    <circle cx="86" cy="846" r="3.2"/>
+  </g>
+</svg>

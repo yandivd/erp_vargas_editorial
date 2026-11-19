@@ -14,6 +14,9 @@ export type PedidoListItem = {
   cliente_id: number | null;
   cliente_nombre: string;
   cliente_direccion: string;
+  cliente_provincia: string;
+  cliente_municipio: string;
+  cliente_costo_mensajeria: number;
   libro_id: number;
   libro_titulo: string;
   libro_autor: string;

@@ -160,6 +160,24 @@
                                         <label class="form-label small text-muted">Teléfono</label>
                                         {{ form.nuevo_cliente_telefono }}
                                     </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label small text-muted">Provincia</label>
+                                        <select name="nuevo_cliente_provincia" id="nuevoClienteProvincia" class="form-select">
+                                            <option value="">Sin especificar</option>
+                                            {% for provincia in provincias %}
+                                                <option value="{{ provincia }}">{{ provincia }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label small text-muted">Municipio</label>
+                                        <select name="nuevo_cliente_municipio" id="nuevoClienteMunicipio" class="form-select">
+                                            <option value="">Sin especificar</option>
+                                            {% for provincia, municipio, costo in municipios_opciones %}
+                                                <option value="{{ municipio }}" data-provincia="{{ provincia }}">{{ municipio }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
                                     <div class="col-12 mt-2">
                                         <label class="form-label small text-muted">Dirección</label>
                                         {{ form.nuevo_cliente_direccion }}
@@ -679,6 +697,35 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('tab-libro-existente-btn').addEventListener('shown.bs.tab', () => usandoLibroNuevo = false);
         }
 
+        const nuevoClienteProvincia = document.getElementById('nuevoClienteProvincia');
+        const nuevoClienteMunicipio = document.getElementById('nuevoClienteMunicipio');
+
+        function filtrarMunicipiosNuevoCliente() {
+            if (!nuevoClienteProvincia || !nuevoClienteMunicipio) {
+                return;
+            }
+
+            Array.from(nuevoClienteMunicipio.options).forEach(opcion => {
+                if (!opcion.value) return;
+                const coincide = !nuevoClienteProvincia.value || opcion.dataset.provincia === nuevoClienteProvincia.value;
+                opcion.hidden = !coincide;
+                opcion.disabled = !coincide;
+            });
+
+            const seleccionada = nuevoClienteMunicipio.selectedOptions[0];
+            if (seleccionada && seleccionada.disabled) {
+                nuevoClienteMunicipio.value = '';
+            }
+        }
+
+        if (nuevoClienteProvincia) {
+            nuevoClienteProvincia.addEventListener('change', function () {
+                nuevoClienteMunicipio.value = '';
+                filtrarMunicipiosNuevoCliente();
+            });
+        }
+        filtrarMunicipiosNuevoCliente();
+
         if (libroSelect) {
             libroSelect.addEventListener('change', cargarLibroSeleccionado);
             if (window.jQuery) {
@@ -750,6 +797,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 formData.delete('nuevo_cliente_nombre');
                 formData.delete('nuevo_cliente_telefono');
                 formData.delete('nuevo_cliente_direccion');
+                formData.delete('nuevo_cliente_provincia');
+                formData.delete('nuevo_cliente_municipio');
             }
 
             if (usandoLibroNuevo) {

@@ -6,6 +6,8 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView,
 )
 
+from core import views as core_views
+
 from . import views
 from .auth import AccessTokenRefreshView
 
@@ -34,12 +36,23 @@ urlpatterns = [
         views.fidelidad_publica,
         name='fidelidad_publica',
     ),
+    path('exportar-ia/', core_views.exportar_datos_ia, name='exportar_datos_ia'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('dashboard/resumen/', views.dashboard, {'tab': 'resumen'}, name='dashboard_resumen'),
     path('dashboard/produccion/', views.dashboard, {'tab': 'produccion'}, name='dashboard_produccion'),
     path('dashboard/clientes/', views.dashboard, {'tab': 'clientes'}, name='dashboard_clientes'),
     path('dashboard/fidelidad/', views.dashboard, {'tab': 'fidelidad'}, name='dashboard_fidelidad'),
     path('catalogo/', views.catalogo, name='catalogo'),
+    path(
+        'catalogo/libros/<int:pk>/recomendaciones/',
+        views.catalogo_recomendaciones,
+        name='catalogo_recomendaciones',
+    ),
+    path(
+        'catalogo/libros/<int:pk>/',
+        views.catalogo_libro,
+        name='catalogo_libro',
+    ),
     path('tienda/', views.tienda, name='tienda'),
     path('tienda/<int:pk>/vender/', views.tienda_vender, name='tienda_vender'),
     path('entregas/', views.entregas, name='entregas'),

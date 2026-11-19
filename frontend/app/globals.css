@@ -26,3 +26,30 @@ body {
   color: var(--foreground);
   font-family: var(--font-inter), Inter, sans-serif;
 }
+
+.snow-particle {
+  position: absolute;
+  top: -10vh;
+  border-radius: 9999px;
+  background-color: #ffffff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.9);
+  animation-name: snowfall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+@keyframes snowfall {
+  0% {
+    transform: translate3d(0, -10vh, 0);
+  }
+  100% {
+    transform: translate3d(var(--snow-drift, 0px), 110vh, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snow-particle {
+    display: none;
+  }
+}

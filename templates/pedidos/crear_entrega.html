@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load l10n %}
 {% block title %}Nueva Entrega{% endblock %}
 {% block content %}
 <!-- Cabecera responsive -->
@@ -25,6 +26,24 @@
                 <label class="form-label fw-bold small text-muted">Fecha de entrega</label>
                 <input type="date" name="fecha_entrega" class="form-control form-control-lg">
             </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-bold small text-muted">Provincia</label>
+                <select name="provincia" id="provinciaEntrega" class="form-select form-select-lg">
+                    <option value="">Selecciona una provincia</option>
+                    {% for provincia in provincias %}
+                        <option value="{{ provincia }}">{{ provincia }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-bold small text-muted">Municipio</label>
+                <select name="municipio" id="municipioEntrega" class="form-select form-select-lg">
+                    <option value="">Selecciona un municipio</option>
+                    {% for provincia, municipio, costo in municipios_opciones %}
+                        <option value="{{ municipio }}" data-provincia="{{ provincia }}" data-costo="{{ costo|unlocalize }}">{{ municipio }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div class="col-12">
                 <label class="form-label fw-bold small text-muted">Dirección de entrega</label>
                 <textarea name="direccion" class="form-control" rows="2" placeholder="Dirección a donde se llevará el pedido..."></textarea>
@@ -33,9 +52,9 @@
                 <label class="form-label fw-bold small text-muted">Costo de mensajería</label>
                 <div class="input-group input-group-lg">
                     <span class="input-group-text">$</span>
-                    <input type="number" name="costo_mensajeria" id="costoMensajeria" class="form-control" step="0.01" value="0">
+                    <input type="number" name="costo_mensajeria" id="costoMensajeria" class="form-control" step="0.01" min="0" value="" placeholder="0">
                 </div>
-                <small class="text-muted">Pon 0 si no cobras mensajería.</small>
+                <small class="text-muted">Sugerido según el municipio del cliente. Puedes ajustarlo (0 si no cobras mensajería).</small>
             </div>
             <div class="col-12">
                 <label class="form-label fw-bold small text-muted">Notas</label>
@@ -64,7 +83,10 @@
                             <input type="checkbox" name="pedido_ids" value="{{ p.id }}"
                                    class="form-check-input check-pedido"
                                    data-cliente-id="{{ p.cliente_id }}"
-                                   data-cliente-nombre="{{ p.cliente.nombre|default:'Stock' }}">
+                                   data-cliente-nombre="{{ p.cliente.nombre|default:'Stock' }}"
+                                   data-cliente-provincia="{{ p.cliente_provincia }}"
+                                   data-cliente-municipio="{{ p.cliente_municipio }}"
+                                   data-costo-mensajeria="{{ p.costo_mensajeria_sugerido|unlocalize }}">
                         </td>
                         <td>
                             <strong>{{ p.libro.titulo }}</strong><br>
@@ -99,13 +121,40 @@ document.addEventListener('DOMContentLoaded', function() {
     const checkTodos = document.getElementById('checkTodos');
     const checks = document.querySelectorAll('.check-pedido');
     const clienteNombre = document.getElementById('clienteNombre');
+    const provinciaEntrega = document.getElementById('provinciaEntrega');
+    const municipioEntrega = document.getElementById('municipioEntrega');
+    const costoMensajeria = document.getElementById('costoMensajeria');
     const form = document.getElementById('formEntrega');
+    let clienteCostoActual = null;
+
+    function filtrarMunicipios(provincia, municipioSeleccionado) {
+        Array.from(municipioEntrega.options).forEach(opcion => {
+            if (!opcion.value) return;
+            const coincide = !provincia || opcion.dataset.provincia === provincia;
+            opcion.hidden = !coincide;
+            opcion.disabled = !coincide;
+        });
+        municipioEntrega.value = municipioSeleccionado || '';
+    }
+
+    function actualizarCostoPorMunicipio() {
+        const opcion = municipioEntrega.selectedOptions[0];
+        costoMensajeria.value = opcion && opcion.value
+            ? (opcion.dataset.costo || '0')
+            : '0';
+    }
 
     function actualizarCliente() {
         const seleccionados = document.querySelectorAll('.check-pedido:checked');
         if (seleccionados.length === 0) {
             clienteNombre.value = '';
             clienteNombre.classList.remove('is-invalid');
+            if (clienteCostoActual !== null) {
+                provinciaEntrega.value = '';
+                filtrarMunicipios('', '');
+                costoMensajeria.value = '0';
+            }
+            clienteCostoActual = null;
             return;
         }
         const clienteIds = new Set();
@@ -117,10 +166,31 @@ document.addEventListener('DOMContentLoaded', function() {
         if (clienteIds.size > 1) {
             clienteNombre.value = '⚠ Varios clientes seleccionados';
             clienteNombre.classList.add('is-invalid');
-        } else {
-            clienteNombre.value = nombres.values().next().value;
-            clienteNombre.classList.remove('is-invalid');
+            return;
         }
+        clienteNombre.value = nombres.values().next().value;
+        clienteNombre.classList.remove('is-invalid');
+
+        const clienteId = seleccionados[0].dataset.clienteId;
+        if (clienteId !== clienteCostoActual) {
+            const provincia = seleccionados[0].dataset.clienteProvincia || '';
+            const municipio = seleccionados[0].dataset.clienteMunicipio || '';
+            provinciaEntrega.value = provincia;
+            filtrarMunicipios(provincia, municipio);
+            costoMensajeria.value = seleccionados[0].dataset.costoMensajeria || '0';
+            clienteCostoActual = clienteId;
+        }
+    }
+
+    if (provinciaEntrega) {
+        provinciaEntrega.addEventListener('change', function() {
+            filtrarMunicipios(this.value, '');
+            actualizarCostoPorMunicipio();
+        });
+    }
+
+    if (municipioEntrega) {
+        municipioEntrega.addEventListener('change', actualizarCostoPorMunicipio);
     }
 
     if (checkTodos) {
@@ -131,6 +201,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     checks.forEach(c => c.addEventListener('change', actualizarCliente));
+
+    filtrarMunicipios('', '');
 
     if (form) {
         form.addEventListener('submit', function(e) {
