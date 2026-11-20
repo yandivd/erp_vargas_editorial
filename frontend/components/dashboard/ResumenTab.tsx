@@ -104,6 +104,21 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
           sub={`Tasa: ${number(meta?.tasa_cambio ?? 0)} · CUP ${money(kpis.saldo_caja_cup)}`}
           tone="neutral"
         />
+        <KpiCard
+          label="Deuda de clientes"
+          value={money(kpis.deuda_clientes)}
+          sub="Saldos pendientes de cobro"
+          tone="red"
+          valueClassName="text-red-500"
+        />
+        <div className="col-span-2 md:col-span-3 xl:col-span-4">
+          <KpiCard
+            label="Dinero proyectado"
+            value={money(kpis.dinero_proyectado)}
+            sub="Saldo en caja + deuda de clientes - deudas con proveedores"
+            tone="amber"
+          />
+        </div>
       </div>
 
       <div className="mb-4 grid gap-3 md:grid-cols-2">

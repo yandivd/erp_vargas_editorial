@@ -58,6 +58,8 @@ export type ResumenKpis = {
   anticipos_cup: number;
   servicios_impagos_cup: number;
   pedidos_activos: number;
+  deuda_clientes: number;
+  dinero_proyectado: number;
 };
 
 export type DesgloseIngreso = {

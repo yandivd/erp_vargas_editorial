@@ -58,6 +58,22 @@ Q_INGRESO_DIFERIDO = Q(
 
 ESTADOS_PEDIDO_INACTIVO = ['Borrador', 'Cancelado', 'En Stock']
 
+ESTADOS_ANTES_CARATULA = [
+    'Pendiente a impresión',
+    'Impreso',
+    'Pegado',
+    'Pendiente a Cantos Pintados',
+    'Pendiente a Portada',
+    'Pendiente a Carátula',
+]
+ESTADOS_ANTES_ENCUADERNADO = ESTADOS_ANTES_CARATULA + ['Pendiente a Encuadernado']
+ESTADOS_ANTES_CANTOS = [
+    'Pendiente a impresión',
+    'Impreso',
+    'Pegado',
+    'Pendiente a Cantos Pintados',
+]
+
 ESTADOS_TIEMPO_ORDEN = [
     'Impreso',
     'Pegado',
@@ -778,6 +794,34 @@ def dashboard_resumen(desde=None, hasta=None):
             ),
         })
 
+    deuda_clientes = (
+        Pedido.objects.filter(cliente__isnull=False, saldo_pendiente__gt=0)
+        .exclude(estado__nombre__in=['Cancelado', 'Borrador'])
+        .aggregate(t=Sum('saldo_pendiente'))['t']
+        or Decimal('0')
+    )
+    cantidad_caratula = Pedido.objects.filter(
+        estado__nombre__in=ESTADOS_ANTES_CARATULA
+    ).count()
+    cantidad_encuadernado = Pedido.objects.filter(
+        estado__nombre__in=ESTADOS_ANTES_ENCUADERNADO
+    ).count()
+    cantidad_cantos = Pedido.objects.filter(
+        estado__nombre__in=ESTADOS_ANTES_CANTOS,
+        lleva_cantos_tintados=True,
+    ).count()
+    deuda_caratula = cantidad_caratula * 1080
+    deuda_encuadernado = cantidad_encuadernado * 480
+    deuda_cantos = cantidad_cantos * 2500
+    deudas_proveedores_proyectadas = (
+        deuda_caratula + deuda_encuadernado + deuda_cantos
+    )
+    dinero_proyectado = (
+        Decimal(str(monedas['equivalente']['saldo_caja_cup']))
+        + deuda_clientes
+        - Decimal(str(deudas_proveedores_proyectadas))
+    )
+
     atrasados = Pedido.objects.filter(
         fecha_entrega_prometida__lt=hoy,
         estado__es_final=False,
@@ -855,6 +899,8 @@ def dashboard_resumen(desde=None, hasta=None):
         'anticipos_cup': pasivos['anticipos'],
         'servicios_impagos_cup': pasivos['servicios_impagos'],
         'pedidos_activos': pasivos['pedidos_activos'],
+        'deuda_clientes': float(deuda_clientes),
+        'dinero_proyectado': float(dinero_proyectado),
     }
 
     return {
