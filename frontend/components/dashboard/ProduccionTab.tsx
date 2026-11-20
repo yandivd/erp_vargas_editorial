@@ -8,9 +8,9 @@ import {
 import type { DashboardProduccion } from "@/lib/dashboard";
 import { integer, money } from "@/lib/format";
 import {
+  BottleneckFunnelChart,
   MonthlyOrdersChart,
   OrderBehaviorChart,
-  StateTimesChart,
   TopBooksChart,
 } from "./charts";
 import {
@@ -86,7 +86,7 @@ export default function ProduccionTab({ data }: { data: DashboardProduccion }) {
           icon={<Clock className="h-5 w-5 text-amber-500" aria-hidden="true" />}
         >
           <div className="h-[220px] w-full md:h-[280px]">
-            <StateTimesChart data={data.tiempos_por_estado} />
+            <BottleneckFunnelChart data={data.tiempos_por_estado} />
           </div>
         </SectionCard>
       </div>
