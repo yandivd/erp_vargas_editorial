@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Area,
   AreaChart,
@@ -8,8 +7,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Funnel,
-  FunnelChart,
   LabelList,
   Legend,
   Line,
@@ -326,132 +323,74 @@ export function OrderBehaviorChart({
   );
 }
 
-type TimeUnit = "horas" | "dias" | "semanas";
-
-const timeUnits: Record<
-  TimeUnit,
-  { label: string; shortLabel: string; hours: number }
-> = {
-  horas: { label: "Horas", shortLabel: "h", hours: 1 },
-  dias: { label: "Días", shortLabel: "d", hours: 24 },
-  semanas: { label: "Semanas", shortLabel: "sem", hours: 168 },
-};
-
 export function BottleneckFunnelChart({ data }: { data: TiempoEstado[] }) {
-  const [unit, setUnit] = useState<TimeUnit>("horas");
-
   if (!data.length) {
     return <EmptyChart />;
   }
 
-  const selectedUnit = timeUnits[unit];
-  const values = data.map((item) => item.promedio_horas);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-
   const chartData = data.map((item) => {
-    const ratio = max === min ? 0 : (item.promedio_horas - min) / (max - min);
-    const r = Math.round(16 + (239 - 16) * ratio);
-    const g = Math.round(185 + (68 - 185) * ratio);
-    const b = Math.round(129 + (68 - 129) * ratio);
+    const promedioDias = item.promedio_horas / 24;
+    let fill = "#10b981";
+    if (promedioDias > 14) {
+      fill = "#ef4444";
+    } else if (promedioDias >= 7) {
+      fill = "#f59e0b";
+    }
     return {
-      name: item.estado,
-      estado: item.estado,
-      value: Math.max(item.promedio_horas / selectedUnit.hours, 0.0001),
-      pedidos: item.pedidos,
-      promedio_horas: item.promedio_horas,
-      fill: `rgb(${r}, ${g}, ${b})`,
+      ...item,
+      promedio_dias: promedioDias,
+      tiempoLabel: `${promedioDias.toFixed(1)} días`,
+      fill,
     };
   });
 
-  const thresholdHours = 7 * 24;
-  const thresholdInUnit = thresholdHours / selectedUnit.hours;
-  const maxVal = Math.max(...chartData.map((d) => d.value), thresholdInUnit);
-  const pct = maxVal > 0 ? (thresholdInUnit / maxVal) * 100 : 0;
-  const half = Math.min(pct / 2, 50);
-
   return (
-    <div className="flex h-full flex-col">
-      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div className="flex flex-wrap items-center gap-1">
-          {(Object.keys(timeUnits) as TimeUnit[]).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setUnit(option)}
-              className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition ${
-                unit === option
-                  ? "border-brand bg-brand text-white"
-                  : "border-line bg-white text-muted hover:border-brand hover:bg-blue-50 hover:text-brand"
-              }`}
-            >
-              {timeUnits[option].label}
-            </button>
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart
+        data={chartData}
+        layout="vertical"
+        margin={{ top: 8, right: 72, left: 0, bottom: 0 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+        <XAxis type="number" tick={axisTick} allowDecimals={false} />
+        <YAxis
+          dataKey="estado"
+          type="category"
+          width={140}
+          tick={axisTick}
+          tickFormatter={(value: string) =>
+            value.length > 22 ? `${value.slice(0, 22)}…` : value
+          }
+        />
+        <Tooltip
+          cursor={{ fill: "rgba(148,163,184,0.12)" }}
+          content={({ active, payload }) => {
+            if (!active || !payload?.length) return null;
+            const p = payload[0].payload as {
+              estado: string;
+              pedidos: number;
+              promedio_dias: number;
+            };
+            return (
+              <div className="rounded-md border border-line bg-white px-3 py-2 text-xs shadow-sm">
+                {`Estado: ${p.estado} | Pedidos: ${p.pedidos} | Tiempo Promedio: ${p.promedio_dias.toFixed(1)} días`}
+              </div>
+            );
+          }}
+        />
+        <Bar dataKey="pedidos" name="Pedidos" radius={[0, 4, 4, 0]}>
+          <LabelList
+            dataKey="tiempoLabel"
+            position="right"
+            fill="#475569"
+            fontSize={11}
+          />
+          {chartData.map((entry, index) => (
+            <Cell key={`${entry.estado}-${index}`} fill={entry.fill} />
           ))}
-        </div>
-        <div className="flex items-center gap-1 text-xs text-red-500">
-          <span className="inline-block w-4 border-t-2 border-dashed border-red-500" />
-          <span>Límite 7 días</span>
-        </div>
-      </div>
-      <div className="relative min-h-0 flex-1">
-        <div
-          className="pointer-events-none absolute bottom-3 top-3 z-10 border-l-2 border-dashed border-red-500/80"
-          style={{ left: `${50 - half}%` }}
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute bottom-3 top-3 z-10 border-l-2 border-dashed border-red-500/80"
-          style={{ left: `${50 + half}%` }}
-          aria-hidden="true"
-        />
-        <span
-          className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded bg-red-500/90 px-1 text-[10px] font-semibold leading-4 text-white"
-          style={{ left: `${50 + half}%` }}
-        >
-          7d
-        </span>
-        <ResponsiveContainer width="100%" height="100%">
-          <FunnelChart margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
-            <Tooltip
-              formatter={(value, _name, props) => {
-                const payload = props?.payload as
-                  | { pedidos?: number }
-                  | undefined;
-                const suffix =
-                  payload?.pedidos != null
-                    ? ` · ${payload.pedidos} pedidos`
-                    : "";
-                return [
-                  `${Number(value ?? 0).toFixed(1)} ${selectedUnit.shortLabel}${suffix}`,
-                  "Tiempo promedio",
-                ];
-              }}
-              labelFormatter={(_, payload) =>
-                ((payload?.[0]?.payload as { estado?: string } | undefined)
-                  ?.estado ?? "")
-              }
-            />
-            <Funnel dataKey="value" data={chartData} isAnimationActive>
-              <LabelList
-                dataKey="estado"
-                position="right"
-                fill="#64748b"
-                stroke="none"
-                fontSize={11}
-                formatter={(value: unknown) => {
-                  const text = String(value ?? "");
-                  return text.length > 16 ? `${text.slice(0, 16)}…` : text;
-                }}
-              />
-              {chartData.map((entry, index) => (
-                <Cell key={`${entry.estado}-${index}`} fill={entry.fill} />
-              ))}
-            </Funnel>
-          </FunnelChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
