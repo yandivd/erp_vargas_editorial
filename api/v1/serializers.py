@@ -374,9 +374,23 @@ class AjusteFidelidadSerializer(serializers.Serializer):
 class LibroListV1Serializer(serializers.ModelSerializer):
     class Meta:
         model = Book
-        fields = ('id', 'titulo', 'autor', 'paginas', 'precio', 'disponible', 'imagen')
+        fields = (
+            'id',
+            'titulo',
+            'autor',
+            'paginas',
+            'precio',
+            'disponible',
+            'imagen',
+            'imagen_base',
+            'imagen_con_esquineros',
+            'imagen_con_cantos',
+        )
         extra_kwargs = {
             'imagen': {'required': False, 'allow_null': True},
+            'imagen_base': {'required': False, 'allow_blank': True},
+            'imagen_con_esquineros': {'required': False, 'allow_blank': True},
+            'imagen_con_cantos': {'required': False, 'allow_blank': True},
         }
 
     def validate_titulo(self, value):
@@ -394,6 +408,18 @@ class LibroListV1Serializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError('El precio no puede ser negativo.')
         return value
+
+    def validate_imagen_base(self, value):
+        value = (value or '').strip()
+        if not value and self.instance is None:
+            raise serializers.ValidationError('La imagen base es obligatoria.')
+        return value
+
+    def validate_imagen_con_esquineros(self, value):
+        return (value or '').strip()
+
+    def validate_imagen_con_cantos(self, value):
+        return (value or '').strip()
 
 
 class PedidoCreateSerializer(serializers.Serializer):
@@ -644,6 +670,8 @@ class PedidoListV1Serializer(serializers.ModelSerializer):
             'libro_titulo',
             'libro_autor',
             'cantidad',
+            'lleva_cantos_tintados',
+            'lleva_esquineros',
             'estado_id',
             'estado_nombre',
             'estado_color',
@@ -713,8 +741,6 @@ class PedidoDetailV1Serializer(PedidoListV1Serializer):
 
     class Meta(PedidoListV1Serializer.Meta):
         fields = PedidoListV1Serializer.Meta.fields + (
-            'lleva_cantos_tintados',
-            'lleva_esquineros',
             'direccion_entrega',
             'telefono_entrega',
             'notas',

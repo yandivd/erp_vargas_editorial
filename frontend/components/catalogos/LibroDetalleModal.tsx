@@ -11,11 +11,11 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import BookImage from "@/components/libros/BookImage";
 import ShopBookCard from "./ShopBookCard";
 import { fetchRecomendaciones, type LibroPublico } from "@/lib/catalogos";
 import { calcularPrecioConAcabados } from "@/lib/costos";
 import { money } from "@/lib/format";
-import { libroImagenSrc } from "@/lib/libros";
 
 type LibroDetalleModalProps = {
   libro: LibroPublico;
@@ -167,14 +167,12 @@ export default function LibroDetalleModal({
         <div className="p-5">
           <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
             <div>
-              <div className="aspect-[21/9] overflow-hidden rounded-xl bg-slate-100">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={libroImagenSrc(libro.imagen)}
-                  alt={`Portada de ${libro.titulo}`}
-                  className="h-full w-full object-cover"
-                />
-              </div>
+              <BookImage
+                libro={libro}
+                llevaEsquineros={esquineros}
+                llevaCantosTintados={cantosPintados}
+                className="aspect-[3/4] w-full max-w-sm rounded-xl"
+              />
               {libro.descripcion ? (
                 <p className="mt-4 text-sm text-muted">{libro.descripcion}</p>
               ) : null}

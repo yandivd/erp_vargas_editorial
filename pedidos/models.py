@@ -61,6 +61,17 @@ class Book(models.Model):
     precio = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Precio base') # <-- NUEVO CAMPO
     disponible = models.BooleanField(default=True, verbose_name='Disponible')
     imagen = models.ImageField(upload_to='libros/', blank=True, null=True, verbose_name='Imagen')
+    imagen_base = models.URLField(default='', verbose_name='Imagen base (URL)')
+    imagen_con_esquineros = models.URLField(
+        blank=True,
+        default='',
+        verbose_name='Imagen con esquineros (URL)',
+    )
+    imagen_con_cantos = models.URLField(
+        blank=True,
+        default='',
+        verbose_name='Imagen con cantos tintados (URL)',
+    )
 
     class Meta:
         verbose_name = 'Libro'

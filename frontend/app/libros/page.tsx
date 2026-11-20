@@ -11,7 +11,8 @@ import {
   thClass,
 } from "@/components/dashboard/ui";
 import { money } from "@/lib/format";
-import { libroImagenSrc, type Libro } from "@/lib/libros";
+import BookImage from "@/components/libros/BookImage";
+import type { Libro } from "@/lib/libros";
 
 export const dynamic = "force-dynamic";
 
@@ -93,16 +94,10 @@ export default async function LibrosPage({ searchParams }: PageProps) {
                 {libros.map((libro) => (
                   <tr key={libro.id} className={tableRowClass}>
                     <td className={tdClass}>
-                      <div className="aspect-[21/9] w-24 overflow-hidden rounded-md border border-line bg-slate-50 sm:w-28">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={libroImagenSrc(libro.imagen)}
-                          alt={`Portada de ${libro.titulo}`}
-                          loading="lazy"
-                          decoding="async"
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
+                      <BookImage
+                        libro={libro}
+                        className="aspect-[3/4] w-20 rounded-md border border-line sm:w-24"
+                      />
                     </td>
                     <td className={tdClass}>
                       <Link

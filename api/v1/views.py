@@ -302,6 +302,9 @@ def _libro_publico_data(libro, request):
             if libro.imagen
             else None
         ),
+        'imagen_base': libro.imagen_base or None,
+        'imagen_con_esquineros': libro.imagen_con_esquineros or None,
+        'imagen_con_cantos': libro.imagen_con_cantos or None,
         'disponible': libro.disponible,
     }
 

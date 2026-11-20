@@ -262,6 +262,7 @@ export default function PedidosTable({
               <SortableHeader sortKey="ref" label="Ref." isDefault />
               <SortableHeader sortKey="cliente" label="Cliente" />
               <SortableHeader sortKey="libro" label="Libro" />
+              <th className={thClass}>Acabados</th>
               <SortableHeader sortKey="estado" label="Estado" />
               <SortableHeader sortKey="fecha_pedido" label="Creado" defaultDirection="desc" />
               <SortableHeader sortKey="entrega" label="Entrega est." />
@@ -312,6 +313,24 @@ export default function PedidosTable({
                     <div className="text-[0.75rem] text-muted">
                       {pedido.libro_autor || "Sin autor"}
                     </div>
+                  </td>
+                  <td className={tdClass}>
+                    {pedido.lleva_cantos_tintados || pedido.lleva_esquineros ? (
+                      <div className="flex flex-wrap gap-1">
+                        {pedido.lleva_cantos_tintados ? (
+                          <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                            Cantos pintados
+                          </span>
+                        ) : null}
+                        {pedido.lleva_esquineros ? (
+                          <span className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+                            Esquineros
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </td>
                   <td className={tdClass}>
                     <span

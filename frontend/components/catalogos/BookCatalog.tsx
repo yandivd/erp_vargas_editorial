@@ -22,13 +22,13 @@ type BookCatalogProps = {
 
 function SkeletonGrid() {
   return (
-    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
       {Array.from({ length: 6 }).map((_, index) => (
         <div
           key={index}
           className="animate-pulse rounded-2xl border border-white/10 bg-slate-900/60 p-5"
         >
-          <div className="mb-4 aspect-[21/9] rounded-lg bg-slate-800" />
+          <div className="mb-4 aspect-[3/4] w-full rounded-lg bg-slate-800" />
           <div className="h-5 w-2/3 rounded bg-slate-800" />
           <div className="mt-2 h-4 w-1/2 rounded bg-slate-800" />
           <div className="mt-4 h-4 w-full rounded bg-slate-800" />
@@ -112,7 +112,7 @@ export default function BookCatalog({
         </div>
       ) : (
         <>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {books.map((book) => (
               <ShopBookCard
                 key={book.id}

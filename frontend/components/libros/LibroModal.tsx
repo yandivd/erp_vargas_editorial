@@ -20,6 +20,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
+import BookImage from "@/components/libros/BookImage";
 import DesgloseCostos from "@/components/ui/DesgloseCostos";
 import { apiFetch } from "@/lib/api";
 import {
@@ -50,6 +51,9 @@ export default function LibroModal({ libro }: LibroModalProps) {
   const [precio, setPrecio] = useState("");
   const [imagenFile, setImagenFile] = useState<File | null>(null);
   const [imagenPreviewUrl, setImagenPreviewUrl] = useState<string | null>(null);
+  const [imagenBase, setImagenBase] = useState("");
+  const [imagenEsquineros, setImagenEsquineros] = useState("");
+  const [imagenCantos, setImagenCantos] = useState("");
   const [parametros, setParametros] = useState<ParametrosCosto | null>(null);
   const [parametrosError, setParametrosError] = useState<string | null>(null);
   const [precioManual, setPrecioManual] = useState(false);
@@ -138,6 +142,9 @@ export default function LibroModal({ libro }: LibroModalProps) {
     setPrecioManual(esEdicion);
     setImagenFile(null);
     setImagenPreviewUrl(null);
+    setImagenBase(libro?.imagen_base || libro?.imagen || "");
+    setImagenEsquineros(libro?.imagen_con_esquineros ?? "");
+    setImagenCantos(libro?.imagen_con_cantos ?? "");
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
       previewUrlRef.current = null;
@@ -220,6 +227,11 @@ export default function LibroModal({ libro }: LibroModalProps) {
       return;
     }
 
+    if (!esEdicion && !imagenBase.trim()) {
+      setError("La imagen base (URL) es obligatoria.");
+      return;
+    }
+
     setGuardando(true);
     setError(null);
 
@@ -228,6 +240,9 @@ export default function LibroModal({ libro }: LibroModalProps) {
     formData.set("autor", autor.trim());
     formData.set("paginas", String(paginasValor));
     formData.set("precio", String(precioValor));
+    formData.set("imagen_base", imagenBase.trim());
+    formData.set("imagen_con_esquineros", imagenEsquineros.trim());
+    formData.set("imagen_con_cantos", imagenCantos.trim());
     if (imagenFile) {
       formData.set("imagen", imagenFile);
     }
@@ -256,7 +271,13 @@ export default function LibroModal({ libro }: LibroModalProps) {
     }
   }
 
-  const previewSrc = imagenPreviewUrl ?? libro?.imagen ?? null;
+  const previewLibro = {
+    titulo: titulo.trim() || libro?.titulo || "Libro",
+    imagen: imagenPreviewUrl ?? libro?.imagen ?? null,
+    imagen_base: imagenBase,
+    imagen_con_esquineros: imagenEsquineros,
+    imagen_con_cantos: imagenCantos,
+  };
 
   return (
     <>
@@ -417,51 +438,95 @@ export default function LibroModal({ libro }: LibroModalProps) {
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="libro-imagen" className={labelClass}>
-                  Imagen
-                </label>
-                <div className="flex items-start gap-3">
-                  <div className="flex h-24 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-line bg-slate-50">
-                    {previewSrc ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={previewSrc}
-                        alt="Vista previa de la portada"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <BookOpen
-                        className="h-6 w-6 text-slate-300"
-                        aria-hidden="true"
-                      />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <label
-                      htmlFor="libro-imagen"
-                      className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-muted transition hover:bg-slate-50"
-                    >
-                      <ImagePlus className="h-4 w-4" aria-hidden="true" />
-                      Seleccionar imagen
-                    </label>
-                    <input
-                      ref={fileInputRef}
-                      id="libro-imagen"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImagenChange}
-                      disabled={guardando}
-                      className="sr-only"
-                    />
-                    <p className="mt-1 text-xs text-muted">
-                      {imagenFile
-                        ? imagenFile.name
-                        : "JPG, PNG o WebP. Opcional."}
+                <div>
+                  <label className={labelClass}>Imágenes por capas (URL)</label>
+                  <div className="flex items-start gap-3">
+                    <div className="h-24 w-16 shrink-0 overflow-hidden rounded-lg border border-line bg-slate-50">
+                      <BookImage libro={previewLibro} className="h-full w-full" />
+                    </div>
+                    <p className="text-xs text-muted">
+                      Pega enlaces externos (Google Drive o Dropbox). La base es
+                      obligatoria; las capas de esquineros y cantos tintados se
+                      superponen si existen.
                     </p>
                   </div>
                 </div>
-              </div>
+
+                <div>
+                  <label htmlFor="libro-imagen-base" className={labelClass}>
+                    Imagen base (URL){esEdicion ? "" : " *"}
+                  </label>
+                  <input
+                    id="libro-imagen-base"
+                    type="url"
+                    value={imagenBase}
+                    onChange={(event) => setImagenBase(event.target.value)}
+                    disabled={guardando}
+                    required={!esEdicion}
+                    className={inputClass}
+                    placeholder="https://drive.google.com/file/d/.../view"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="libro-imagen-esquineros" className={labelClass}>
+                      Imagen con esquineros (URL)
+                    </label>
+                    <input
+                      id="libro-imagen-esquineros"
+                      type="url"
+                      value={imagenEsquineros}
+                      onChange={(event) => setImagenEsquineros(event.target.value)}
+                      disabled={guardando}
+                      className={inputClass}
+                      placeholder="Opcional"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="libro-imagen-cantos" className={labelClass}>
+                      Imagen con cantos tintados (URL)
+                    </label>
+                    <input
+                      id="libro-imagen-cantos"
+                      type="url"
+                      value={imagenCantos}
+                      onChange={(event) => setImagenCantos(event.target.value)}
+                      disabled={guardando}
+                      className={inputClass}
+                      placeholder="Opcional"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="libro-imagen" className={labelClass}>
+                    Imagen subida (legado)
+                  </label>
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <label
+                        htmlFor="libro-imagen"
+                        className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-muted transition hover:bg-slate-50"
+                      >
+                        <ImagePlus className="h-4 w-4" aria-hidden="true" />
+                        Seleccionar archivo
+                      </label>
+                      <input
+                        ref={fileInputRef}
+                        id="libro-imagen"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImagenChange}
+                        disabled={guardando}
+                        className="sr-only"
+                      />
+                      <p className="mt-1 text-xs text-muted">
+                        {imagenFile ? imagenFile.name : "Opcional (compatibilidad)."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
               <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-900">
                 {calculo ? (

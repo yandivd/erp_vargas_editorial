@@ -15,7 +15,8 @@ import {
   type ParametrosCosto,
 } from "@/lib/costos";
 import { money } from "@/lib/format";
-import { libroImagenSrc, type Libro } from "@/lib/libros";
+import BookImage from "@/components/libros/BookImage";
+import type { Libro } from "@/lib/libros";
 
 export const dynamic = "force-dynamic";
 
@@ -76,14 +77,10 @@ export default async function LibroDetailPage({ params }: PageProps) {
 
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-start gap-4">
-          <div className="aspect-[21/9] w-44 shrink-0 overflow-hidden rounded-xl border border-line bg-slate-50 sm:w-60">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={libroImagenSrc(libro.imagen)}
-              alt={`Portada de ${libro.titulo}`}
-              className="h-full w-full object-cover"
-            />
-          </div>
+          <BookImage
+            libro={libro}
+            className="aspect-[3/4] w-48 shrink-0 rounded-xl border border-line sm:w-56"
+          />
           <div>
             <h1 className="text-2xl font-extrabold text-ink">{libro.titulo}</h1>
             <p className="mt-1 text-sm text-muted">

@@ -21,6 +21,8 @@ export type PedidoListItem = {
   libro_titulo: string;
   libro_autor: string;
   cantidad: number;
+  lleva_cantos_tintados: boolean;
+  lleva_esquineros: boolean;
   estado_id: number;
   estado_nombre: string;
   estado_color: string;

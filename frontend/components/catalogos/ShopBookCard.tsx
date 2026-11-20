@@ -2,9 +2,9 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { Gift, Heart, ShoppingBag } from "lucide-react";
+import BookImage from "@/components/libros/BookImage";
 import type { LibroPublico } from "@/lib/catalogos";
 import { money } from "@/lib/format";
-import { libroImagenSrc } from "@/lib/libros";
 
 type ShopBookCardProps = {
   libro: LibroPublico;
@@ -108,17 +108,13 @@ export default function ShopBookCard({
         )}
       </button>
 
-      <div className="relative z-10 flex flex-1 flex-col">
-        <div className="mb-4 aspect-[21/9] overflow-hidden rounded-lg bg-slate-100 ring-1 ring-red-200/60">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={libroImagenSrc(libro.imagen)}
-            alt={`Portada de ${libro.titulo}`}
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-          />
-        </div>
+      <div className="relative z-10 flex flex-col">
+        <BookImage
+          libro={libro}
+          className="mb-4 aspect-[3/4] w-full rounded-lg ring-1 ring-red-200/60"
+          imgClassName="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+        />
+        <div className="mt-auto flex flex-col">
 
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -150,6 +146,7 @@ export default function ShopBookCard({
             <ShoppingBag className="h-4 w-4" aria-hidden="true" />
             Ver detalle
           </span>
+        </div>
         </div>
       </div>
     </motion.article>
