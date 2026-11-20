@@ -444,7 +444,7 @@ export default function NuevoPedidoModal() {
       const precio = calcularPrecioConAcabados(
         Number(libro.precio),
         llevaCantosTintados,
-        llevaEsquineros,
+        llevaEsquineros || llevaCantosTintados,
       );
       setPrecioVenta(String(precio));
       setAnticipoRequerido(anticipoSugeridoEnMoneda(precio / 2));
@@ -469,7 +469,7 @@ export default function NuevoPedidoModal() {
       const precio = calcularPrecioConAcabados(
         Number(libro.precio),
         llevaCantosTintados,
-        llevaEsquineros,
+        llevaEsquineros || llevaCantosTintados,
       );
       setPrecioVenta(String(precio));
       setAnticipoRequerido(anticipoSugeridoEnMoneda(precio / 2));
@@ -492,7 +492,7 @@ export default function NuevoPedidoModal() {
     const calculo = calcularActual(
       Number(libroPaginas),
       llevaCantosTintados,
-      llevaEsquineros,
+      llevaEsquineros || llevaCantosTintados,
     );
     if (calculo) {
       setPrecioVenta(String(calculo.precio_sugerido));
@@ -510,7 +510,7 @@ export default function NuevoPedidoModal() {
     const calculo = calcularActual(
       Number(value),
       llevaCantosTintados,
-      llevaEsquineros,
+      llevaEsquineros || llevaCantosTintados,
     );
     if (calculo) {
       setPrecioVenta(String(calculo.precio_sugerido));
@@ -783,7 +783,7 @@ export default function NuevoPedidoModal() {
             modoLibro === "nuevo" ? Number(libroPaginas) : null,
           cantidad: cantidadNum,
           lleva_cantos_tintados: llevaCantosTintados,
-          lleva_esquineros: llevaEsquineros,
+          lleva_esquineros: llevaEsquineros || llevaCantosTintados,
           precio_venta: Number(precioVenta),
           anticipo_requerido: anticipoEnCup,
           monto_anticipo: anticipo,
@@ -1176,7 +1176,7 @@ export default function NuevoPedidoModal() {
                       >
                         <input
                           type="checkbox"
-                          checked={llevaEsquineros}
+                          checked={llevaEsquineros || llevaCantosTintados}
                           onChange={(event) =>
                             handleEsquinerosChange(event.target.checked)
                           }
@@ -1187,7 +1187,7 @@ export default function NuevoPedidoModal() {
                       </label>
                       {llevaCantosTintados ? (
                         <p className="mt-1 text-xs text-muted">
-                          Incluye esquineros
+                          Incluidos con cantos pintados
                         </p>
                       ) : null}
                     </div>

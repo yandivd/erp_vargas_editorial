@@ -664,7 +664,7 @@ export default function CatalogoPage() {
                           : "No disponible"}
                       </p>
                       <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                        {item.esquineros ? (
+                        {item.esquineros || item.cantosPintados ? (
                           <span className="rounded-full bg-white/10 px-2 py-1 font-semibold text-slate-300">
                             Esquineros
                           </span>

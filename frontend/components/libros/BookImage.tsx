@@ -30,7 +30,7 @@ export default function BookImage({
 }: BookImageProps) {
   const capas: string[] = [];
 
-  if (llevaEsquineros && libro.imagen_con_esquineros?.trim()) {
+  if ((llevaEsquineros || llevaCantosTintados) && libro.imagen_con_esquineros?.trim()) {
     capas.push(normalizarUrlImagen(libro.imagen_con_esquineros));
   }
 

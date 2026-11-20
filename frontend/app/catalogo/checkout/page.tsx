@@ -160,7 +160,7 @@ export default function CheckoutPage() {
       const libro = libros[item.libroId];
       const acabados = [
         item.esquineros ? "esquineros" : null,
-        item.cantosPintados ? "cantos pintados" : null,
+        item.cantosPintados ? "cantos pintados, esquineros" : null,
       ]
         .filter((valor): valor is string => valor !== null)
         .join(", ");

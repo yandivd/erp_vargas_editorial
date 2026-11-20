@@ -247,8 +247,9 @@ class CosteadorPedido:
         costo_pegamento = precio_pegamento / rinde_pegamento if rinde_pegamento else 0
 
         # --- ESQUINEROS ---
+        lleva_esquineros = p.lleva_esquineros or p.lleva_cantos_tintados
         costo_esquineros = Decimal('0')
-        if p.lleva_esquineros:
+        if lleva_esquineros:
             precio_paquete_usd = self._param('precio_esquineros_paquete_usd', 6)
             piezas_por_paquete = self._param('esquineros_por_paquete', 100)
             piezas_por_libro = self._param('esquineros_por_libro', 4)
@@ -335,7 +336,7 @@ class CosteadorPedido:
             incremento = _incremento_por_precio_base(
                 precio_base, INCREMENTO_CANTOS_TINTADOS
             )
-        elif self.pedido.lleva_esquineros:
+        elif self.pedido.lleva_esquineros or self.pedido.lleva_cantos_tintados:
             incremento = _incremento_por_precio_base(
                 precio_base, INCREMENTO_ESQUINEROS
             )

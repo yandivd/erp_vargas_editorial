@@ -225,7 +225,7 @@ export default async function PedidoDetailPage({ params }: PageProps) {
               </dt>
               <dd className="mt-1.5 flex flex-wrap gap-2">
                 <Tag active={pedido.lleva_cantos_tintados} label="Cantos tintados" />
-                <Tag active={pedido.lleva_esquineros} label="Esquineros" />
+                <Tag active={pedido.lleva_esquineros || pedido.lleva_cantos_tintados} label="Esquineros" />
               </dd>
             </div>
           </dl>

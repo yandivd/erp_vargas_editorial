@@ -70,9 +70,10 @@ export function calcularPrecioConAcabados(
   llevaCantosTintados: boolean,
   llevaEsquineros: boolean,
 ): number {
+  const esquineros = llevaEsquineros || llevaCantosTintados;
   const incremento = llevaCantosTintados
     ? incrementoCantosTintados(precioBase)
-    : llevaEsquineros
+    : esquineros
       ? incrementoEsquineros(precioBase)
       : 0;
   return precioBase + incremento;
@@ -104,7 +105,8 @@ export function calcularCostoPorUnidad(
         parametros.esquineros_por_paquete) *
       parametros.esquineros_por_libro
     : 0;
-  const costoEsquineros = llevaEsquineros
+  const esquineros = llevaEsquineros || llevaCantosTintados;
+  const costoEsquineros = esquineros
     ? costoEsquinerosUsd * parametros.tasa_cambio
     : 0;
   const costoCantosTintados = llevaCantosTintados
@@ -149,7 +151,7 @@ export function calcularCostoPorUnidad(
   const precioBase = Math.ceil((costoBase * (1 + margen)) / 100) * 100;
   const incremento = llevaCantosTintados
     ? incrementoCantosTintados(precioBase)
-    : llevaEsquineros
+    : esquineros
       ? incrementoEsquineros(precioBase)
       : 0;
   const precioSugerido = precioBase + incremento;

@@ -47,6 +47,7 @@ export default function LibroDetalleModal({
 }: LibroDetalleModalProps) {
   const [esquineros, setEsquineros] = useState(false);
   const [cantosPintados, setCantosPintados] = useState(false);
+  const esquinerosEfectivos = esquineros || cantosPintados;
   const [cantidad, setCantidad] = useState(1);
   const [recomendaciones, setRecomendaciones] = useState<LibroPublico[]>([]);
   const [cargandoRecomendaciones, setCargandoRecomendaciones] =
@@ -115,7 +116,7 @@ export default function LibroDetalleModal({
   const precioUnitario = calcularPrecioConAcabados(
     precioBase,
     cantosPintados,
-    esquineros,
+    esquinerosEfectivos,
   );
   const total = precioUnitario * cantidad;
   const incrementoEsquineros =
@@ -128,7 +129,7 @@ export default function LibroDetalleModal({
       return;
     }
 
-    onAddToCart(libro, { esquineros, cantosPintados, cantidad });
+    onAddToCart(libro, { esquineros: esquinerosEfectivos, cantosPintados, cantidad });
     setAgregado(true);
   }
 
@@ -169,7 +170,7 @@ export default function LibroDetalleModal({
             <div>
               <BookImage
                 libro={libro}
-                llevaEsquineros={esquineros}
+                llevaEsquineros={esquinerosEfectivos}
                 llevaCantosTintados={cantosPintados}
                 className="aspect-[3/4] w-full max-w-sm rounded-xl"
               />
@@ -194,6 +195,23 @@ export default function LibroDetalleModal({
               </div>
 
               <div className="mt-5 space-y-3">
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={cantosPintados}
+                    onChange={(event) => setCantosPintados(event.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-ink">
+                      Cantos pintados
+                    </span>
+                    <span className="text-xs text-muted">
+                      Incluye esquineros · +{money(incrementoCantos, "CUP")}
+                    </span>
+                  </span>
+                </label>
+
                 <label
                   className={`flex items-start gap-3 rounded-lg border border-line p-3 transition ${
                     cantosPintados
@@ -203,7 +221,7 @@ export default function LibroDetalleModal({
                 >
                   <input
                     type="checkbox"
-                    checked={esquineros}
+                    checked={esquinerosEfectivos}
                     disabled={cantosPintados}
                     onChange={(event) => setEsquineros(event.target.checked)}
                     className="mt-1 h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
@@ -214,30 +232,8 @@ export default function LibroDetalleModal({
                     </span>
                     <span className="text-xs text-muted">
                       {cantosPintados
-                        ? "Incluido en cantos pintados"
+                        ? "Incluidos con cantos pintados"
                         : `+${money(incrementoEsquineros, "CUP")}`}
-                    </span>
-                  </span>
-                </label>
-
-                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition hover:bg-slate-50">
-                  <input
-                    type="checkbox"
-                    checked={cantosPintados}
-                    onChange={(event) => {
-                      setCantosPintados(event.target.checked);
-                      if (event.target.checked) {
-                        setEsquineros(false);
-                      }
-                    }}
-                    className="mt-1 h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
-                  />
-                  <span>
-                    <span className="block text-sm font-semibold text-ink">
-                      Cantos pintados
-                    </span>
-                    <span className="text-xs text-muted">
-                      +{money(incrementoCantos, "CUP")}
                     </span>
                   </span>
                 </label>
