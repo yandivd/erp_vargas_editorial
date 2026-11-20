@@ -14,11 +14,19 @@ from inventario.models import Material, MovimientoInventario
 from finanzas.models import MovimientoCaja
 from .services import (
     CATEGORIA_VUELTO_CLIENTE,
+    FECHA_CORTE_FINANCIERO,
     Q_NO_EGRESO_OPERATIVO,
     Q_NO_INGRESO_OPERATIVO,
+    REFERENCIA_CORTE_FINANCIERO,
+    dashboard_clientes,
+    dashboard_fidelidad,
+    dashboard_produccion,
+    dashboard_resumen,
     depreciacion_activos_mensual,
     exportar_rentabilidad_para_ia,
+    parse_fecha,
     secciones_rentabilidad_ia,
+    tasa_cambio,
 )
 
 
@@ -400,206 +408,37 @@ def dashboard(request):
     return render(request, 'dashboard.html', context)
 
 
-import json
-from django.http import JsonResponse
-from django.db.models import Sum, Count, Q, F, Avg
-from django.db.models.functions import TruncMonth
-from django.utils import timezone
-from datetime import datetime, timedelta
-from pedidos.models import Pedido, CodigoDescuento
-from clientes.models import Cliente
-from finanzas.models import MovimientoCaja
-from inventario.models import Material, MovimientoInventario
-
 def exportar_datos_ia(request):
-    hoy = timezone.now().date()
     desde_str = request.GET.get('desde', '')
     hasta_str = request.GET.get('hasta', '')
-    desde = hasta = None
-    
-    movimientos = MovimientoCaja.objects.all()
-    pedidos = Pedido.objects.filter(cliente__isnull=False)
-    consumos = MovimientoInventario.objects.filter(tipo='SALIDA')
+    desde = parse_fecha(desde_str)
+    hasta = parse_fecha(hasta_str)
 
-    if desde_str and hasta_str:
-        desde = datetime.strptime(desde_str, '%Y-%m-%d').date()
-        hasta = datetime.strptime(hasta_str, '%Y-%m-%d').date()
-        movimientos = movimientos.filter(fecha__date__gte=desde, fecha__date__lte=hasta)
-        pedidos = pedidos.filter(fecha_pedido__date__gte=desde, fecha_pedido__date__lte=hasta)
-        consumos = consumos.filter(fecha__date__gte=desde, fecha__date__lte=hasta)
-        periodo_texto = f"{desde_str} al {hasta_str}"
-        dias = (hasta - desde).days
-    else:
-        periodo_texto = "Historial completo"
-        dias = "N/A"
-
-    # ==========================================
-    # 1. FINANZAS (Limpieza de divisas)
-    # ==========================================
-    ingresos_brutos = movimientos.filter(tipo='INGRESO').exclude(
-        Q_NO_INGRESO_OPERATIVO
-    ).aggregate(t=Sum('monto'))['t'] or 0
-
-    vuelto_clientes = movimientos.filter(
-        tipo='EGRESO',
-        categoria=CATEGORIA_VUELTO_CLIENTE,
-    ).aggregate(t=Sum('monto'))['t'] or 0
-
-    ingresos = ingresos_brutos - vuelto_clientes
-
-    gastos = movimientos.filter(tipo='EGRESO').exclude(
-        Q_NO_EGRESO_OPERATIVO
-    ).aggregate(t=Sum('monto'))['t'] or 0
-    
-    # Desglose de gastos SIN transferencias ni vueltos (no son gasto operativo)
-    gastos_por_categoria = movimientos.filter(tipo='EGRESO').exclude(
-        Q_NO_EGRESO_OPERATIVO
-    ).values('categoria').annotate(total=Sum('monto')).order_by('-total')
-    
-    gastos_detallados = {
-        dict(MovimientoCaja.CATEGORIA_CHOICES).get(g['categoria'], g['categoria']): float(g['total']) 
-        for g in gastos_por_categoria
-    }
-
-    tendencia_mensual = movimientos.annotate(mes=TruncMonth('fecha')).values('mes').annotate(
-        ingresos_brutos=Sum('monto', filter=Q(tipo='INGRESO') & ~Q_NO_INGRESO_OPERATIVO),
-        vuelto_clientes=Sum(
-            'monto',
-            filter=Q(tipo='EGRESO') & Q(categoria=CATEGORIA_VUELTO_CLIENTE),
-        ),
-        gastos=Sum('monto', filter=Q(tipo='EGRESO') & ~Q_NO_EGRESO_OPERATIVO),
-    ).order_by('mes')
-    
-    historial_mensual = [{
-        'mes': t['mes'].strftime('%Y-%m'),
-        'ingresos_brutos': float(t['ingresos_brutos'] or 0),
-        'vuelto_clientes': float(t['vuelto_clientes'] or 0),
-        'ingresos': float((t['ingresos_brutos'] or 0) - (t['vuelto_clientes'] or 0)),
-        'gastos': float(t['gastos'] or 0),
-    } for t in tendencia_mensual if t['mes']]
-
-    # ==========================================
-    # 2. PRODUCCIÓN (Margen Real)
-    # ==========================================
-    total_pedidos = pedidos.count()
-    facturacion_teorica = pedidos.aggregate(t=Sum('precio_venta'))['t'] or 0
-    
-    # Costo de materiales de esos pedidos
-    costo_materiales = MovimientoInventario.objects.filter(
-        pedido__in=pedidos, tipo='SALIDA'
-    ).aggregate(t=Sum('costo_total'))['t'] or 0
-
-    # Margen bruto real
-    margen_bruto_real = facturacion_teorica - costo_materiales
-
-    top_libros = pedidos.values('libro__titulo').annotate(
-        cantidad=Count('id'), 
-        ingresos=Sum('precio_venta'),
-        descuentos=Sum('descuento_aplicado')
-    ).order_by('-cantidad')[:5]
-    
-    # Convertir top_libros a lista de diccionarios con margen estimado
-    top_libros_data = []
-    for l in top_libros:
-        # Estimación simple: ingresos - descuentos - (costo_materiales proporcional)
-        top_libros_data.append({
-            'titulo': l['libro__titulo'],
-            'cantidad': l['cantidad'],
-            'ingresos': float(l['ingresos'] or 0),
-            'descuentos': float(l['descuentos'] or 0),
-        })
-
-    # Horas invertidas
-    horas_totales = pedidos.aggregate(t=Sum('horas_invertidas'))['t'] or 0
-    promedio_horas = pedidos.aggregate(p=Avg('horas_invertidas'))['p'] or 0
-
-    # ==========================================
-    # 3. CLIENTES (Aclaración)
-    # ==========================================
-    clientes_con_pedidos = pedidos.values('cliente').distinct().count()
-    clientes_totales = Cliente.objects.count()
-    clientes_nuevos = Cliente.objects.filter(
-        fecha_registro__date__gte=desde, fecha_registro__date__lte=hasta
-    ).count() if desde_str and hasta_str else clientes_totales
-
-    clientes_con_deuda = pedidos.filter(saldo_pendiente__gt=0).values('cliente').distinct().count()
-    deuda_total = pedidos.filter(saldo_pendiente__gt=0).aggregate(t=Sum('saldo_pendiente'))['t'] or 0
-
-    # ==========================================
-    # 4. MARKETING
-    # ==========================================
-    pedidos_con_descuento = pedidos.filter(codigo_descuento__isnull=False)
-    descuentos_otorgados = pedidos_con_descuento.aggregate(t=Sum('descuento_aplicado'))['t'] or 0
-    facturacion_con_descuento = pedidos_con_descuento.aggregate(t=Sum('precio_venta'))['t'] or 0
-    campanas = pedidos_con_descuento.values('codigo_descuento__codigo').annotate(
-        veces_usado=Count('id'),
-        descuento_total=Sum('descuento_aplicado'),
-        ingresos_generados=Sum('precio_venta')
-    )
-
-    # ==========================================
-    # 5. INVENTARIO
-    # ==========================================
-    materiales_bajos = Material.objects.filter(
-        activo=True, stock_actual__lte=F('stock_minimo')
-    ).values('nombre', 'stock_actual', 'unidad_medida')
-    
-    valor_inventario = Material.objects.filter(activo=True).aggregate(
-        t=Sum(F('stock_actual') * F('costo_promedio'))
-    )['t'] or 0
-    
-    materiales_mas_consumidos = consumos.values('material__nombre').annotate(
-        cantidad=Sum('cantidad')
-    ).order_by('-cantidad')[:5]
-
-    # ==========================================
-    # CONSTRUIR JSON
-    # ==========================================
+    tasa_valor, advertencia_tasa = tasa_cambio()
     data = {
-        "periodo": {
-            "rango": periodo_texto, 
-            "dias": dias,
-            "nota": "Si el rango es 'Historial completo', los datos son acumulados de toda la historia del negocio."
+        "meta": {
+            "periodo": {
+                "desde": desde_str or None,
+                "hasta": hasta_str or None,
+                "descripcion": (
+                    f"{desde_str} al {hasta_str}"
+                    if desde_str and hasta_str
+                    else "Historial completo"
+                ),
+            },
+            "corte_financiero": FECHA_CORTE_FINANCIERO.isoformat(),
+            "referencia_corte": REFERENCIA_CORTE_FINANCIERO,
+            "tasa_cambio": float(tasa_valor),
+            "advertencia_tasa": advertencia_tasa,
+            "generado_en": timezone.now().isoformat(),
         },
-        "finanzas": {
-            "ingresos_brutos_caja": float(ingresos_brutos),
-            "vuelto_clientes": float(vuelto_clientes),
-            "ingresos_reales_caja": float(ingresos),
-            "gastos_reales_caja": float(gastos),
-            "utilidad_caja": float(ingresos - gastos),
-            "margen_caja_%": round(float((ingresos - gastos) / ingresos * 100), 2) if ingresos > 0 else 0,
-            "desglose_gastos": gastos_detallados,
-            "evolucion_mensual": historial_mensual
+        "dashboard": {
+            "resumen": dashboard_resumen(desde, hasta),
+            "produccion": dashboard_produccion(desde, hasta),
+            "clientes": dashboard_clientes(desde, hasta),
+            "fidelidad": dashboard_fidelidad(desde, hasta),
         },
-        "produccion": {
-            "total_pedidos": total_pedidos,
-            "facturacion_teorica": float(facturacion_teorica),
-            "costo_materiales": float(costo_materiales),
-            "margen_bruto_real": float(margen_bruto_real),
-            "ticket_promedio": round(float(facturacion_teorica / total_pedidos), 2) if total_pedidos > 0 else 0,
-            "horas_totales_invertidas": float(horas_totales),
-            "promedio_horas_por_pedido": round(float(promedio_horas), 2),
-            "top_5_libros": top_libros_data
-        },
-        "clientes": {
-            "clientes_totales_registrados": clientes_totales,
-            "clientes_con_pedidos": clientes_con_pedidos,
-            "clientes_nuevos_en_periodo": clientes_nuevos,
-            "clientes_con_deuda": clientes_con_deuda,
-            "dinero_pendiente_cobro": float(deuda_total)
-        },
-        "marketing": {
-            "descuentos_otorgados": float(descuentos_otorgados),
-            "facturacion_con_descuento": float(facturacion_con_descuento),
-            "desempeno_campanas": list(campanas)
-        },
-        "inventario": {
-            "valor_total_parado": float(valor_inventario),
-            "materiales_bajos": list(materiales_bajos),
-            "top_consumo": list(materiales_mas_consumidos)
-        }
     }
-
     data.update(secciones_rentabilidad_ia(desde, hasta))
 
     response = JsonResponse(data, json_dumps_params={'indent': 2, 'ensure_ascii': False})
