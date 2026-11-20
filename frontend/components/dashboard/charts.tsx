@@ -13,6 +13,7 @@ import {
   LineChart,
   Pie,
   PieChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -339,7 +340,7 @@ export function BottleneckFunnelChart({ data }: { data: TiempoEstado[] }) {
     return {
       ...item,
       promedio_dias: promedioDias,
-      tiempoLabel: `${promedioDias.toFixed(1)} días`,
+      tiempoLabel: `${promedioDias.toFixed(1)} d`,
       fill,
     };
   });
@@ -349,10 +350,14 @@ export function BottleneckFunnelChart({ data }: { data: TiempoEstado[] }) {
       <BarChart
         data={chartData}
         layout="vertical"
-        margin={{ top: 8, right: 72, left: 0, bottom: 0 }}
+        margin={{ top: 8, right: 56, left: 0, bottom: 0 }}
       >
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
-        <XAxis type="number" tick={axisTick} allowDecimals={false} />
+        <XAxis
+          type="number"
+          tick={axisTick}
+          tickFormatter={(value) => `${Number(value ?? 0).toFixed(0)}d`}
+        />
         <YAxis
           dataKey="estado"
           type="category"
@@ -368,17 +373,17 @@ export function BottleneckFunnelChart({ data }: { data: TiempoEstado[] }) {
             if (!active || !payload?.length) return null;
             const p = payload[0].payload as {
               estado: string;
-              pedidos: number;
               promedio_dias: number;
             };
             return (
               <div className="rounded-md border border-line bg-white px-3 py-2 text-xs shadow-sm">
-                {`Estado: ${p.estado} | Pedidos: ${p.pedidos} | Tiempo Promedio: ${p.promedio_dias.toFixed(1)} días`}
+                {`Estado: ${p.estado} | Tiempo Promedio: ${p.promedio_dias.toFixed(1)} días`}
               </div>
             );
           }}
         />
-        <Bar dataKey="pedidos" name="Pedidos" radius={[0, 4, 4, 0]}>
+        <ReferenceLine x={7} stroke="#ef4444" strokeDasharray="4 4" />
+        <Bar dataKey="promedio_dias" name="Tiempo promedio (días)" radius={[0, 4, 4, 0]}>
           <LabelList
             dataKey="tiempoLabel"
             position="right"

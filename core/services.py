@@ -9,7 +9,7 @@ from clientes.models import Cliente, EventoFidelidad, TarjetaFidelidad
 from clientes.services import ServicioFidelidad
 from finanzas.models import ActivoFijo, LoteDivisa, MovimientoCaja
 from inventario.models import Material, MovimientoInventario
-from pedidos.models import HistorialEstado, Pedido, ServicioExterno
+from pedidos.models import Estado, HistorialEstado, Pedido, ServicioExterno
 from pedidos.services import CosteadorPedido, obtener_ganancia_promedio
 
 
@@ -75,13 +75,13 @@ ESTADOS_ANTES_CANTOS = [
 ]
 
 ESTADOS_TIEMPO_ORDEN = [
+    'Pendiente a impresión',
     'Impreso',
     'Pegado',
     'Pendiente a Cantos Pintados',
     'Pendiente a Portada',
     'Pendiente a Carátula',
     'Pendiente a Encuadernado',
-    'Listo para Entregar',
 ]
 
 
@@ -1022,6 +1022,7 @@ def dashboard_produccion(desde=None, hasta=None):
         if c['mes']
     ]
 
+    fechas_pedido = dict(pedidos.values_list('id', 'fecha_pedido'))
     fechas_entrega = dict(pedidos.values_list('id', 'fecha_entrega_real'))
     historial = (
         HistorialEstado.objects.filter(pedido__in=pedidos)
@@ -1032,32 +1033,53 @@ def dashboard_produccion(desde=None, hasta=None):
     for evento in historial:
         historial_por_pedido.setdefault(evento.pedido_id, []).append(evento)
 
+    colores_estado = {
+        e.nombre: e.color
+        for e in Estado.objects.filter(nombre__in=ESTADOS_TIEMPO_ORDEN)
+    }
     tiempos_acumulados = {}
+
+    def _acumular_tiempo(nombre_estado, horas):
+        if horas <= 0:
+            return
+        acumulado = tiempos_acumulados.setdefault(
+            nombre_estado,
+            {
+                'estado': nombre_estado,
+                'color': colores_estado.get(nombre_estado, '#6c757d'),
+                'total_horas': 0.0,
+                'pedidos': 0,
+            },
+        )
+        acumulado['total_horas'] += horas
+        acumulado['pedidos'] += 1
+
     for pedido_id, eventos in historial_por_pedido.items():
+        inicio_pedido = fechas_pedido.get(pedido_id)
+        t_impreso = next(
+            (e.fecha for e in eventos if e.estado_nuevo.nombre == 'Impreso'),
+            None,
+        )
+        if inicio_pedido and t_impreso:
+            _acumular_tiempo(
+                'Pendiente a impresión',
+                (t_impreso - inicio_pedido).total_seconds() / 3600,
+            )
+
         for indice, evento in enumerate(eventos):
+            nombre = evento.estado_nuevo.nombre
+            if nombre not in ESTADOS_TIEMPO_ORDEN or nombre == 'Pendiente a impresión':
+                continue
             if indice + 1 < len(eventos):
                 siguiente = eventos[indice + 1].fecha
             else:
                 siguiente = fechas_entrega.get(pedido_id)
             if not siguiente:
                 continue
-            horas = (siguiente - evento.fecha).total_seconds() / 3600
-            if horas <= 0:
-                continue
-            estado = evento.estado_nuevo
-            if estado.nombre not in ESTADOS_TIEMPO_ORDEN:
-                continue
-            acumulado = tiempos_acumulados.setdefault(
-                estado.nombre,
-                {
-                    'estado': estado.nombre,
-                    'color': estado.color,
-                    'total_horas': 0.0,
-                    'pedidos': 0,
-                },
+            _acumular_tiempo(
+                nombre,
+                (siguiente - evento.fecha).total_seconds() / 3600,
             )
-            acumulado['total_horas'] += horas
-            acumulado['pedidos'] += 1
 
     tiempos_data = []
     for nombre in ESTADOS_TIEMPO_ORDEN:
@@ -1149,7 +1171,7 @@ def dashboard_clientes(desde=None, hasta=None):
             tipo = 'nuevo'
         elif dias_sin_comprar > 90:
             tipo = 'en_riesgo'
-        elif total_pedidos_c >= 5 or total_gastado >= 20000:
+        elif total_pedidos_c > 10:
             tipo = 'vip'
         else:
             tipo = 'recurrente'
