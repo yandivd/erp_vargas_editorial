@@ -1,8 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import Link from "next/link";
-import Garland from "@/components/catalogos/Garland";
-import SeasonBanner from "@/components/catalogos/SeasonBanner";
-import Snowfall from "@/components/catalogos/Snowfall";
+import { CatalogoDecoracion, CatalogoSeasonBanner } from "@/components/catalogos/CatalogoDecoracion";
+import { normalizarTemaDecoracion } from "@/lib/decoracion";
 import FidelidadCard from "@/components/fidelidad/FidelidadCard";
 import { apiFetch } from "@/lib/api";
 import type { FidelidadPublica } from "@/lib/fidelidad";
@@ -16,65 +15,39 @@ type PageProps = {
 export default async function FidelidadPublicaPage({ params }: PageProps) {
   const { token } = await params;
 
-  const result = await apiFetch<FidelidadPublica>(
-    `fidelidad/publica/${encodeURIComponent(token)}`,
-  )
-    .then((fidelidad) => ({ ok: true as const, fidelidad }))
-    .catch((error: unknown) => ({
-      ok: false as const,
-      message:
-        error instanceof Error
-          ? error.message
-          : "No se pudo cargar la tarjeta de fidelidad.",
-    }));
+  const [result, tema] = await Promise.all([
+    apiFetch<FidelidadPublica>(
+      `fidelidad/publica/${encodeURIComponent(token)}`,
+    )
+      .then((fidelidad) => ({ ok: true as const, fidelidad }))
+      .catch((error: unknown) => ({
+        ok: false as const,
+        message:
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar la tarjeta de fidelidad.",
+      })),
+    apiFetch<{ tema: string }>("configuracion/decoracion/")
+      .then((d) => normalizarTemaDecoracion(d?.tema))
+      .catch(() => "navidad" as const),
+  ]);
+
+  const bgImage = tema === "halloween"
+    ? "radial-gradient(circle at top, rgba(251,146,60,0.14), transparent 35%), linear-gradient(to bottom, #0b0614 0%, #1a1025 55%, #09040f 100%)"
+    : tema === "ninguno"
+      ? "linear-gradient(to bottom, #020617 0%, #0f172a 55%, #020617 100%)"
+      : "url('/img/navidad/stars.svg'), linear-gradient(to bottom, #020617 0%, #0f172a 55%, #020617 100%)";
 
   return (
     <main
       className="relative min-h-screen overflow-x-hidden bg-slate-950 px-4"
-      style={{
-        backgroundImage:
-          "url('/img/navidad/stars.svg'), linear-gradient(to bottom, #020617 0%, #0f172a 55%, #020617 100%)",
-        backgroundRepeat: "repeat, no-repeat",
-        backgroundSize: "auto, cover",
-      }}
+      style={{ backgroundImage: bgImage, backgroundRepeat: tema === "navidad" ? "repeat, no-repeat" : "no-repeat", backgroundSize: "cover" }}
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-y-0 left-0 z-0 hidden w-24 opacity-70 sm:block md:w-40 lg:w-56"
-        style={{
-          backgroundImage: "url('/img/navidad/pine-left.svg')",
-          backgroundSize: "cover",
-          backgroundPosition: "center center",
-          backgroundRepeat: "no-repeat",
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-y-0 right-0 z-0 hidden w-24 opacity-70 sm:block md:w-40 lg:w-56"
-        style={{
-          backgroundImage: "url('/img/navidad/pine-right.svg')",
-          backgroundSize: "cover",
-          backgroundPosition: "center center",
-          backgroundRepeat: "no-repeat",
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-0 h-24 w-full md:h-32"
-        style={{
-          backgroundImage: "url('/img/navidad/snow-bottom.svg')",
-          backgroundSize: "100% 100%",
-          backgroundPosition: "bottom",
-          backgroundRepeat: "no-repeat",
-        }}
-      />
-      <Snowfall />
-      <Garland />
-
+      <CatalogoDecoracion tema={tema} />
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-lg flex-col items-center justify-center pt-28 pb-16">
         {result.ok ? (
           <div className="w-full">
-            <SeasonBanner />
+            <CatalogoSeasonBanner tema={tema} />
             <div className="mt-6">
               <FidelidadCard
                 variant="public"

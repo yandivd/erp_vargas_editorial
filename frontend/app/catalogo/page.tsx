@@ -6,12 +6,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Gift, Heart, Library, Loader2, Minus, Plus, Trash2 } from "lucide-react";
 import BookCatalog from "@/components/catalogos/BookCatalog";
-import Garland from "@/components/catalogos/Garland";
 import SantaIcon from "@/components/catalogos/SantaIcon";
-import SeasonBanner from "@/components/catalogos/SeasonBanner";
 import ShopBookCard from "@/components/catalogos/ShopBookCard";
-import Snowfall from "@/components/catalogos/Snowfall";
+import { CatalogoDecoracion, CatalogoSeasonBanner } from "@/components/catalogos/CatalogoDecoracion";
 import { fetchCatalogoLibro, fetchCatalogoPage, fetchRecomendaciones, type LibroPublico } from "@/lib/catalogos";
+import { fetchDecoracionTema, normalizarTemaDecoracion, type TemaDecoracion } from "@/lib/decoracion";
 import { money } from "@/lib/format";
 import { escribirCarrito, escribirFavoritos, precioItem, useCarrito, useFavoritos, type CarritoItem } from "@/lib/tienda";
 
@@ -37,6 +36,13 @@ function getRandomSeed(): string {
 export default function CatalogoPage() {
   const reduceMotion = useReducedMotion();
   const [tab, setTab] = useState<TabId>("catalogo");
+  const [tema, setTema] = useState<TemaDecoracion>("navidad");
+
+  useEffect(() => {
+    const c = new AbortController();
+    fetchDecoracionTema(c.signal).then((t) => setTema(normalizarTemaDecoracion(t)));
+    return () => c.abort();
+  }, []);
 
   const favoritos = useFavoritos();
   const carrito = useCarrito();
@@ -327,27 +333,26 @@ export default function CatalogoPage() {
     { id: "favoritos", label: "Favoritos", icon: Heart, badge: favoritos.length },
   ];
 
+  const bgImage = tema === "halloween"
+    ? "radial-gradient(circle at top, rgba(251,146,60,0.14), transparent 35%), linear-gradient(to bottom, #0b0614 0%, #1a1025 55%, #09040f 100%)"
+    : tema === "ninguno"
+      ? "linear-gradient(to bottom, #020617 0%, #0f172a 55%, #020617 100%)"
+      : "url('/img/navidad/stars.svg'), linear-gradient(to bottom, #020617 0%, #0f172a 55%, #020617 100%)";
+  const titleClass = tema === "halloween" ? "from-orange-300 via-amber-100 to-orange-300" : "from-amber-200 via-yellow-50 to-amber-200";
+
   return (
     <div
       className="relative min-h-screen overflow-x-hidden bg-slate-950"
-      style={{
-        backgroundImage: "url('/img/navidad/stars.svg'), linear-gradient(to bottom, #020617 0%, #0f172a 55%, #020617 100%)",
-        backgroundRepeat: "repeat, no-repeat",
-        backgroundSize: "auto, cover",
-      }}
+      style={{ backgroundImage: bgImage, backgroundRepeat: tema === "navidad" ? "repeat, no-repeat" : "no-repeat", backgroundSize: "cover" }}
     >
-      <div aria-hidden="true" className="pointer-events-none fixed inset-y-0 left-0 z-0 hidden w-24 opacity-70 sm:block md:w-40 lg:w-56" style={{ backgroundImage: "url('/img/navidad/pine-left.svg')", backgroundSize: "cover", backgroundPosition: "center center", backgroundRepeat: "no-repeat" }} />
-      <div aria-hidden="true" className="pointer-events-none fixed inset-y-0 right-0 z-0 hidden w-24 opacity-70 sm:block md:w-40 lg:w-56" style={{ backgroundImage: "url('/img/navidad/pine-right.svg')", backgroundSize: "cover", backgroundPosition: "center center", backgroundRepeat: "no-repeat" }} />
-      <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 bottom-0 z-0 h-24 w-full md:h-32" style={{ backgroundImage: "url('/img/navidad/snow-bottom.svg')", backgroundSize: "100% 100%", backgroundPosition: "bottom", backgroundRepeat: "no-repeat" }} />
-      <Snowfall />
-      <Garland />
+      <CatalogoDecoracion tema={tema} />
       <div className="relative z-10 mx-auto max-w-7xl px-4 pb-20 pt-28 md:px-8 md:pt-32">
         <header className="mb-8 flex flex-col items-center text-center">
           <div className="rounded-2xl border border-amber-300/40 bg-white/95 p-3 shadow-[0_0_50px_rgba(251,191,36,0.18)]">
             <Image src="/img/logo.jpg" alt="Vargas Editorial" width={260} height={120} priority className="h-auto max-h-16 w-auto object-contain" />
           </div>
-          <SeasonBanner />
-          <h1 className="mt-5 bg-gradient-to-r from-amber-200 via-yellow-50 to-amber-200 bg-clip-text text-4xl font-black tracking-tight text-transparent drop-shadow-[0_2px_10px_rgba(251,191,36,0.25)] md:text-5xl">Vargas Editorial</h1>
+          <CatalogoSeasonBanner tema={tema} />
+          <h1 className={`mt-5 bg-gradient-to-r ${titleClass} bg-clip-text text-4xl font-black tracking-tight text-transparent drop-shadow-[0_2px_10px_rgba(251,191,36,0.25)] md:text-5xl`}>Vargas Editorial</h1>
           <p className="mt-2 text-sm text-slate-300 md:text-base">Catálogo público de encuadernación y edición.</p>
         </header>
 

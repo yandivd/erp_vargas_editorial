@@ -418,6 +418,34 @@ def catalogo_libro(request, pk):
     return Response({'ok': True, 'data': _libro_publico_data(libro, request)})
 
 
+TEMA_DECORACION_MAP = {'1': 'navidad', '2': 'halloween', '0': 'ninguno'}
+TEMA_DECORACION_REVERSE = {v: k for k, v in TEMA_DECORACION_MAP.items()}
+
+
+@api_view(['GET', 'PUT'])
+@permission_classes([AllowAny])
+def configuracion_decoracion(request):
+    if request.method == 'PUT':
+        if not request.user or not request.user.is_authenticated:
+            return Response({'ok': False, 'error': 'Autenticación requerida.'}, status=status.HTTP_401_UNAUTHORIZED)
+        tema = str(request.data.get('tema', '')).strip().lower()
+        if tema not in TEMA_DECORACION_REVERSE:
+            return Response({'ok': False, 'error': 'Tema inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+        Parametro.objects.update_or_create(
+            clave='decoracion_tema',
+            defaults={'valor': Decimal(TEMA_DECORACION_REVERSE[tema]), 'descripcion': 'Tema visual del catálogo/fidelidad'},
+        )
+        return Response({'ok': True, 'data': {'tema': tema}})
+
+    valor = Parametro.get('decoracion_tema', Decimal('1'))
+    try:
+        key = str(int(Decimal(str(valor))))
+    except Exception:
+        key = '1'
+    tema = TEMA_DECORACION_MAP.get(key, 'navidad')
+    return Response({'ok': True, 'data': {'tema': tema}})
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def catalogo_recomendaciones(request, pk):

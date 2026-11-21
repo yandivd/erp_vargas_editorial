@@ -5,7 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, Heart, Info, Loader2, Minus, Plus, ShoppingCart, Sparkles, X } from "lucide-react";
 import BookImage from "@/components/libros/BookImage";
 import ShopBookCard from "@/components/catalogos/ShopBookCard";
+import { CatalogoDecoracion, CatalogoSeasonBanner } from "@/components/catalogos/CatalogoDecoracion";
 import { fetchRecomendaciones, type LibroPublico } from "@/lib/catalogos";
+import { fetchDecoracionTema, normalizarTemaDecoracion, type TemaDecoracion } from "@/lib/decoracion";
 import { calcularPrecioConAcabados } from "@/lib/costos";
 import { money } from "@/lib/format";
 import { escribirCarrito, escribirFavoritos, useCarrito, useFavoritos, type CarritoItem } from "@/lib/tienda";
@@ -27,6 +29,13 @@ export default function CatalogoProductClient({ libro }: Props) {
   const [errorRecomendaciones, setErrorRecomendaciones] = useState<string | null>(null);
   const [agregado, setAgregado] = useState(false);
   const [modalAcabados, setModalAcabados] = useState(false);
+  const [tema, setTema] = useState<TemaDecoracion>("navidad");
+
+  useEffect(() => {
+    const c = new AbortController();
+    fetchDecoracionTema(c.signal).then((t) => setTema(normalizarTemaDecoracion(t)));
+    return () => c.abort();
+  }, []);
 
   const esquinerosEfectivos = esquineros || cantosPintados;
   const favorito = favoritos.includes(libro.id);
@@ -85,17 +94,20 @@ export default function CatalogoProductClient({ libro }: Props) {
     setAgregado(true);
   }
 
+  const bgImage = tema === "halloween"
+    ? "radial-gradient(circle at top, rgba(251,146,60,0.14), transparent 35%), linear-gradient(to bottom, #0b0614 0%, #1a1025 55%, #09040f 100%)"
+    : tema === "ninguno"
+      ? "linear-gradient(to bottom, #020617 0%, #0f172a 55%, #020617 100%)"
+      : "url('/img/navidad/stars.svg'), linear-gradient(to bottom, #020617 0%, #0f172a 55%, #020617 100%)";
+
   return (
     <div
       className="relative min-h-screen overflow-x-hidden bg-slate-950"
-      style={{
-        backgroundImage:
-          "url('/img/navidad/stars.svg'), linear-gradient(to bottom, #020617 0%, #0f172a 55%, #020617 100%)",
-        backgroundRepeat: "repeat, no-repeat",
-        backgroundSize: "auto, cover",
-      }}
+      style={{ backgroundImage: bgImage, backgroundRepeat: tema === "navidad" ? "repeat, no-repeat" : "no-repeat", backgroundSize: "cover" }}
     >
+      <CatalogoDecoracion tema={tema} />
       <div className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-24 md:px-8 md:pt-28">
+        <div className="mb-6 flex justify-center"><CatalogoSeasonBanner tema={tema} /></div>
         <div className="mb-6 flex items-center justify-between gap-3">
           <Link
             href="/catalogo"

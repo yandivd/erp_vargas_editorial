@@ -53,6 +53,7 @@ urlpatterns = [
         views.catalogo_libro,
         name='catalogo_libro',
     ),
+    path('configuracion/decoracion/', views.configuracion_decoracion, name='configuracion_decoracion'),
     path('tienda/', views.tienda, name='tienda'),
     path('tienda/<int:pk>/vender/', views.tienda_vender, name='tienda_vender'),
     path('entregas/', views.entregas, name='entregas'),

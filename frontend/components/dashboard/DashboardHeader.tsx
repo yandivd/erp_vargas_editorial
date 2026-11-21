@@ -10,6 +10,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
+import DashboardThemeSelector from "./DashboardThemeSelector";
 import {
   DASHBOARD_TABS,
   type DashboardMeta,
@@ -109,6 +110,8 @@ export default function DashboardHeader({
               Filtrar
             </button>
           </form>
+
+          <DashboardThemeSelector />
 
           <a
             href={exportHref}
