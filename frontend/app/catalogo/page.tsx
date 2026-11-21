@@ -81,9 +81,24 @@ export default function CatalogoPage() {
   useEffect(() => {
     const controller = new AbortController();
     let cancelado = false;
+    const TARGET_MIN = 5;
+    const TARGET_MAX = 10;
+
+    const pushUnique = (dest: LibroPublico[], seen: Set<number>, items: LibroPublico[]) => {
+      for (const item of items) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        dest.push(item);
+        if (dest.length >= TARGET_MAX) break;
+      }
+    };
+
     async function cargar() {
       setLoadingRecs(true);
       try {
+        const seen = new Set<number>();
+        const acumulado: LibroPublico[] = [];
+
         if (favoritos.length > 0) {
           const favId = favoritos[favoritos.length - 1];
           const [favLibro, recs] = await Promise.all([
@@ -91,21 +106,45 @@ export default function CatalogoPage() {
             fetchRecomendaciones(favId, favoritos, controller.signal).catch(() => []),
           ]);
           if (cancelado) return;
-          if (recs.length > 0) {
-            setRecomendados(recs);
-            setRecLabel(favLibro ? `Porque te gustó ${favLibro.titulo}` : "Recomendaciones para ti");
-          } else {
-            const fallback = await fetchCatalogoPage({ page: 1, perPage: 6, ordering: "-ventas", signal: controller.signal });
+
+          pushUnique(acumulado, seen, recs);
+          setRecLabel(favLibro ? `Porque te gustó ${favLibro.titulo}` : "Recomendaciones para ti");
+
+          // Si faltan, buscar "un nivel más arriba": recomendaciones de los libros ya recomendados.
+          if (acumulado.length < TARGET_MIN) {
+            const seedIds = acumulado.slice(0, 3).map((b) => b.id);
+            const secondLevel = await Promise.all(
+              seedIds.map((id) =>
+                fetchRecomendaciones(id, [...favoritos, ...acumulado.map((b) => b.id)], controller.signal).catch(() => []),
+              ),
+            );
             if (cancelado) return;
-            setRecomendados(fallback.books.filter((b) => !favoritosSet.has(b.id)).slice(0, 6));
-            setRecLabel("Recomendaciones para ti");
+            for (const group of secondLevel) {
+              pushUnique(acumulado, seen, group);
+              if (acumulado.length >= TARGET_MAX) break;
+            }
           }
         } else {
-          const fallback = await fetchCatalogoPage({ page: 1, perPage: 6, ordering: "-ventas", signal: controller.signal });
-          if (cancelado) return;
-          setRecomendados(fallback.books.slice(0, 6));
           setRecLabel("Recomendaciones para ti");
         }
+
+        // Rellenar con más vendidos si aún faltan (sin duplicados/favoritos ya vistos).
+        if (acumulado.length < TARGET_MIN) {
+          const fallback = await fetchCatalogoPage({
+            page: 1,
+            perPage: 12,
+            ordering: "-ventas",
+            signal: controller.signal,
+          });
+          if (cancelado) return;
+          pushUnique(
+            acumulado,
+            seen,
+            fallback.books.filter((b) => !favoritosSet.has(b.id)),
+          );
+        }
+
+        if (!cancelado) setRecomendados(acumulado.slice(0, TARGET_MAX));
       } catch {
         if (!cancelado) setRecomendados([]);
       } finally {
@@ -363,6 +402,17 @@ export default function CatalogoPage() {
                 <p className="text-sm text-slate-400">Marca favoritos para recibir recomendaciones personalizadas.</p>
               )}
             </section>
+
+            <div className="overflow-hidden rounded-2xl border border-amber-300/20 shadow-2xl shadow-black/30">
+              <Image
+                src="/img/catalogo/banner-1.png"
+                alt="Banner Vargas Editorial"
+                width={1921}
+                height={721}
+                className="h-auto w-full object-cover"
+                sizes="(max-width: 1280px) 100vw, 1280px"
+              />
+            </div>
 
             {/* Sección 2: Más vendidos */}
             <section className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-2xl shadow-black/30 backdrop-blur md:p-6">

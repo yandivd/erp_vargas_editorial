@@ -55,14 +55,8 @@ export default function BookImage({
           aria-hidden="true"
           loading={loading}
           decoding="async"
-          className={imgClassName}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            pointerEvents: "none",
-          }}
+          className={`absolute inset-0 h-full w-full ${imgClassName}`}
+          style={{ pointerEvents: "none" }}
         />
       ))}
     </div>

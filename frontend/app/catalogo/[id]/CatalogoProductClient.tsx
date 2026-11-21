@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, Heart, Loader2, Minus, Plus, ShoppingCart, Sparkles } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Heart, Info, Loader2, Minus, Plus, ShoppingCart, Sparkles, X } from "lucide-react";
 import BookImage from "@/components/libros/BookImage";
 import ShopBookCard from "@/components/catalogos/ShopBookCard";
 import { fetchRecomendaciones, type LibroPublico } from "@/lib/catalogos";
@@ -26,6 +26,7 @@ export default function CatalogoProductClient({ libro }: Props) {
   const [cargandoRecomendaciones, setCargandoRecomendaciones] = useState(true);
   const [errorRecomendaciones, setErrorRecomendaciones] = useState<string | null>(null);
   const [agregado, setAgregado] = useState(false);
+  const [modalAcabados, setModalAcabados] = useState(false);
 
   const esquinerosEfectivos = esquineros || cantosPintados;
   const favorito = favoritos.includes(libro.id);
@@ -142,6 +143,15 @@ export default function CatalogoProductClient({ libro }: Props) {
                 </div>
 
                 <div className="mt-5 space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setModalAcabados(true)}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand underline decoration-brand/30 underline-offset-2 transition hover:text-brand-dark"
+                  >
+                    <Info className="h-4 w-4" aria-hidden="true" />
+                    ¿Qué son los cantos tintados y los esquineros?
+                  </button>
+
                   <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition hover:bg-slate-50">
                     <input
                       type="checkbox"
@@ -264,7 +274,7 @@ export default function CatalogoProductClient({ libro }: Props) {
               ) : recomendaciones.length === 0 ? (
                 <p className="text-sm text-muted">Aún no hay recomendaciones para este libro.</p>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3">
                   {recomendaciones.map((item) => (
                     <ShopBookCard
                       key={item.id}
@@ -272,6 +282,7 @@ export default function CatalogoProductClient({ libro }: Props) {
                       favorito={favoritos.includes(item.id)}
                       onToggleFavorito={handleToggleFavorito}
                       href={`/catalogo/${item.id}`}
+                      compact
                     />
                   ))}
                 </div>
@@ -280,6 +291,71 @@ export default function CatalogoProductClient({ libro }: Props) {
           </div>
         </div>
       </div>
+
+      {modalAcabados ? (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 sm:items-center"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setModalAcabados(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-acabados-title"
+            className="my-auto w-full max-w-lg rounded-2xl border border-line bg-white p-5 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h2 id="modal-acabados-title" className="text-lg font-extrabold text-ink">
+                Cantos tintados y esquineros
+              </h2>
+              <button
+                type="button"
+                onClick={() => setModalAcabados(false)}
+                className="rounded-lg p-2 text-muted transition hover:bg-slate-100 hover:text-ink"
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="mt-4 overflow-hidden rounded-xl border border-line bg-slate-50">
+              <img
+                src="/img/catalogo/cantos-esquineros.jpg"
+                alt="Ejemplo de cantos tintados y esquineros en un libro"
+                className="mx-auto h-auto w-full max-w-[90px] object-cover sm:max-w-[120px]"
+                loading="lazy"
+              />
+            </div>
+
+            <div className="mt-4 space-y-4 text-sm text-muted">
+              <div>
+                <h3 className="font-bold text-ink">Esquineros</h3>
+                <p className="mt-1">
+                  Los esquineros son protectores metálicos que van instalados en las esquinas del libro y sirven para proteger las portadas del desgaste y los golpes y para darle un acabado más elegante y duradero.
+                </p>
+              </div>
+              <div>
+                <h3 className="font-bold text-ink">Cantos tintados</h3>
+                <p className="mt-1">
+                  Los cantos tintados son el borde de las hojas pintados, lo que evita que el papel se ensucie y le da un aspecto de lujo tipo edición de coleccionista.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setModalAcabados(false)}
+                className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-dark"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
