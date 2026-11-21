@@ -350,13 +350,17 @@ export default function CatalogoPage() {
               {loadingRecs ? (
                 <div className="flex items-center gap-2 py-8 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" />Cargando recomendaciones...</div>
               ) : recomendados.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {recomendados.map((libro) => (
-                    <ShopBookCard key={libro.id} libro={libro} favorito={favoritosSet.has(libro.id)} onToggleFavorito={handleToggleFavorito} href={`/catalogo/${libro.id}`} />
-                  ))}
+                <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pb-2 snap-x snap-mandatory [scrollbar-width:thin]">
+                  <div className="flex gap-3 sm:gap-4" style={{ minWidth: "max-content" }}>
+                    {recomendados.map((libro) => (
+                      <div key={libro.id} className="w-[220px] shrink-0 snap-start sm:w-[260px] lg:w-[280px]">
+                        <ShopBookCard libro={libro} favorito={favoritosSet.has(libro.id)} onToggleFavorito={handleToggleFavorito} href={`/catalogo/${libro.id}`} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <p className="text-sm text-slate-400">No hay recomendaciones por ahora.</p>
+                <p className="text-sm text-slate-400">Marca favoritos para recibir recomendaciones personalizadas.</p>
               )}
             </section>
 
@@ -369,10 +373,10 @@ export default function CatalogoPage() {
               {loadingVendidos ? (
                 <div className="flex items-center gap-2 py-8 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" />Cargando más vendidos...</div>
               ) : masVendidos.length > 0 ? (
-                <div className="-mx-1 overflow-x-auto px-1 pb-2">
-                  <div className="flex gap-4" style={{ minWidth: "max-content" }}>
+                <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pb-2 snap-x snap-mandatory [scrollbar-width:thin]">
+                  <div className="flex gap-3 sm:gap-4" style={{ minWidth: "max-content" }}>
                     {masVendidos.map((libro) => (
-                      <div key={libro.id} className="w-[260px] shrink-0 sm:w-[280px]">
+                      <div key={libro.id} className="w-[220px] shrink-0 snap-start sm:w-[260px] lg:w-[280px]">
                         <ShopBookCard libro={libro} favorito={favoritosSet.has(libro.id)} onToggleFavorito={handleToggleFavorito} href={`/catalogo/${libro.id}`} />
                       </div>
                     ))}

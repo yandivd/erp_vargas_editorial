@@ -353,7 +353,7 @@ export default function ArqueoCajaPage() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overscroll-x-contain">
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
@@ -561,7 +561,7 @@ export default function ArqueoCajaPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overscroll-x-contain">
             <table className="w-full border-collapse">
               <thead>
                 <tr>

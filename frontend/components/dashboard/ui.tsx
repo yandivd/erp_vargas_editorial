@@ -90,7 +90,7 @@ export const thClass =
   "whitespace-nowrap border-b-2 border-line px-2 py-2.5 text-left text-[0.7rem] font-bold uppercase tracking-wide text-muted";
 export const tdClass = "border-b border-line px-2 py-2.5 text-[0.85rem]";
 export const tableRowClass = "transition-colors hover:bg-slate-50";
-export const tableWrapClass = "overflow-x-auto";
+export const tableWrapClass = "overflow-x-auto overscroll-x-contain";
 
 export function TypeBadge({ type }: { type: string }) {
   const isIncome = type === "INGRESO";

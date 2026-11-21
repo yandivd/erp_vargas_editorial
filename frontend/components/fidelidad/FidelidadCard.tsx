@@ -94,7 +94,7 @@ export default function FidelidadCard({
             </div>
           </div>
 
-          <div className="grid grid-cols-5 gap-2.5">{stampCells}</div>
+          <div className="grid grid-cols-5 gap-2 sm:gap-2.5">{stampCells}</div>
 
           <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
             <div

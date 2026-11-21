@@ -22,17 +22,15 @@ type BookCatalogProps = {
 
 function SkeletonGrid() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-      {Array.from({ length: 6 }).map((_, index) => (
+    <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+      {Array.from({ length: 8 }).map((_, index) => (
         <div
           key={index}
-          className="animate-pulse rounded-2xl border border-white/10 bg-slate-900/60 p-5"
+          className="animate-pulse rounded-xl border border-white/10 bg-slate-900/60 p-2 sm:rounded-2xl sm:p-4"
         >
-          <div className="mb-4 aspect-[3/4] w-full rounded-lg bg-slate-800" />
-          <div className="h-5 w-2/3 rounded bg-slate-800" />
-          <div className="mt-2 h-4 w-1/2 rounded bg-slate-800" />
-          <div className="mt-4 h-4 w-full rounded bg-slate-800" />
-          <div className="mt-6 h-5 w-1/3 rounded bg-slate-800" />
+          <div className="mb-2 aspect-[3/4.2] w-full rounded-md bg-slate-800 sm:mb-3 sm:rounded-lg" />
+          <div className="h-3 w-4/5 rounded bg-slate-800 sm:h-4" />
+          <div className="mt-2 h-3 w-1/2 rounded bg-slate-800" />
         </div>
       ))}
     </div>
@@ -112,15 +110,15 @@ export default function BookCatalog({
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
             {books.map((book) => (
               <ShopBookCard
                 key={book.id}
                 libro={book}
                 favorito={favoritos.has(book.id)}
                 onToggleFavorito={onToggleFavorito}
-                onClick={onBookClick}
-                href={onBookClick ? undefined : `/catalogo/${book.id}`}
+                href={`/catalogo/${book.id}`}
+                compact
               />
             ))}
           </div>

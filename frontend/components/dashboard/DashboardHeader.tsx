@@ -148,7 +148,7 @@ export default function DashboardHeader({
         </span>
       </div>
 
-      <nav className="mb-4 flex flex-nowrap gap-1 overflow-x-auto border-b border-line">
+      <nav className="mb-4 flex flex-nowrap gap-1 overflow-x-auto overscroll-x-contain border-b border-line">
         {DASHBOARD_TABS.map((item) => {
           const Icon = tabIcons[item.id];
           const active = item.id === tab;

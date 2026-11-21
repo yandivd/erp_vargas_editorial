@@ -197,7 +197,7 @@ export default async function EntregaDetailPage({
       </div>
 
       <SectionCard title="Pedidos en la entrega" icon={<BookOpen className="h-5 w-5" />}>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overscroll-x-contain">
           <table className={tableClass}>
             <thead>
               <tr>
@@ -267,7 +267,7 @@ export default async function EntregaDetailPage({
         title="Servicios externos"
         icon={<Package className="h-5 w-5" />}
       >
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overscroll-x-contain">
           <table className={tableClass}>
             <thead>
               <tr>

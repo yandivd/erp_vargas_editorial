@@ -130,7 +130,7 @@ export default function NuevoEmpleadoModal() {
 
       {abierto ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/50 p-4 sm:items-center"
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
@@ -142,7 +142,7 @@ export default function NuevoEmpleadoModal() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="nuevo-empleado-modal-title"
-            className="w-full max-w-lg rounded-2xl border border-line bg-white p-5 shadow-2xl"
+            className="my-auto w-full max-w-lg rounded-2xl border border-line bg-white p-5 shadow-2xl"
           >
             <div className="mb-5 flex items-start justify-between gap-3">
               <div>

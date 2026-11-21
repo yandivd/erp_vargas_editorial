@@ -173,7 +173,7 @@ function EmpleadoRows({
                   Sin pagos registrados.
                 </p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overscroll-x-contain">
                   <table className="w-full border-collapse text-sm">
                     <thead>
                       <tr>

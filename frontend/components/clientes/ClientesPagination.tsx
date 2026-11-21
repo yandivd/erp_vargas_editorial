@@ -77,7 +77,7 @@ export default function ClientesPagination({
       </div>
 
       <nav
-        className="flex items-center gap-1.5"
+        className="flex flex-wrap items-center gap-1.5"
         aria-label="Paginación de clientes"
       >
         {pagination.has_previous ? (

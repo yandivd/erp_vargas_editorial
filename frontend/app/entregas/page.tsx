@@ -140,7 +140,7 @@ export default async function EntregasPage({
         </div>
       ) : (
         <div className={tableWrapClass}>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overscroll-x-contain">
             <table className={tableClass}>
               <thead>
                 <tr>

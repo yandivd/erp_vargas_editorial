@@ -157,7 +157,8 @@ export default async function OrdenLotePage({ params }: PageProps) {
           <h2 className="border-b border-line pb-2 text-xs font-bold uppercase tracking-wider text-muted">
             Pedidos asociados
           </h2>
-          <table className="mt-3 w-full border-collapse">
+          <div className="mt-3 overflow-x-auto overscroll-x-contain">
+            <table className="w-full min-w-[640px] border-collapse">
             <thead>
               <tr>
                 <th className="border-b border-line px-2 py-2 text-left text-[0.7rem] font-bold uppercase tracking-wide text-muted">
@@ -227,7 +228,8 @@ export default async function OrdenLotePage({ params }: PageProps) {
                 </tr>
               ) : null}
             </tfoot>
-          </table>
+            </table>
+          </div>
         </section>
 
         <div className="mt-8 rounded-lg border border-line bg-slate-50 px-4 py-3 text-xs leading-relaxed text-muted print:bg-white">
