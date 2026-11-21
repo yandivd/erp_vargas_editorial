@@ -372,7 +372,8 @@ classDiagram
 
 **Públicos**
 - `GET /fidelidad/publica/<uuid:token>/`
-- `GET /catalogo/`, `GET /catalogo/libros/<id>/`, `GET /catalogo/libros/<id>/recomendaciones/`
+- `GET /catalogo/` — admite `q`, `page`, `per_page`, `ordering=random|-ventas`, `seed` (para paginación aleatoria estable).
+- `GET /catalogo/libros/<id>/`, `GET /catalogo/libros/<id>/recomendaciones/`
 
 **Operación (autenticados, selección principal)**
 - **Pedidos:** viewset `/pedidos/` (+ acciones/endpoints definidos en `api/v1/views.py`).
@@ -389,7 +390,7 @@ classDiagram
 
 ### Estructura de rutas (`frontend/app`)
 Incluye (entre otras):
-- Públicas: `/login`, `/catalogo`, `/catalogo/checkout`, `/fidelidad`, `/fidelidad/[token]`.
+- Públicas: `/login`, `/catalogo`, `/catalogo/[id]`, `/catalogo/checkout`, `/fidelidad`, `/fidelidad/[token]`.
 - Privadas: `/` (dashboard), `/clientes`, `/pedidos`, `/libros`, `/tienda`, `/entregas`, `/inventario`, `/proveedores`, `/empleados`, `/finanzas/*` (caja, arqueos, activos, divisas), etc.
 - Rutas API Next: `/api/auth/login`, `/api/auth/logout`, `/api/bff/[...path]`, `/api/catalogo`, `/api/catalogo/[...path]`.
 
@@ -398,6 +399,11 @@ Incluye (entre otras):
 - **Cookies JWT**: `erp_access` y `erp_refresh` (HttpOnly, `sameSite=lax`, `secure` en producción), gestionadas en `lib/authCookies.ts`.
 - **BFF (`/api/bff/[...path]`)**: reenvía requests al backend (`DJANGO_API_URL`), añade `Authorization: Bearer <access>`, refresca access token si es necesario y propaga respuesta/cookies.
 - **Cliente API (`lib/api.ts`)**: en browser llama al BFF (`/api/bff`), en server llama directo a `DJANGO_API_URL` con token de cookie; valida envoltorio `{ok,data}`.
+
+### Catálogo storefront (frontend)
+- **`/catalogo`**: tienda organizada en recomendaciones personalizadas (favoritos en `localStorage` + endpoint de recomendaciones, fallback a populares), carrusel “Más vendidos” (top 10 por `ordering=-ventas`) y “Todos los libros” con carga infinita aleatoria estable por `seed` en `sessionStorage`.
+- **`/catalogo/[id]`**: detalle público del libro con metadata OG/Twitter (imagen del libro y descripción para compartir), aviso legal de producto artesanal, CTA “Volver a la tienda” y “Agregar al carrito”; incluye recomendaciones/favoritos.
+- **Componentes:** `ShopBookCard` navega al detalle (también soporta `onClick` cuando se requiere) y preserva la acción de favoritos; `BookCatalog` enlaza tarjetas al detalle.
 
 ### Imágenes de libros
 - El frontend contempla imágenes remotas/URLs (`imagen_base`, `imagen_con_esquineros`, `imagen_con_cantos`) y normalización de enlaces (Drive/Dropbox) en utilidades/componentes (`frontend/lib/libros.ts`, `components/libros/BookImage.tsx`, `next.config.ts` remotePatterns) según implementación del proyecto.
@@ -733,3 +739,5 @@ El costeador puede recibir `parametros` y `tasa_cambio` precargados; si no, cons
 ---
 
 *Documento generado a partir del análisis del código y configuración presentes en el repositorio. Ante discrepancias con la operación real, prevalece el comportamiento del código, las migraciones aplicadas y los datos/configuración del entorno en ejecución.*
+
+<!-- SUGERENCIA: agregar changelog -->
