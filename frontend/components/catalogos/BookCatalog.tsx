@@ -15,7 +15,7 @@ type BookCatalogProps = {
   hasNext: boolean;
   onRetry: () => void;
   sentinelRef: RefObject<HTMLDivElement | null>;
-  onBookClick: (book: LibroPublico) => void;
+  onBookClick?: (book: LibroPublico) => void;
   favoritos: Set<number>;
   onToggleFavorito: (book: LibroPublico) => void;
 };
@@ -120,6 +120,7 @@ export default function BookCatalog({
                 favorito={favoritos.has(book.id)}
                 onToggleFavorito={onToggleFavorito}
                 onClick={onBookClick}
+                href={onBookClick ? undefined : `/catalogo/${book.id}`}
               />
             ))}
           </div>

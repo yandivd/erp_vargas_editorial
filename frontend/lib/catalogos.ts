@@ -24,6 +24,8 @@ type FetchCatalogoPageOptions = {
   page: number;
   perPage: number;
   query?: string;
+  ordering?: "random" | "-ventas";
+  seed?: string;
   signal?: AbortSignal;
 };
 
@@ -44,16 +46,24 @@ export async function fetchCatalogoPage({
   page,
   perPage,
   query,
+  ordering,
+  seed,
   signal,
 }: FetchCatalogoPageOptions): Promise<CatalogoPage> {
   const params = new URLSearchParams({
     page: String(page),
-    per_page: String(perPage),
+    perPage: String(perPage),
   });
   const normalizedQuery = query?.trim();
 
   if (normalizedQuery) {
     params.set("q", normalizedQuery);
+  }
+  if (ordering) {
+    params.set("ordering", ordering);
+  }
+  if (seed) {
+    params.set("seed", seed);
   }
 
   const response = await fetch(`/api/catalogo?${params.toString()}`, {

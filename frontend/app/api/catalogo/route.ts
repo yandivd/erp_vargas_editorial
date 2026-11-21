@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const PARAMETROS_PERMITIDOS = ["page", "per_page", "q"];
+const PARAMETROS_PERMITIDOS = ["page", "per_page", "q", "ordering", "seed"];
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const djangoApiUrl = process.env.DJANGO_API_URL;

@@ -337,13 +337,73 @@ def _libros_comprados_junto_a(libro_ids, excluir_ids):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def catalogo(request):
-    libros = Book.objects.all().order_by('titulo', 'id')
+    libros = Book.objects.all()
     busqueda = request.query_params.get('q', '').strip()
     if busqueda:
         libros = libros.filter(
             Q(titulo__icontains=busqueda) | Q(autor__icontains=busqueda)
         )
 
+    ordering = request.query_params.get('ordering', '').strip()
+    seed = request.query_params.get('seed', '').strip()
+
+    if ordering == '-ventas':
+        libros = libros.annotate(
+            ventas=Count(
+                'pedidos',
+                filter=~Q(
+                    pedidos__estado__nombre__in=['Cancelado', 'Borrador']
+                ),
+            )
+        ).order_by('-ventas', 'titulo', 'id')
+        paginador = CatalogoPagination()
+        pagina = paginador.paginate_queryset(libros, request, view=catalogo)
+        data = [_libro_publico_data(libro, request) for libro in pagina]
+        return paginador.get_paginated_response(data)
+
+    if ordering == 'random':
+        import random
+
+        ids = list(libros.values_list('id', flat=True))
+        rng = random.Random(seed or 'catalogo')
+        rng.shuffle(ids)
+
+        from django.core.paginator import Paginator
+
+        paginador = CatalogoPagination()
+        try:
+            per_page = paginador.get_page_size(request)
+        except Exception:
+            per_page = paginador.page_size
+
+        paginator = Paginator(ids, per_page)
+        page_number = paginador.get_page_number(request, paginator)
+        page = paginator.get_page(page_number)
+
+        page_ids = list(page.object_list)
+        libros_by_id = {
+            libro.id: libro
+            for libro in Book.objects.filter(id__in=page_ids)
+        }
+        page_books = [libros_by_id[i] for i in page_ids if i in libros_by_id]
+        data = [_libro_publico_data(libro, request) for libro in page_books]
+
+        return Response({
+            'ok': True,
+            'data': data,
+            'pagination': {
+                'count': paginator.count,
+                'page': page.number,
+                'num_pages': paginator.num_pages,
+                'per_page': paginator.per_page,
+                'start_index': page.start_index() if paginator.count else 0,
+                'end_index': page.end_index() if paginator.count else 0,
+                'has_next': page.has_next(),
+                'has_previous': page.has_previous(),
+            },
+        })
+
+    libros = libros.order_by('titulo', 'id')
     paginador = CatalogoPagination()
     pagina = paginador.paginate_queryset(libros, request, view=catalogo)
     data = [_libro_publico_data(libro, request) for libro in pagina]
