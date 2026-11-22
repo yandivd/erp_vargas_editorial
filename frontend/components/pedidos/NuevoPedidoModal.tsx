@@ -130,7 +130,7 @@ export default function NuevoPedidoModal() {
   const [llevaEsquineros, setLlevaEsquineros] = useState(false);
   const [precioVenta, setPrecioVenta] = useState("0");
   const [anticipoRequerido, setAnticipoRequerido] = useState("0");
-  const [monedaAnticipo, setMonedaAnticipo] = useState<MonedaAnticipo>("CUP");
+  const [moneda, setMoneda] = useState<MonedaAnticipo>("CUP");
   const [tasaCambio, setTasaCambio] = useState<number | null>(null);
   const [tasaError, setTasaError] = useState<string | null>(null);
   const [notas, setNotas] = useState("");
@@ -296,22 +296,30 @@ export default function NuevoPedidoModal() {
   }, [parametros, paginas, llevaCantosTintados, llevaEsquineros]);
 
   const cantidadNum = Math.max(1, Number(cantidad) || 1);
-  const precio = Number(precioVenta || 0);
-  const esAnticipoUsd = monedaAnticipo === "USD";
+  const esUsd = moneda === "USD";
+  const esPrecioUsd = esUsd;
+  const esAnticipoUsd = esUsd;
   const tasaValida =
     tasaCambio !== null && Number.isFinite(tasaCambio) && tasaCambio > 0;
+  const tasaPrecio = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
+  const precioCupUnitario = esPrecioUsd
+    ? Math.round(Number(precioVenta || 0) * tasaPrecio)
+    : Math.max(0, Number(precioVenta || 0));
+  const precio = precioCupUnitario * cantidadNum;
   const anticipo = Number(anticipoRequerido || 0);
   const anticipoEnCup = redondear2(
     esAnticipoUsd ? anticipo * (tasaCambio ?? 0) : anticipo,
   );
   const saldo = redondear2(Math.max(0, precio - anticipoEnCup));
   const vuelto = redondear2(Math.max(0, anticipoEnCup - precio));
-  const precioEnUsd = tasaValida ? redondear2(precio / (tasaCambio ?? 1)) : 0;
+  const precioEnUsd = esPrecioUsd
+    ? Math.max(0, Number(precioVenta || 0))
+    : tasaValida ? redondear2(precioCupUnitario / (tasaCambio ?? 1)) : 0;
   const costoTotalPedido = costo ? redondear2(costo.costo_total * cantidadNum) : 0;
   const ganancia = redondear2(precio - costoTotalPedido);
 
   function anticipoSugeridoEnMoneda(montoCup: number): string {
-    if (monedaAnticipo === "USD") {
+    if (esUsd) {
       const tasa = tasaCambio ?? 0;
       return tasa > 0 ? String(Math.floor(montoCup / tasa)) : "0";
     }
@@ -376,7 +384,7 @@ export default function NuevoPedidoModal() {
     setLlevaEsquineros(false);
     setPrecioVenta("0");
     setAnticipoRequerido("0");
-    setMonedaAnticipo("CUP");
+    setMoneda("CUP");
     setNotas("");
     setCodigoDescuento("");
     setDescuentoAplicado("0");
@@ -502,7 +510,12 @@ export default function NuevoPedidoModal() {
     );
     if (calculo) {
       const precioAjustado = ajustarPrecioPorTasa(calculo.precio_sugerido);
-      setPrecioVenta(String(precioAjustado));
+      if (esPrecioUsd) {
+        const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
+        setPrecioVenta(String(Math.round(precioAjustado / tasa)));
+      } else {
+        setPrecioVenta(String(precioAjustado));
+      }
       setAnticipoRequerido(anticipoSugeridoEnMoneda(precioAjustado / 2));
     }
   }
@@ -521,7 +534,12 @@ export default function NuevoPedidoModal() {
     );
     if (calculo) {
       const precioAjustado = ajustarPrecioPorTasa(calculo.precio_sugerido);
-      setPrecioVenta(String(precioAjustado));
+      if (esPrecioUsd) {
+        const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
+        setPrecioVenta(String(Math.round(precioAjustado / tasa)));
+      } else {
+        setPrecioVenta(String(precioAjustado));
+      }
       setAnticipoRequerido(anticipoSugeridoEnMoneda(precioAjustado / 2));
     }
   }
@@ -539,7 +557,12 @@ export default function NuevoPedidoModal() {
       if (calculo) {
         const precioAjustado = ajustarPrecioPorTasa(calculo.precio_sugerido);
         if (!precioEditadoManualmente) {
-          setPrecioVenta(String(precioAjustado));
+          if (esPrecioUsd) {
+            const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
+            setPrecioVenta(String(Math.round(precioAjustado / tasa)));
+          } else {
+            setPrecioVenta(String(precioAjustado));
+          }
         }
         if (!anticipoEditado) {
           setAnticipoRequerido(
@@ -558,7 +581,12 @@ export default function NuevoPedidoModal() {
         esquineros,
       );
       if (!precioEditadoManualmente) {
-        setPrecioVenta(String(nuevoPrecio));
+        if (esPrecioUsd) {
+          const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
+          setPrecioVenta(String(Math.round(nuevoPrecio / tasa)));
+        } else {
+          setPrecioVenta(String(nuevoPrecio));
+        }
       }
       if (!anticipoEditado) {
         setAnticipoRequerido(anticipoSugeridoEnMoneda(nuevoPrecio / 2));
@@ -568,60 +596,41 @@ export default function NuevoPedidoModal() {
 
   function handleCantosTintadosChange(checked: boolean) {
     setLlevaCantosTintados(checked);
-
-    if (descuentoActivo) {
-      resetDescuento();
-    }
-
+    if (descuentoActivo) resetDescuento();
     actualizarPrecioYAnticipo(checked, llevaEsquineros);
   }
 
   function handleEsquinerosChange(checked: boolean) {
     setLlevaEsquineros(checked);
-
-    if (descuentoActivo) {
-      resetDescuento();
-    }
-
+    if (descuentoActivo) resetDescuento();
     actualizarPrecioYAnticipo(llevaCantosTintados, checked);
   }
 
   function handlePrecioChange(value: string) {
+    if (esUsd && value !== "" && !/^\d+$/.test(value)) return;
     setPrecioVenta(value);
     setPrecioEditadoManualmente(true);
   }
 
-  function handleAnticipoChange(value: string) {
-    if (esAnticipoUsd && value !== "" && !/^\d+$/.test(value)) {
-      return;
+  function handleMonedaChange(next: MonedaAnticipo) {
+    if (next === moneda) return;
+    const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
+    const precioActual = Number(precioVenta || 0);
+    const anticipoActual = Number(anticipoRequerido || 0);
+    if (next === "USD") {
+      setPrecioVenta(String(Math.round(precioActual / tasa)));
+      setAnticipoRequerido(String(Math.round(anticipoActual / tasa)));
+    } else {
+      setPrecioVenta(String(Math.round(precioActual * tasa)));
+      setAnticipoRequerido(String(redondear2(anticipoActual * tasa)));
     }
-    setAnticipoRequerido(value);
-    setAnticipoEditado(true);
+    setMoneda(next);
   }
 
-  function handleMonedaAnticipoChange(next: MonedaAnticipo) {
-    if (next === monedaAnticipo) {
-      return;
-    }
-
-    const actual = Number(anticipoRequerido || 0);
-
-    if (next === "USD") {
-      const tasa = tasaCambio ?? 0;
-      if (tasa > 0) {
-        setAnticipoRequerido(String(Math.floor(actual / tasa)));
-      } else {
-        setAnticipoRequerido("0");
-        void cargarTasaCambio();
-      }
-      setMonedaAnticipo("USD");
-      return;
-    }
-
-    setAnticipoRequerido(
-      String(redondear2(actual * (tasaCambio ?? 0))),
-    );
-    setMonedaAnticipo("CUP");
+  function handleAnticipoChange(value: string) {
+    if (esUsd && value !== "" && !/^\d+$/.test(value)) return;
+    setAnticipoRequerido(value);
+    setAnticipoEditado(true);
   }
 
   function aplicarBono() {
@@ -636,8 +645,8 @@ export default function NuevoPedidoModal() {
       return;
     }
 
-    const precioActual = Number(precioVenta || 0);
-    if (precioActual <= 0) {
+    const precioActualCup = precioCupUnitario;
+    if (precioActualCup <= 0) {
       setBonoError("El precio de venta debe ser mayor a 0.");
       return;
     }
@@ -647,24 +656,29 @@ export default function NuevoPedidoModal() {
       return;
     }
 
-    const monto = redondear2(Math.min(bonoDisponible, precioActual));
+    const monto = redondear2(Math.min(bonoDisponible, precioActualCup));
     if (monto <= 0) {
       setBonoError("El bono no puede aplicarse a este pedido.");
       return;
     }
 
-    const nuevoPrecio = redondear2(precioActual - monto);
+    const nuevoPrecioCup = redondear2(precioActualCup - monto);
     setBonoMonto(String(monto));
     setBonoActivo(true);
     setPrecioOriginal(precioVenta);
     setAnticipoOriginal(anticipoRequerido);
-    setPrecioVenta(String(nuevoPrecio));
-    setAnticipoRequerido(anticipoSugeridoEnMoneda(nuevoPrecio / 2));
+    if (esPrecioUsd) {
+      const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
+      setPrecioVenta(String(Math.round(nuevoPrecioCup / tasa)));
+    } else {
+      setPrecioVenta(String(nuevoPrecioCup));
+    }
+    setAnticipoRequerido(anticipoSugeridoEnMoneda(nuevoPrecioCup / 2));
     setPrecioEditadoManualmente(true);
     setAnticipoEditado(true);
     setBonoInfo(
       `Bono de fidelidad aplicado: ${money(monto)} — Precio final: ${money(
-        nuevoPrecio,
+        nuevoPrecioCup,
       )}`,
     );
   }
@@ -701,13 +715,19 @@ export default function NuevoPedidoModal() {
         `pedidos/validar-descuento?${params.toString()}`,
       );
 
+      const nuevoPrecioCup = Number(descuento.precio_final || 0);
       setDescuentoAplicado(String(descuento.descuento));
       setDescuentoActivo(true);
       setPrecioOriginal(precioVenta);
       setAnticipoOriginal(anticipoRequerido);
-      setPrecioVenta(String(descuento.precio_final));
+      if (esPrecioUsd) {
+        const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
+        setPrecioVenta(String(Math.round(nuevoPrecioCup / tasa)));
+      } else {
+        setPrecioVenta(String(nuevoPrecioCup));
+      }
       setAnticipoRequerido(
-        anticipoSugeridoEnMoneda(descuento.precio_final / 2),
+        anticipoSugeridoEnMoneda(nuevoPrecioCup / 2),
       );
       setPrecioEditadoManualmente(true);
       setAnticipoEditado(true);
@@ -746,7 +766,7 @@ export default function NuevoPedidoModal() {
       setSubmitError("Si creas un libro nuevo, indica título y páginas.");
       return;
     }
-    const precioFinal = Number(precioVenta) || 0;
+    const precioFinal = precioCupUnitario;
     const descuentoOcupaPrecio = bonoActivo || descuentoActivo;
 
     if (precioFinal <= 0 && !descuentoOcupaPrecio) {
@@ -793,11 +813,11 @@ export default function NuevoPedidoModal() {
           cantidad: cantidadNum,
           lleva_cantos_tintados: llevaCantosTintados,
           lleva_esquineros: llevaEsquineros || llevaCantosTintados,
-          precio_venta: Number(precioVenta),
+          precio_venta: precioCupUnitario,
           anticipo_requerido: anticipoEnCup,
           monto_anticipo: anticipo,
-          moneda_anticipo: monedaAnticipo,
-          tasa_cambio: esAnticipoUsd ? tasaCambio : null,
+          moneda_anticipo: moneda,
+          tasa_cambio: esUsd ? tasaCambio : null,
           notas: notas.trim(),
           codigo_descuento: descuentoActivo ? codigoDescuento : "",
           descuento_aplicado: descuentoActivo
@@ -1204,71 +1224,74 @@ export default function NuevoPedidoModal() {
                 </section>
 
                 <section className="space-y-3 rounded-lg bg-slate-50 p-3 md:p-4">
-                  <h3 className="flex items-center gap-2 text-base font-bold text-ink">
-                    <Wallet
-                      className="h-5 w-5 text-brand"
-                      aria-hidden="true"
-                    />
-                    Finanzas del pedido
-                  </h3>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="flex items-center gap-2 text-base font-bold text-ink">
+                      <Wallet
+                        className="h-5 w-5 text-brand"
+                        aria-hidden="true"
+                      />
+                      Finanzas del pedido
+                    </h3>
+                    <div className="inline-flex rounded-md border border-line bg-white p-0.5">
+                      {(["CUP", "USD"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => handleMonedaChange(m)}
+                          aria-pressed={moneda === m}
+                          className={`rounded px-2 py-0.5 text-xs font-bold transition ${
+                            moneda === m
+                              ? "bg-brand text-white"
+                              : "text-muted hover:text-ink"
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <div>
                       <label htmlFor="precio-venta" className="mb-1.5 block text-sm font-semibold text-ink">
-                        Precio venta (CUP, se congela al crear)
+                        Precio venta ({esUsd ? "USD" : "CUP"}, se congela al crear)
                       </label>
                       <input
                         id="precio-venta"
                         type="number"
                         min={0}
-                        step="0.01"
+                        step={esUsd ? 1 : 0.01}
+                        inputMode={esUsd ? "numeric" : "decimal"}
                         value={precioVenta}
                         onChange={(event) => handlePrecioChange(event.target.value)}
                         className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
                       />
-                      <p className="mt-1 text-xs text-muted">Equivalente: {money(precioEnUsd, "USD")} (referencia)</p>
+                      <p className="mt-1 text-xs text-muted">
+                        {esUsd
+                          ? <>Equivalente: {money(redondear2(Number(precioVenta || 0) * (tasaCambio && tasaCambio > 0 ? tasaCambio : 930)), "CUP")} (tasa actual)</>
+                          : <>Equivalente: {money(Math.round(Number(precioVenta || 0) / (tasaCambio && tasaCambio > 0 ? tasaCambio : 930)), "USD")} (referencia)</>}
+                      </p>
                     </div>
                     <div>
-                      <div className="mb-1.5 flex items-center justify-between gap-2">
-                        <label
-                          htmlFor="anticipo-requerido"
-                          className="block text-sm font-semibold text-ink"
-                        >
-                          Anticipo
-                        </label>
-                        <div className="inline-flex rounded-md border border-line bg-white p-0.5">
-                          {(["CUP", "USD"] as const).map((moneda) => (
-                            <button
-                              key={moneda}
-                              type="button"
-                              onClick={() =>
-                                handleMonedaAnticipoChange(moneda)
-                              }
-                              aria-pressed={monedaAnticipo === moneda}
-                              className={`rounded px-2 py-0.5 text-xs font-bold transition ${
-                                monedaAnticipo === moneda
-                                  ? "bg-brand text-white"
-                                  : "text-muted hover:text-ink"
-                              }`}
-                            >
-                              {moneda}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      <label
+                        htmlFor="anticipo-requerido"
+                        className="mb-1.5 block text-sm font-semibold text-ink"
+                      >
+                        Anticipo ({esUsd ? "USD" : "CUP"})
+                      </label>
                       <input
                         id="anticipo-requerido"
                         type="number"
                         min={0}
-                        step={esAnticipoUsd ? 1 : 0.01}
-                        inputMode={esAnticipoUsd ? "numeric" : "decimal"}
+                        step={esUsd ? 1 : 0.01}
+                        inputMode={esUsd ? "numeric" : "decimal"}
                         value={anticipoRequerido}
                         onChange={(event) =>
                           handleAnticipoChange(event.target.value)
                         }
                         className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
                       />
-                      {esAnticipoUsd ? (
+                      {esUsd ? (
                         <p className="mt-1 text-xs text-muted">
                           {tasaValida ? (
                             <>
