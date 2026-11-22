@@ -318,6 +318,12 @@ export default function NuevoPedidoModal() {
     return String(redondear2(montoCup));
   }
 
+  function ajustarPrecioPorTasa(precioCup: number): number {
+    const tasaRef = 930;
+    const tasaActual = tasaCambio && tasaCambio > 0 ? tasaCambio : tasaRef;
+    return Math.round(((precioCup / tasaRef) * tasaActual) / 50) * 50;
+  }
+
   function calcularActual(
     paginasActuales: number,
     cantosTintados: boolean,
@@ -495,8 +501,9 @@ export default function NuevoPedidoModal() {
       llevaEsquineros || llevaCantosTintados,
     );
     if (calculo) {
-      setPrecioVenta(String(calculo.precio_sugerido));
-      setAnticipoRequerido(anticipoSugeridoEnMoneda(calculo.anticipo_sugerido));
+      const precioAjustado = ajustarPrecioPorTasa(calculo.precio_sugerido);
+      setPrecioVenta(String(precioAjustado));
+      setAnticipoRequerido(anticipoSugeridoEnMoneda(precioAjustado / 2));
     }
   }
 
@@ -513,8 +520,9 @@ export default function NuevoPedidoModal() {
       llevaEsquineros || llevaCantosTintados,
     );
     if (calculo) {
-      setPrecioVenta(String(calculo.precio_sugerido));
-      setAnticipoRequerido(anticipoSugeridoEnMoneda(calculo.anticipo_sugerido));
+      const precioAjustado = ajustarPrecioPorTasa(calculo.precio_sugerido);
+      setPrecioVenta(String(precioAjustado));
+      setAnticipoRequerido(anticipoSugeridoEnMoneda(precioAjustado / 2));
     }
   }
 
@@ -529,12 +537,13 @@ export default function NuevoPedidoModal() {
         esquineros,
       );
       if (calculo) {
+        const precioAjustado = ajustarPrecioPorTasa(calculo.precio_sugerido);
         if (!precioEditadoManualmente) {
-          setPrecioVenta(String(calculo.precio_sugerido));
+          setPrecioVenta(String(precioAjustado));
         }
         if (!anticipoEditado) {
           setAnticipoRequerido(
-            anticipoSugeridoEnMoneda(calculo.anticipo_sugerido),
+            anticipoSugeridoEnMoneda(precioAjustado / 2),
           );
         }
       }
@@ -1304,7 +1313,7 @@ export default function NuevoPedidoModal() {
                       <span className="font-semibold text-ink">
                         Precio sugerido por unidad:
                       </span>{" "}
-                      {costo ? <>{money(costo.precio_sugerido, "CUP")} <span className="text-muted">({money((costo.precio_sugerido_usd ?? costo.precio_sugerido/(costo.tasa_cambio||1)), "USD")})</span></> : "—"}
+                      {costo ? (() => { const pa = ajustarPrecioPorTasa(costo.precio_sugerido); return <>{money(pa, "CUP")} <span className="text-muted">({money(Math.round((pa / 930) * 10) / 10, "USD")})</span></>; })() : "—"}
                     </div>
                     <div>
                       <span className="font-semibold text-ink">
@@ -1324,7 +1333,7 @@ export default function NuevoPedidoModal() {
                       <span className="font-semibold text-ink">
                         Anticipo sugerido (CUP):
                       </span>{" "}
-                      {costo ? money(costo.anticipo_sugerido) : "—"}
+                      {costo ? money(ajustarPrecioPorTasa(costo.precio_sugerido) / 2) : "—"}
                     </div>
                     <div>
                       <span className="font-semibold text-ink">

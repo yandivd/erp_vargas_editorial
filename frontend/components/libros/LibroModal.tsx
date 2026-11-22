@@ -79,12 +79,17 @@ export default function LibroModal({ libro }: LibroModalProps) {
     );
   }, [parametros, paginasNumero]);
   const TASA_USD_FIJA = 930;
+  const tasaActual = parametros?.tasa_cambio && parametros.tasa_cambio > 0 ? parametros.tasa_cambio : TASA_USD_FIJA;
+  const ajustarPrecioPorTasa = (precioCup: number) =>
+    Math.round(((precioCup / TASA_USD_FIJA) * tasaActual) / 50) * 50;
+  const precioSugeridoAjustado = calculo ? ajustarPrecioPorTasa(calculo.precio_sugerido) : 0;
+  const precioSugeridoUsdAjustado = calculo ? Math.round((precioSugeridoAjustado / TASA_USD_FIJA) * 10) / 10 : 0;
   const precioEfectivoUsd = !precioManual && calculo
-    ? String(Math.round((calculo.precio_sugerido / TASA_USD_FIJA) * 10) / 10)
+    ? String(precioSugeridoUsdAjustado)
     : precioUsd;
   const precioCupEstimado = !precioManual && calculo
-    ? calculo.precio_sugerido
-    : Math.round((Number(precioEfectivoUsd || 0) * (parametros?.tasa_cambio || 1)) / 50) * 50;
+    ? precioSugeridoAjustado
+    : Math.round((Number(precioEfectivoUsd || 0) * tasaActual) / 50) * 50;
 
   useEffect(() => {
     if (!abierto || parametros) {
@@ -202,7 +207,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
     if (!calculo) {
       return;
     }
-    setPrecioUsd(String(calculo.precio_sugerido_usd));
+    setPrecioUsd(String(precioSugeridoUsdAjustado));
     setPrecioManual(false);
   }
 
@@ -537,7 +542,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
                         <Sparkles className="h-4 w-4" aria-hidden="true" />
                         Costo total de producción {money((calculo as any).costo_total_cup ?? (calculo as any).costo_total, "CUP")} +
                         margen por {calculo.paginas} páginas ={" "}
-                        <strong>{money(calculo.precio_sugerido_usd, "USD")}</strong> <span className="text-muted">({money(calculo.precio_sugerido, "CUP")})</span>
+                        <strong>{money(precioSugeridoUsdAjustado, "USD")}</strong> <span className="text-muted">({money(precioSugeridoAjustado, "CUP")})</span>
                       </span>
                       {precioManual ? (
                         <button

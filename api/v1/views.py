@@ -1285,7 +1285,6 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            siguiente_ref = _siguiente_referencia()
             estado_inicial = Estado.objects.get(nombre='Pendiente a impresión')
             anticipo = Decimal(str(data.get('anticipo_requerido') or 0))
             monto_anticipo = Decimal(str(data.get('monto_anticipo') or 0))
@@ -1298,77 +1297,88 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                 precio_venta_cup = Decimal(str(data.get('precio_venta') or 0))
             if precio_usd <= 0 and tasa_pedido:
                 precio_usd = (precio_venta_cup / Decimal(str(tasa_pedido))).quantize(Decimal('0.1'))
-            pedido = Pedido.objects.create(
-                cliente=cliente,
-                libro=libro,
-                cantidad=int(data.get('cantidad') or 1),
-                lleva_cantos_tintados=bool(data.get('lleva_cantos_tintados')),
-                lleva_esquineros=bool(data.get('lleva_esquineros')),
-                precio_usd=precio_usd,
-                tasa_cambio_pedido=Decimal(str(tasa_pedido)),
-                precio_venta=precio_venta_cup,
-                descuento_aplicado=descuento,
-                bono_fidelidad_aplicado=bono_solicitado,
-                codigo_descuento=cod_obj,
-                anticipo_requerido=anticipo,
-                estado=estado_inicial,
-                notas=data.get('notas') or '',
-                referencia_externa=siguiente_ref,
-            )
-            pedido.calcular_fecha_entrega()
 
-            if bono_solicitado > 0:
-                descuento_bono = ServicioFidelidad.aplicar_bono(
-                    cliente,
-                    bono_solicitado,
-                    pedido=pedido,
+            cantidad_pedidos = max(1, int(data.get('cantidad') or 1))
+            pedidos_creados = []
+            for idx in range(cantidad_pedidos):
+                siguiente_ref = _siguiente_referencia()
+                bono_pedido = bono_solicitado if idx == 0 else Decimal('0')
+                pedido = Pedido.objects.create(
+                    cliente=cliente,
+                    libro=libro,
+                    cantidad=1,
+                    lleva_cantos_tintados=bool(data.get('lleva_cantos_tintados')),
+                    lleva_esquineros=bool(data.get('lleva_esquineros')),
+                    precio_usd=precio_usd,
+                    tasa_cambio_pedido=Decimal(str(tasa_pedido)),
+                    precio_venta=precio_venta_cup,
+                    descuento_aplicado=descuento,
+                    bono_fidelidad_aplicado=bono_pedido,
+                    codigo_descuento=cod_obj,
+                    anticipo_requerido=anticipo,
+                    estado=estado_inicial,
+                    notas=data.get('notas') or '',
+                    referencia_externa=siguiente_ref,
                 )
-                if descuento_bono != bono_solicitado:
-                    transaction.set_rollback(True)
-                    return Response(
-                        {
-                            'ok': False,
-                            'error': (
-                                'No se pudo aplicar el bono de fidelidad. '
-                                'El saldo pudo haber cambiado.'
-                            ),
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
+                pedido.calcular_fecha_entrega()
+
+                if bono_pedido > 0:
+                    descuento_bono = ServicioFidelidad.aplicar_bono(
+                        cliente,
+                        bono_pedido,
+                        pedido=pedido,
                     )
+                    if descuento_bono != bono_pedido:
+                        transaction.set_rollback(True)
+                        return Response(
+                            {
+                                'ok': False,
+                                'error': (
+                                    'No se pudo aplicar el bono de fidelidad. '
+                                    'El saldo pudo haber cambiado.'
+                                ),
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
 
-            ServicioFidelidad.registrar_compra(pedido)
+                ServicioFidelidad.registrar_compra(pedido)
 
-            if cod_obj:
-                cod_obj.usos_actuales += 1
-                cod_obj.save(update_fields=['usos_actuales'])
+                if cod_obj:
+                    cod_obj.usos_actuales += 1
+                    cod_obj.save(update_fields=['usos_actuales'])
 
-            if monto_anticipo > 0:
-                ServicioFinanzas.registrar_pago_mixto(
-                    pedido,
-                    monto_cup=(
-                        Decimal('0')
-                        if moneda_anticipo == 'USD'
-                        else monto_anticipo
-                    ),
-                    monto_usd=(
-                        monto_anticipo
-                        if moneda_anticipo == 'USD'
-                        else Decimal('0')
-                    ),
-                    tasa_aplicada=tasa_anticipo,
-                    metodo='EFECTIVO',
-                    categoria='ANTICIPO_CLIENTE',
-                    permitir_vuelto=True,
-                )
+                if monto_anticipo > 0:
+                    ServicioFinanzas.registrar_pago_mixto(
+                        pedido,
+                        monto_cup=(
+                            Decimal('0')
+                            if moneda_anticipo == 'USD'
+                            else monto_anticipo
+                        ),
+                        monto_usd=(
+                            monto_anticipo
+                            if moneda_anticipo == 'USD'
+                            else Decimal('0')
+                        ),
+                        tasa_aplicada=tasa_anticipo,
+                        metodo='EFECTIVO',
+                        categoria='ANTICIPO_CLIENTE',
+                        permitir_vuelto=True,
+                    )
+                pedidos_creados.append(pedido.pk)
 
-        pedido = (
+        pedidos = list(
             Pedido.objects.select_related('cliente', 'libro', 'estado')
-            .get(pk=pedido.pk)
+            .filter(pk__in=pedidos_creados)
+            .order_by('id')
         )
         return Response(
             {
                 'ok': True,
-                'data': {'pedido': PedidoDetailV1Serializer(pedido).data},
+                'data': {
+                    'pedido': PedidoDetailV1Serializer(pedidos[0]).data,
+                    'pedidos': PedidoDetailV1Serializer(pedidos, many=True).data,
+                },
             },
             status=status.HTTP_201_CREATED,
         )
