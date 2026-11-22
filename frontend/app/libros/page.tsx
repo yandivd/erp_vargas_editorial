@@ -114,7 +114,7 @@ export default async function LibrosPage({ searchParams }: PageProps) {
                       {libro.autor || "—"}
                     </td>
                     <td className={tdClass}>{libro.paginas}</td>
-                    <td className={tdClass}>{money(libro.precio)}</td>
+                    <td className={tdClass}><div>{money((libro as any).precio_usd ?? 0, "USD")}</div><div className="text-xs text-muted">{money((libro as any).precio_cup_referencia ?? libro.precio, "CUP")}</div></td>
                     <td className={`${tdClass} text-right`}>
                       <LibroModal libro={libro} />
                     </td>

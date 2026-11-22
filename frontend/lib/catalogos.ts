@@ -7,6 +7,9 @@ export type LibroPublico = {
   descripcion?: string;
   paginas?: number;
   precio: string;
+  precio_usd?: number | string;
+  precio_cup_referencia?: number | string;
+  precio_cup?: number | string;
   imagen?: string | null;
   imagen_base?: string | null;
   imagen_con_esquineros?: string | null;

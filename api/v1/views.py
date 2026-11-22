@@ -142,36 +142,41 @@ def _mes_actual_texto():
 
 
 def _parametros_costo():
+    tasa = float(ServicioFinanzas.obtener_tasa_usd_cup())
     return {
         'paginas_por_hoja': int(Parametro.get('paginas_por_hoja', 4)),
-        'precio_papel_paquete': float(Parametro.get('precio_papel_paquete', 1800)),
+        'precio_papel_paquete_usd': float(Parametro.get('precio_papel_paquete_usd', 4)),
         'hojas_por_paquete': float(Parametro.get('hojas_por_paquete', 500)),
-        'precio_tinta_litro': float(Parametro.get('precio_tinta_litro', 17500)),
+        'precio_tinta_litro_usd': float(Parametro.get('precio_tinta_litro_usd', 40)),
         'rinde_tinta_paginas': float(Parametro.get('rinde_tinta_paginas', 35000)),
-        'precio_pegamento': float(Parametro.get('precio_pegamento', 3500)),
+        'precio_pegamento_usd': float(Parametro.get('precio_pegamento_usd', 8)),
         'rinde_pegamento_lomos': float(Parametro.get('rinde_pegamento_lomos', 70)),
         'esquineros_por_libro': float(Parametro.get('esquineros_por_libro', 4)),
         'esquineros_por_paquete': float(Parametro.get('esquineros_por_paquete', 100)),
-        'precio_esquineros_paquete_usd': float(
-            Parametro.get('precio_esquineros_paquete_usd', 6)
-        ),
-        'precio_cantos_pintados': float(
-            Parametro.get('precio_cantos_pintados', 2500)
-        ),
-        'tasa_cambio': float(ServicioFinanzas.obtener_tasa_usd_cup()),
-        'precio_scotch': float(Parametro.get('precio_scotch', 1000)),
-        'rinde_scotch_libros': float(Parametro.get('rinde_scotch_libros', 30)),
-        'precio_portada': float(Parametro.get('precio_portada', 1000)),
+        'precio_esquineros_paquete_usd': float(Parametro.get('precio_esquineros_paquete_usd', 6)),
+        'precio_cantos_pintados_usd': float(Parametro.get('precio_cantos_pintados_usd', 5)),
+        'precio_portada_usd': float(Parametro.get('precio_portada_usd', 2)),
         'paginas_para_grueso': float(Parametro.get('paginas_para_grueso', 300)),
-        'precio_encuadernacion': float(Parametro.get('precio_encuadernacion', 500)),
-        'precio_encuadernacion_grueso': float(Parametro.get('precio_encuadernacion_grueso', 500)),
-        'electricidad_mensual': float(Parametro.get('electricidad_mensual', 1000)),
+        'precio_encuadernacion_usd': float(Parametro.get('precio_encuadernacion_usd', 1)),
+        'precio_encuadernacion_grueso_usd': float(Parametro.get('precio_encuadernacion_grueso_usd', 1)),
+        'electricidad_mensual_usd': float(Parametro.get('electricidad_mensual_usd', 2)),
         'libros_por_mes_estimado': float(Parametro.get('libros_por_mes_estimado', 30)),
-        'precio_diseno': float(Parametro.get('precio_diseno', 500)),
+        'precio_diseno_usd': float(Parametro.get('precio_diseno_usd', 1)),
         'paginas_min': float(Parametro.get('paginas_min', 100)),
         'paginas_max': float(Parametro.get('paginas_max', 1000)),
         'margen_min': float(Parametro.get('margen_min', 0.8)),
         'margen_max': float(Parametro.get('margen_max', 2.0)),
+        'tasa_cambio': tasa,
+        # Compatibilidad temporal CUP
+        'precio_papel_paquete': float(Parametro.get('precio_papel_paquete', 1800)),
+        'precio_tinta_litro': float(Parametro.get('precio_tinta_litro', 17500)),
+        'precio_pegamento': float(Parametro.get('precio_pegamento', 3500)),
+        'precio_cantos_pintados': float(Parametro.get('precio_cantos_pintados', 2500)),
+        'precio_portada': float(Parametro.get('precio_portada', 1000)),
+        'precio_encuadernacion': float(Parametro.get('precio_encuadernacion', 500)),
+        'precio_encuadernacion_grueso': float(Parametro.get('precio_encuadernacion_grueso', 500)),
+        'electricidad_mensual': float(Parametro.get('electricidad_mensual', 1000)),
+        'precio_diseno': float(Parametro.get('precio_diseno', 500)),
     }
 
 
@@ -297,6 +302,8 @@ def _libro_publico_data(libro, request):
         'descripcion': libro.descripcion or '',
         'paginas': libro.paginas,
         'precio': str(libro.precio),
+        'precio_usd': str(libro.precio_usd),
+        'precio_cup_referencia': int(getattr(libro, 'precio_cup_referencia', libro.precio or 0)),
         'imagen': (
             request.build_absolute_uri(libro.imagen.url)
             if libro.imagen
@@ -1234,11 +1241,15 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
             if data.get('libro_id'):
                 libro = Book.objects.get(pk=data['libro_id'])
             else:
-                libro = Book.objects.create(
+                tasa_libro = ServicioFinanzas.obtener_tasa_usd_cup()
+            precio_cup = Decimal(str(data.get('precio_venta') or 0))
+            precio_usd = (precio_cup / Decimal(str(tasa_libro))).quantize(Decimal('0.1')) if tasa_libro else Decimal('0')
+            libro = Book.objects.create(
                     titulo=data.get('libro_titulo') or '',
                     autor=data.get('libro_autor') or '',
                     paginas=int(data.get('libro_paginas') or 0),
-                    precio=Decimal(str(data.get('precio_venta') or 0)),
+                    precio=precio_cup,
+                    precio_usd=precio_usd,
                 )
 
             cod_obj = None
@@ -1274,81 +1285,100 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            siguiente_ref = _siguiente_referencia()
             estado_inicial = Estado.objects.get(nombre='Pendiente a impresión')
             anticipo = Decimal(str(data.get('anticipo_requerido') or 0))
             monto_anticipo = Decimal(str(data.get('monto_anticipo') or 0))
             moneda_anticipo = data.get('moneda_anticipo') or 'CUP'
             tasa_anticipo = data.get('tasa_cambio')
-            pedido = Pedido.objects.create(
-                cliente=cliente,
-                libro=libro,
-                cantidad=int(data.get('cantidad') or 1),
-                lleva_cantos_tintados=bool(data.get('lleva_cantos_tintados')),
-                lleva_esquineros=bool(data.get('lleva_esquineros')),
-                precio_venta=Decimal(str(data.get('precio_venta') or 0)),
-                descuento_aplicado=descuento,
-                bono_fidelidad_aplicado=bono_solicitado,
-                codigo_descuento=cod_obj,
-                anticipo_requerido=anticipo,
-                estado=estado_inicial,
-                notas=data.get('notas') or '',
-                referencia_externa=siguiente_ref,
-            )
-            pedido.calcular_fecha_entrega()
+            tasa_pedido = ServicioFinanzas.obtener_tasa_usd_cup()
+            precio_usd = Decimal(str(getattr(libro, 'precio_usd', 0) or 0)).quantize(Decimal('0.1'))
+            precio_venta_cup = Decimal(str(getattr(libro, 'precio_cup_referencia', 0) or 0))
+            if precio_venta_cup <= 0:
+                precio_venta_cup = Decimal(str(data.get('precio_venta') or 0))
+            if precio_usd <= 0 and tasa_pedido:
+                precio_usd = (precio_venta_cup / Decimal(str(tasa_pedido))).quantize(Decimal('0.1'))
 
-            if bono_solicitado > 0:
-                descuento_bono = ServicioFidelidad.aplicar_bono(
-                    cliente,
-                    bono_solicitado,
-                    pedido=pedido,
+            cantidad_pedidos = max(1, int(data.get('cantidad') or 1))
+            pedidos_creados = []
+            for idx in range(cantidad_pedidos):
+                siguiente_ref = _siguiente_referencia()
+                bono_pedido = bono_solicitado if idx == 0 else Decimal('0')
+                pedido = Pedido.objects.create(
+                    cliente=cliente,
+                    libro=libro,
+                    cantidad=1,
+                    lleva_cantos_tintados=bool(data.get('lleva_cantos_tintados')),
+                    lleva_esquineros=bool(data.get('lleva_esquineros')),
+                    precio_usd=precio_usd,
+                    tasa_cambio_pedido=Decimal(str(tasa_pedido)),
+                    precio_venta=precio_venta_cup,
+                    descuento_aplicado=descuento,
+                    bono_fidelidad_aplicado=bono_pedido,
+                    codigo_descuento=cod_obj,
+                    anticipo_requerido=anticipo,
+                    estado=estado_inicial,
+                    notas=data.get('notas') or '',
+                    referencia_externa=siguiente_ref,
                 )
-                if descuento_bono != bono_solicitado:
-                    transaction.set_rollback(True)
-                    return Response(
-                        {
-                            'ok': False,
-                            'error': (
-                                'No se pudo aplicar el bono de fidelidad. '
-                                'El saldo pudo haber cambiado.'
-                            ),
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
+                pedido.calcular_fecha_entrega()
+
+                if bono_pedido > 0:
+                    descuento_bono = ServicioFidelidad.aplicar_bono(
+                        cliente,
+                        bono_pedido,
+                        pedido=pedido,
                     )
+                    if descuento_bono != bono_pedido:
+                        transaction.set_rollback(True)
+                        return Response(
+                            {
+                                'ok': False,
+                                'error': (
+                                    'No se pudo aplicar el bono de fidelidad. '
+                                    'El saldo pudo haber cambiado.'
+                                ),
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
 
-            ServicioFidelidad.registrar_compra(pedido)
+                ServicioFidelidad.registrar_compra(pedido)
 
-            if cod_obj:
-                cod_obj.usos_actuales += 1
-                cod_obj.save(update_fields=['usos_actuales'])
+                if cod_obj:
+                    cod_obj.usos_actuales += 1
+                    cod_obj.save(update_fields=['usos_actuales'])
 
-            if monto_anticipo > 0:
-                ServicioFinanzas.registrar_pago_mixto(
-                    pedido,
-                    monto_cup=(
-                        Decimal('0')
-                        if moneda_anticipo == 'USD'
-                        else monto_anticipo
-                    ),
-                    monto_usd=(
-                        monto_anticipo
-                        if moneda_anticipo == 'USD'
-                        else Decimal('0')
-                    ),
-                    tasa_aplicada=tasa_anticipo,
-                    metodo='EFECTIVO',
-                    categoria='ANTICIPO_CLIENTE',
-                    permitir_vuelto=True,
-                )
+                if monto_anticipo > 0:
+                    ServicioFinanzas.registrar_pago_mixto(
+                        pedido,
+                        monto_cup=(
+                            Decimal('0')
+                            if moneda_anticipo == 'USD'
+                            else monto_anticipo
+                        ),
+                        monto_usd=(
+                            monto_anticipo
+                            if moneda_anticipo == 'USD'
+                            else Decimal('0')
+                        ),
+                        tasa_aplicada=tasa_anticipo,
+                        metodo='EFECTIVO',
+                        categoria='ANTICIPO_CLIENTE',
+                        permitir_vuelto=True,
+                    )
+                pedidos_creados.append(pedido.pk)
 
-        pedido = (
+        pedidos = list(
             Pedido.objects.select_related('cliente', 'libro', 'estado')
-            .get(pk=pedido.pk)
+            .filter(pk__in=pedidos_creados)
+            .order_by('id')
         )
         return Response(
             {
                 'ok': True,
-                'data': {'pedido': PedidoDetailV1Serializer(pedido).data},
+                'data': {
+                    'pedido': PedidoDetailV1Serializer(pedidos[0]).data,
+                    'pedidos': PedidoDetailV1Serializer(pedidos, many=True).data,
+                },
             },
             status=status.HTTP_201_CREATED,
         )

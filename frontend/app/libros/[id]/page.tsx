@@ -69,7 +69,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
       )
     : null;
   const precioVenta = Number(libro.precio);
-  const gananciaNeta = costo ? precioVenta - costo.costo_total : null;
+  const gananciaNeta = costo ? precioVenta - ((costo as any).costo_total_cup ?? costo.costo_total) : null;
 
   return (
     <div>
@@ -88,7 +88,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
             </p>
             <p className="mt-3 text-sm text-muted">
               {libro.paginas} páginas · Precio de venta{" "}
-              <strong className="text-ink">{money(libro.precio)}</strong>
+              <strong className="text-ink">{money((libro as any).precio_usd ?? 0, "USD")}</strong> <span className="text-muted">({money((libro as any).precio_cup_referencia ?? libro.precio, "CUP")})</span>
             </p>
           </div>
         </div>
@@ -106,7 +106,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
             <Info label="Título" value={libro.titulo} />
             <Info label="Autor" value={libro.autor || "—"} />
             <Info label="Páginas" value={String(libro.paginas)} />
-            <Info label="Precio de venta" value={money(libro.precio)} />
+            <Info label="Precio de venta" value={`${money((libro as any).precio_usd ?? 0, "USD")} (${money((libro as any).precio_cup_referencia ?? libro.precio, "CUP")})`} />
           </dl>
 
           <div className="mt-6 border-t border-line pt-4">
@@ -129,7 +129,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
                   Costo total de producción
                 </div>
                 <div className="mt-1 text-xl font-extrabold text-ink">
-                  {costo ? money(costo.costo_total) : "—"}
+                  {costo ? money(((costo as any).costo_total_cup ?? costo.costo_total)) : "—"}
                 </div>
               </div>
             </div>
@@ -158,7 +158,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
                 Costo de producción por unidad
               </div>
               <div className="mt-1 text-xl font-extrabold text-ink">
-                {costo ? money(costo.costo_total) : "—"}
+                {costo ? money(((costo as any).costo_total_cup ?? costo.costo_total)) : "—"}
               </div>
             </div>
 
@@ -191,7 +191,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
             </div>
 
             <dl className="grid grid-cols-1 gap-x-6 gap-y-4">
-              <Info label="Precio de venta" value={money(libro.precio)} />
+              <Info label="Precio de venta" value={`${money((libro as any).precio_usd ?? 0, "USD")} (${money((libro as any).precio_cup_referencia ?? libro.precio, "CUP")})`} />
               <Info
                 label="Precio sugerido por unidad"
                 value={costo ? money(costo.precio_sugerido) : "—"}

@@ -58,7 +58,8 @@ class Book(models.Model):
     descripcion = models.TextField(blank=True, verbose_name='Descripción')
     notas = models.TextField(blank=True, verbose_name='Notas')
     fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de creación')
-    precio = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Precio base') # <-- NUEVO CAMPO
+    precio_usd = models.DecimalField(max_digits=10, decimal_places=1, default=0, verbose_name='Precio base USD')
+    precio = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Precio base CUP (legacy)')
     disponible = models.BooleanField(default=True, verbose_name='Disponible')
     imagen = models.ImageField(upload_to='libros/', blank=True, null=True, verbose_name='Imagen')
     imagen_base = models.URLField(default='', verbose_name='Imagen base (URL)')
@@ -92,6 +93,20 @@ class Book(models.Model):
     @property
     def hojas_necesarias(self):
         return (self.paginas + 3) // 4  # redondeo hacia arriba
+
+    @property
+    def precio_cup_referencia(self):
+        from decimal import Decimal, ROUND_HALF_UP
+        from core.services import tasa_cambio
+
+        tasa, _ = tasa_cambio()
+        valor = Decimal(str(self.precio_usd or 0)) * Decimal(str(tasa))
+        return int((valor / Decimal('50')).quantize(Decimal('1'), rounding=ROUND_HALF_UP) * 50)
+
+    @property
+    def precio_cup(self):
+        # Compatibilidad: referencia dinámica a partir de USD
+        return self.precio_cup_referencia
 
 
 # ============================================================
@@ -184,7 +199,9 @@ class Pedido(models.Model):
     lleva_esquineros = models.BooleanField(default=False, verbose_name='Lleva esquineros')
 
     # Precios
-    precio_venta = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Precio venta')
+    precio_usd = models.DecimalField(max_digits=10, decimal_places=1, default=0, verbose_name='Precio USD al crear')
+    tasa_cambio_pedido = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True, verbose_name='Tasa de cambio al crear')
+    precio_venta = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Precio venta CUP congelado')
     anticipo_requerido = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Anticipo requerido')
     anticipo_recibido = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Anticipo recibido')
     saldo_pendiente = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Saldo pendiente')

@@ -27,6 +27,8 @@ export type PedidoListItem = {
   estado_nombre: string;
   estado_color: string;
   estado_es_final: boolean;
+  precio_usd?: string | number;
+  tasa_cambio_pedido?: string | number | null;
   precio_venta: string;
   anticipo_requerido: string;
   anticipo_recibido: string;

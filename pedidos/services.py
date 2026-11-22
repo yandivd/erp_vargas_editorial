@@ -1,7 +1,7 @@
 import logging
 import re
 import unicodedata
-from decimal import Decimal, InvalidOperation, ROUND_FLOOR
+from decimal import Decimal, InvalidOperation, ROUND_FLOOR, ROUND_HALF_UP
 from clientes.models import Cliente
 from django.utils import timezone
 from django.db import transaction
@@ -201,95 +201,70 @@ def _incremento_por_precio_base(precio_base, incrementos):
 # ============================================================
 # COSTEADOR
 # ============================================================
+def redondear_cup_50(valor):
+    valor = Decimal(str(valor or 0))
+    return int((valor / Decimal('50')).quantize(Decimal('1'), rounding=ROUND_HALF_UP) * 50)
+
+
 class CosteadorPedido:
-    def __init__(self, pedido, parametros=None, tasa_cambio=None):
+    """Calcula el costo de producción en CUP (MN)."""
+
+    def __init__(self, pedido, tasa_cambio=None):
         self.pedido = pedido
-        self._parametros = parametros
         self._tasa_override = tasa_cambio
 
     def _param(self, clave, default=0):
-        if self._parametros is not None:
-            valor = self._parametros.get(clave)
-            if valor is not None:
-                return Decimal(str(valor))
-            return Decimal(str(default))
         return Decimal(str(Parametro.get(clave, default)))
 
     def _tasa_cambio(self):
         if self._tasa_override is not None:
             return Decimal(str(self._tasa_override))
-
         from core.services import tasa_cambio
-
         return tasa_cambio()[0]
 
     def calcular(self):
         p = self.pedido
         paginas = p.paginas
+        tasa = self._tasa_cambio()
 
-        # --- PAPEL ---
         paginas_por_hoja = self._param('paginas_por_hoja', 4)
         hojas = (paginas + int(paginas_por_hoja) - 1) // int(paginas_por_hoja)
         precio_paquete = self._param('precio_papel_paquete', 1800)
         hojas_por_paquete = self._param('hojas_por_paquete', 500)
-        costo_hoja = precio_paquete / hojas_por_paquete if hojas_por_paquete else 0
-        costo_papel = hojas * costo_hoja
+        costo_papel = hojas * (precio_paquete / hojas_por_paquete if hojas_por_paquete else Decimal('0'))
 
-        # --- TINTA ---
         precio_tinta = self._param('precio_tinta_litro', 17500)
         rinde_tinta = self._param('rinde_tinta_paginas', 35000)
-        costo_por_pagina_tinta = precio_tinta / rinde_tinta if rinde_tinta else 0
-        costo_tinta = paginas * costo_por_pagina_tinta
+        costo_tinta = paginas * (precio_tinta / rinde_tinta if rinde_tinta else Decimal('0'))
 
-        # --- PEGAMENTO ---
         precio_pegamento = self._param('precio_pegamento', 3500)
         rinde_pegamento = self._param('rinde_pegamento_lomos', 70)
-        costo_pegamento = precio_pegamento / rinde_pegamento if rinde_pegamento else 0
+        costo_pegamento = precio_pegamento / rinde_pegamento if rinde_pegamento else Decimal('0')
 
-        # --- ESQUINEROS ---
         lleva_esquineros = p.lleva_esquineros or p.lleva_cantos_tintados
         costo_esquineros = Decimal('0')
         if lleva_esquineros:
             precio_paquete_usd = self._param('precio_esquineros_paquete_usd', 6)
             piezas_por_paquete = self._param('esquineros_por_paquete', 100)
             piezas_por_libro = self._param('esquineros_por_libro', 4)
-            costo_pieza_usd = (
-                precio_paquete_usd / piezas_por_paquete
-                if piezas_por_paquete
-                else Decimal('0')
-            )
-            costo_esquineros = (
-                costo_pieza_usd * piezas_por_libro * self._tasa_cambio()
-            )
+            costo_pieza_usd = precio_paquete_usd / piezas_por_paquete if piezas_por_paquete else Decimal('0')
+            costo_esquineros = costo_pieza_usd * piezas_por_libro * Decimal(str(tasa))
 
-        # --- CANTOS TINTADOS ---
-        costo_scotch = Decimal('0')
-        if p.lleva_cantos_tintados:
-            costo_scotch = self._param('precio_cantos_pintados', 2500)
-
-        # --- PORTADA ---
+        costo_scotch = self._param('precio_cantos_pintados', 2500) if p.lleva_cantos_tintados else Decimal('0')
         costo_portada = self._param('precio_portada', 1000)
-
-        # --- ENCUADERNACIÓN ---
         paginas_grueso = self._param('paginas_para_grueso', 300)
         precio_enc_normal = self._param('precio_encuadernacion', 500)
         precio_enc_grueso = self._param('precio_encuadernacion_grueso', 500)
         costo_encuadernacion = precio_enc_grueso if paginas > paginas_grueso else precio_enc_normal
-
-        # --- ELECTRICIDAD ---
         electricidad = self._param('electricidad_mensual', 1000)
         libros_mes = self._param('libros_por_mes_estimado', 30)
-        costo_electricidad = electricidad / libros_mes if libros_mes else 0
-
-        # --- DISEÑO ---
+        costo_electricidad = electricidad / libros_mes if libros_mes else Decimal('0')
         costo_diseno = self._param('precio_diseno', 500)
 
-        # --- TOTAL ---
         total = (
             costo_papel + costo_tinta + costo_pegamento + costo_scotch + costo_esquineros +
             costo_portada + costo_encuadernacion + costo_electricidad + costo_diseno
         )
-
         return {
             'hojas': hojas,
             'costo_papel': round(costo_papel, 2),
@@ -302,48 +277,32 @@ class CosteadorPedido:
             'costo_electricidad': round(costo_electricidad, 2),
             'costo_diseno': round(costo_diseno, 2),
             'costo_total': round(total, 2),
+            'tasa_cambio': float(tasa),
         }
 
     def calcular_precio_sugerido(self):
-        """Calcula el precio base y suma el adicional según los acabados."""
         costo = self.calcular()
         costo_total = Decimal(str(costo['costo_total']))
-        # El precio base no incluye los adicionales de cantos tintados/esquineros.
-        costo_base = (
-            costo_total
-            - Decimal(str(costo['costo_scotch']))
-            - Decimal(str(costo['costo_esquineros']))
-        )
+        costo_base = costo_total - Decimal(str(costo['costo_scotch'])) - Decimal(str(costo['costo_esquineros']))
         paginas = Decimal(str(self.pedido.paginas))
-
         pag_min = Decimal(str(Parametro.get('paginas_min', 100)))
         pag_max = Decimal(str(Parametro.get('paginas_max', 1000)))
         margen_min = Decimal(str(Parametro.get('margen_min', 0.8)))
         margen_max = Decimal(str(Parametro.get('margen_max', 2.0)))
-
         if pag_max == pag_min:
             pag_max = pag_min + 1
-
         proporcion = (min(max(paginas, pag_min), pag_max) - pag_min) / (pag_max - pag_min)
         margen = margen_min + (proporcion * (margen_max - margen_min))
-
-        precio_base = costo_base * (Decimal('1') + margen)
-
         import math
-        precio_base = Decimal(str(math.ceil(precio_base / 100) * 100))
-
+        precio_base = Decimal(str(math.ceil((costo_base * (Decimal('1') + margen)) / 100) * 100))
         if self.pedido.lleva_cantos_tintados:
-            incremento = _incremento_por_precio_base(
-                precio_base, INCREMENTO_CANTOS_TINTADOS
-            )
+            incremento = _incremento_por_precio_base(precio_base, INCREMENTO_CANTOS_TINTADOS)
         elif self.pedido.lleva_esquineros or self.pedido.lleva_cantos_tintados:
-            incremento = _incremento_por_precio_base(
-                precio_base, INCREMENTO_ESQUINEROS
-            )
+            incremento = _incremento_por_precio_base(precio_base, INCREMENTO_ESQUINEROS)
         else:
             incremento = Decimal('0')
-
         return precio_base + incremento
+
 
 
 def obtener_ganancia_promedio():

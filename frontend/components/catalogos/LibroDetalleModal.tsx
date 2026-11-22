@@ -112,7 +112,7 @@ export default function LibroDetalleModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  const precioBase = Number(libro.precio);
+  const precioBase = Number((libro as any).precio_cup_referencia ?? (libro as any).precio_cup ?? libro.precio);
   const precioUnitario = calcularPrecioConAcabados(
     precioBase,
     cantosPintados,

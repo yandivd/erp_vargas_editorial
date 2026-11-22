@@ -112,7 +112,10 @@ export default function ShopBookCard({
           {!compact && libro.descripcion ? <p className="mt-2 line-clamp-2 text-sm text-muted">{libro.descripcion}</p> : null}
 
           <div className={compact ? "mt-1 flex flex-col gap-0.5 pt-1 sm:mt-auto sm:flex-row sm:items-center sm:justify-between sm:gap-2 sm:pt-3" : "mt-auto flex items-center justify-between gap-3 pt-4"}>
-            <span className={compact ? "text-[11px] font-bold leading-tight text-red-700 sm:text-sm" : "text-lg font-bold text-red-700"}>{money(libro.precio, "CUP")}</span>
+            <div className="min-w-0">
+              <span className={compact ? "block text-[11px] font-bold leading-tight text-red-700 sm:text-sm" : "block text-lg font-bold text-red-700"}>{money(libro.precio_usd ?? 0, "USD")}</span>
+              <span className={compact ? "block text-[10px] leading-tight text-muted sm:text-[11px]" : "block text-xs text-muted"}>~ {money(libro.precio_cup_referencia ?? libro.precio_cup ?? libro.precio, "CUP")} (al cambio de hoy)</span>
+            </div>
             {!compact ? (
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
                 <ShoppingBag className="h-4 w-4" aria-hidden="true" />

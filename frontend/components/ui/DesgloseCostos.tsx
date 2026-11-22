@@ -14,16 +14,18 @@ export default function DesgloseCostos({
     return null;
   }
 
+  const c:any = costo;
+  const tasa = c.tasa_cambio || 1;
   const recursos = [
-    { label: "Papel", value: costo.costo_papel },
-    { label: "Tinta", value: costo.costo_tinta },
-    { label: "Pegamento", value: costo.costo_pegamento },
-    { label: "Cantos tintados", value: costo.costo_scotch },
-    { label: "Esquineros", value: costo.costo_esquineros },
-    { label: "Portada", value: costo.costo_portada },
-    { label: "Encuadernación", value: costo.costo_encuadernacion },
-    { label: "Electricidad", value: costo.costo_electricidad },
-    { label: "Diseño", value: costo.costo_diseno },
+    { label: "Papel", cup: c.costo_papel ?? 0 },
+    { label: "Tinta", cup: c.costo_tinta ?? 0 },
+    { label: "Pegamento", cup: c.costo_pegamento ?? 0 },
+    { label: "Cantos tintados", cup: c.costo_scotch ?? 0 },
+    { label: "Esquineros", cup: c.costo_esquineros ?? 0 },
+    { label: "Portada", cup: c.costo_portada ?? 0 },
+    { label: "Encuadernación", cup: c.costo_encuadernacion ?? 0 },
+    { label: "Electricidad", cup: c.costo_electricidad ?? 0 },
+    { label: "Diseño", cup: c.costo_diseno ?? 0 },
   ];
 
   return (
@@ -32,7 +34,7 @@ export default function DesgloseCostos({
     >
       {recursos.map((recurso) => (
         <span key={recurso.label}>
-          {recurso.label} {money(recurso.value)}
+          {recurso.label} {money(recurso.cup, "CUP")}
         </span>
       ))}
     </div>

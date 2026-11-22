@@ -13,7 +13,7 @@ import { fetchCatalogoLibro, type LibroPublico } from "@/lib/catalogos";
 import { money } from "@/lib/format";
 import { PROVINCIAS, municipiosDe } from "@/lib/lugares";
 import { costoMensajeriaDe } from "@/lib/mensajeria";
-import { precioItem, useCarrito } from "@/lib/tienda";
+import { precioItemCup, precioItemUsd, useCarrito } from "@/lib/tienda";
 
 const WHATSAPP_NUMERO = "5354545068";
 
@@ -108,7 +108,7 @@ export default function CheckoutPage() {
       items.reduce((acumulado, item) => {
         const libro = libros[item.libroId];
         return libro
-          ? acumulado + precioItem(libro, item) * item.cantidad
+          ? acumulado + precioItemCup(libro, item) * item.cantidad
           : acumulado;
       }, 0),
     [items, libros],
@@ -164,7 +164,8 @@ export default function CheckoutPage() {
       ]
         .filter((valor): valor is string => valor !== null)
         .join(", ");
-      const subtotal = libro ? precioItem(libro, item) * item.cantidad : 0;
+      const subtotal = libro ? precioItemCup(libro, item) * item.cantidad : 0;
+      const subtotalUsd = libro ? precioItemUsd(libro, item) * item.cantidad : 0;
 
       return `${index + 1}. ${libro?.titulo ?? `Libro #${item.libroId}`} x${
         item.cantidad
@@ -313,7 +314,8 @@ export default function CheckoutPage() {
             <div className="mt-5 space-y-4">
               {items.map((item) => {
                 const libro = libros[item.libroId];
-                const precioUnitario = libro ? precioItem(libro, item) : 0;
+                const precioUnitarioCup = libro ? Math.round(precioItemCup(libro, item) / 50) * 50 : 0;
+                const precioUnitarioUsd = libro ? precioItemUsd(libro, item) : 0;
 
                 return (
                   <div
@@ -339,13 +341,16 @@ export default function CheckoutPage() {
                         </p>
                       </div>
                       <span className="shrink-0 text-sm font-bold text-brand">
-                        {money(precioUnitario * item.cantidad, "CUP")}
+                        {money(precioUnitarioUsd * item.cantidad, "USD")}
                       </span>
                     </div>
 
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                       <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
-                        {item.cantidad} x {money(precioUnitario, "CUP")}
+                        {item.cantidad} x {money(precioUnitarioUsd, "USD")} ({money(Math.round(precioUnitarioCup / 50) * 50, "CUP")})
+                      </span>
+                      <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
+                        Total: {money(precioUnitarioUsd * item.cantidad, "USD")} ({money(Math.round(precioUnitarioCup * item.cantidad / 50) * 50, "CUP")})
                       </span>
                       {item.esquineros ? (
                         <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">

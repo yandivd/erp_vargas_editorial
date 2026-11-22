@@ -485,12 +485,13 @@ async function calcularCostoProduccion(
       return null;
     }
 
-    return calcularCostoPorUnidad(
+    const c: any = calcularCostoPorUnidad(
       paginas,
       pedido.lleva_cantos_tintados,
       pedido.lleva_esquineros,
       parametros,
-    ).costo_total;
+    );
+    return Number(c.costo_total_cup ?? c.costo_total ?? 0);
   } catch {
     return null;
   }
