@@ -50,8 +50,13 @@ export default function CatalogoPage() {
 
   useEffect(() => {
     const t = searchParams.get("tab");
-    if (t === "favoritos" || t === "catalogo") setTab(t);
-    if (t === "carrito" || searchParams.get("carrito") === "1") setCarritoAbierto(true);
+    const nextTab = t === "favoritos" || t === "catalogo" ? t : null;
+    const openCart = t === "carrito" || searchParams.get("carrito") === "1";
+    if (!nextTab && !openCart) return;
+    queueMicrotask(() => {
+      if (nextTab) setTab((prev) => (prev === nextTab ? prev : nextTab));
+      if (openCart) setCarritoAbierto(true);
+    });
   }, [searchParams]);
 
   const favoritos = useFavoritos();
