@@ -1723,7 +1723,7 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ClienteListV1Serializer
-    http_method_names = ['get', 'post', 'head', 'options']
+    http_method_names = ['get', 'post', 'patch', 'put', 'head', 'options']
 
     ESTADOS_EXCLUIDOS = ('Entregado', 'Cancelado')
 
@@ -1841,6 +1841,20 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    def partial_update(self, request, *args, **kwargs):
+        cliente = self.get_object()
+        serializer = ClienteCreateV1Serializer(cliente, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        cliente = serializer.save()
+        return Response({'ok': True, 'data': ClienteListV1Serializer(cliente).data})
+
+    def update(self, request, *args, **kwargs):
+        cliente = self.get_object()
+        serializer = ClienteCreateV1Serializer(cliente, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        cliente = serializer.save()
+        return Response({'ok': True, 'data': ClienteListV1Serializer(cliente).data})
 
     @action(detail=True, methods=['post'], url_path='ajustar-fidelidad')
     def ajustar_fidelidad(self, request, pk=None):

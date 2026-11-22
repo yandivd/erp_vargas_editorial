@@ -8,6 +8,7 @@ import {
   thClass,
 } from "@/components/dashboard/ui";
 import { SortableHeader } from "@/components/ui/SortableHeader";
+import EditarClienteModal from "@/components/clientes/EditarClienteModal";
 import { badgeClass, type ClienteListItem } from "@/lib/clientes";
 import { formatDate, money } from "@/lib/format";
 
@@ -118,13 +119,16 @@ export default function ClientesTable({
                   )}
                 </td>
                 <td className={`${tdClass} text-right`}>
-                  <Link
-                    href={`/clientes/${cliente.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-semibold text-muted transition hover:border-brand hover:bg-blue-50 hover:text-brand"
-                  >
-                    <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-                    Ver
-                  </Link>
+                  <div className="inline-flex items-center gap-2">
+                    <EditarClienteModal cliente={cliente} />
+                    <Link
+                      href={`/clientes/${cliente.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-semibold text-muted transition hover:border-brand hover:bg-blue-50 hover:text-brand"
+                    >
+                      <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                      Ver
+                    </Link>
+                  </div>
                 </td>
               </tr>
             );

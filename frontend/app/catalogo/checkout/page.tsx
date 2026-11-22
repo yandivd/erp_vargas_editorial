@@ -12,7 +12,8 @@ import {
 import { fetchCatalogoLibro, type LibroPublico } from "@/lib/catalogos";
 import { money } from "@/lib/format";
 import { PROVINCIAS, municipiosDe } from "@/lib/lugares";
-import { costoMensajeriaDe } from "@/lib/mensajeria";
+import { costoMensajeriaDe, setTarifasMensajeria } from "@/lib/mensajeria";
+import { apiFetch } from "@/lib/api";
 import { precioItemCup, precioItemUsd, useCarrito } from "@/lib/tienda";
 
 const WHATSAPP_NUMERO = "5354545068";
@@ -44,6 +45,15 @@ export default function CheckoutPage() {
     useState<Formulario>(FORMULARIO_INICIAL);
   const [formError, setFormError] = useState<string | null>(null);
   const [enviado, setEnviado] = useState(false);
+  const [tarifasVersion, setTarifasVersion] = useState(0);
+
+  useEffect(() => {
+    const c = new AbortController();
+    apiFetch<{ tarifas: { municipio: string; costo: number }[] }>("configuracion/mensajeria", { signal: c.signal } as any)
+      .then((d) => { setTarifasMensajeria(d.tarifas || []); setTarifasVersion((v) => v + 1); })
+      .catch(() => undefined);
+    return () => c.abort();
+  }, []);
 
   useEffect(() => {
     const ids = Array.from(new Set(items.map((item) => item.libroId)));
@@ -116,7 +126,7 @@ export default function CheckoutPage() {
 
   const costoMensajeria = useMemo(
     () => costoMensajeriaDe(formulario.municipio, formulario.provincia),
-    [formulario.municipio, formulario.provincia],
+    [formulario.municipio, formulario.provincia, tarifasVersion],
   );
 
   const totalAPagar = total + costoMensajeria;

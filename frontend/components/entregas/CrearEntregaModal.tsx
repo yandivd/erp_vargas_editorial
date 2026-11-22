@@ -8,7 +8,7 @@ import { redondear2 } from "@/lib/costos";
 import type { EntregaDetail } from "@/lib/entregas";
 import { money } from "@/lib/format";
 import { PROVINCIAS, municipiosDe } from "@/lib/lugares";
-import { costoMensajeriaDe, provinciaDeMunicipio } from "@/lib/mensajeria";
+import { costoMensajeriaDe, provinciaDeMunicipio, setTarifasMensajeria } from "@/lib/mensajeria";
 import type { PedidoListItem } from "@/lib/pedidos";
 
 type GrupoCliente = {
@@ -91,27 +91,20 @@ export default function CrearEntregaModal() {
     }
 
     let cancelado = false;
-
-    apiFetch<PedidoListItem[]>("entregas/pedidos-disponibles")
-      .then((data) => {
-        if (!cancelado) {
-          setPedidos(data);
-        }
+    Promise.all([
+      apiFetch<PedidoListItem[]>("entregas/pedidos-disponibles"),
+      apiFetch<{ tarifas: { municipio: string; costo: number }[] }>("configuracion/mensajeria").catch(() => ({ tarifas: [] })),
+    ])
+      .then(([data, tarifasData]) => {
+        setTarifasMensajeria(tarifasData.tarifas || []);
+        if (!cancelado) setPedidos(data);
       })
       .catch((requestError: unknown) => {
         if (!cancelado) {
-          setError(
-            requestError instanceof Error
-              ? requestError.message
-              : "No se pudieron cargar los pedidos disponibles.",
-          );
+          setError(requestError instanceof Error ? requestError.message : "No se pudieron cargar los pedidos disponibles.");
         }
       })
-      .finally(() => {
-        if (!cancelado) {
-          setCargando(false);
-        }
-      });
+      .finally(() => { if (!cancelado) setCargando(false); });
 
     return () => {
       cancelado = true;
