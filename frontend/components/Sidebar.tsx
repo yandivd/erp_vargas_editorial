@@ -70,6 +70,7 @@ const sections: NavSection[] = [
       { href: "/libros", label: "Libros", icon: BookOpen },
       { href: "/inventario", label: "Inventario", icon: Package },
       { href: "/proveedores", label: "Proveedores", icon: Truck },
+      { href: "/mensajerias", label: "Mensajerías", icon: Truck },
       { href: "/empleados", label: "Nómina", icon: UserRound },
     ],
   },

@@ -120,36 +120,39 @@ export function provinciaDeMunicipio(municipio: string): string {
     : "";
 }
 
+let _tarifasOverride: Record<string, number> | null = null;
+
+export function setTarifasMensajeria(tarifas: { municipio: string; costo: number }[]) {
+  _tarifasOverride = {};
+  for (const t of tarifas) _tarifasOverride[normalizarMunicipio(t.municipio)] = Number(t.costo || 0);
+}
+
 export function costoMensajeriaDe(
   municipio: string,
   provincia?: string,
 ): number {
   const clave = normalizarMunicipio(municipio);
-
-  if (!clave) {
-    return 0;
-  }
-
-  const directo = COSTOS_NORMALIZADOS.get(clave);
-
-  if (directo !== undefined) {
-    return directo;
-  }
-
-  const coincidente = municipioEnTexto(clave);
-
-  if (coincidente) {
-    const costo = COSTOS_NORMALIZADOS.get(normalizarMunicipio(coincidente));
-
-    if (costo !== undefined) {
-      return costo;
+  if (!clave) return 0;
+  if (_tarifasOverride) {
+    const ov = _tarifasOverride[clave];
+    if (ov !== undefined) return ov;
+    const coincidente = municipioEnTexto(clave);
+    if (coincidente) {
+      const ov2 = _tarifasOverride[normalizarMunicipio(coincidente)];
+      if (ov2 !== undefined) return ov2;
     }
   }
 
-  if (normalizarMunicipio(provincia ?? "") === "artemisa") {
-    return ARTEMISA_COSTO;
+  const directo = COSTOS_NORMALIZADOS.get(clave);
+  if (directo !== undefined) return directo;
+
+  const coincidente = municipioEnTexto(clave);
+  if (coincidente) {
+    const costo = COSTOS_NORMALIZADOS.get(normalizarMunicipio(coincidente));
+    if (costo !== undefined) return costo;
   }
 
+  if (normalizarMunicipio(provincia ?? "") === "artemisa") return ARTEMISA_COSTO;
   return 0;
 }
 

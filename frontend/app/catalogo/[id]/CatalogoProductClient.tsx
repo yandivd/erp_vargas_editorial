@@ -260,7 +260,7 @@ export default function CatalogoProductClient({ libro }: Props) {
                       Agregado al carrito.
                     </p>
                     <Link
-                      href="/catalogo/checkout"
+                      href="/catalogo?tab=carrito"
                       className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
                     >
                       <ShoppingCart className="h-4 w-4" aria-hidden="true" />

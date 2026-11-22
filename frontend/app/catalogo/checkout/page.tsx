@@ -172,13 +172,17 @@ export default function CheckoutPage() {
       }${acabados ? ` (${acabados})` : ""} - ${money(subtotal, "CUP")}`;
     });
 
+    const anticipo = Math.round(total / 2);
+    const saldoLibros = total - anticipo;
     return [
       "Hola Vargas Editorial, quiero confirmar este pedido:",
       "",
       ...lineas,
       "",
       `Subtotal de libros: ${money(total, "CUP")}`,
-      `Costo de mensajería: ${money(costoMensajeria, "CUP")}`,
+      `Anticipo (50% libros): ${money(anticipo, "CUP")}`,
+      `Saldo en entrega (50% libros): ${money(saldoLibros, "CUP")}`,
+      `Mensajería: ${money(costoMensajeria, "CUP")}`,
       `Total a pagar: ${money(totalAPagar, "CUP")}`,
       "",
       `Nombre: ${formulario.nombre.trim()}`,
@@ -266,6 +270,10 @@ export default function CheckoutPage() {
           Revisa tu carrito, completa tus datos y envía el pedido por
           WhatsApp. Te responderemos para coordinar el pago y la entrega.
         </p>
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">Condiciones de pago</p>
+          <p className="mt-1">El ANTICIPO puede ser depositado en efectivo o transferencia, pero el saldo restante debe ser pagado en efectivo junto con la mensajeria en caso de requerirla</p>
+        </div>
       </header>
 
       {cargando ? (
@@ -390,6 +398,20 @@ export default function CheckoutPage() {
                 <span className="text-2xl font-extrabold text-brand">
                   {money(totalAPagar, "CUP")}
                 </span>
+              </div>
+              <div className="mt-2 space-y-1 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Anticipo (50% del pedido, sin mensajería)</span>
+                  <span className="font-semibold text-ink">{money(Math.round(total / 2), "CUP")}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Saldo en entrega (50% del pedido, sin mensajería)</span>
+                  <span className="font-semibold text-ink">{money(total - Math.round(total / 2), "CUP")}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">Mensajería</span>
+                  <span className="font-semibold text-ink">{formulario.municipio ? money(costoMensajeria, "CUP") : "Selecciona un municipio"}</span>
+                </div>
               </div>
             </div>
 
@@ -581,8 +603,7 @@ export default function CheckoutPage() {
               </button>
 
               <p className="text-center text-xs text-muted">
-                No se realizará ningún cobro en línea. Coordinaremos el pago y
-                la entrega por WhatsApp.
+                El anticipo puede pagarse en efectivo o transferencia; el saldo restante se entrega en efectivo a la mensajería al recibir el pedido.
               </p>
             </form>
           </section>

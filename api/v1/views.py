@@ -431,6 +431,42 @@ TEMA_DECORACION_REVERSE = {v: k for k, v in TEMA_DECORACION_MAP.items()}
 
 @api_view(['GET', 'PUT'])
 @permission_classes([AllowAny])
+def configuracion_mensajeria(request):
+    from core.models import TarifaMensajeria
+    from core.ubicaciones import MUNICIPIOS_POR_PROVINCIA
+    if request.method == 'PUT':
+        if not request.user or not request.user.is_authenticated:
+            return Response({'ok': False, 'error': 'Autenticación requerida.'}, status=status.HTTP_401_UNAUTHORIZED)
+        items = request.data.get('tarifas', [])
+        if not isinstance(items, list):
+            return Response({'ok': False, 'error': 'Formato inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+        for item in items:
+            provincia = str(item.get('provincia', '')).strip()
+            municipio = str(item.get('municipio', '')).strip()
+            if provincia not in MUNICIPIOS_POR_PROVINCIA or municipio not in MUNICIPIOS_POR_PROVINCIA[provincia]:
+                continue
+            try:
+                costo = Decimal(str(item.get('costo', 0)))
+            except Exception:
+                costo = Decimal('0')
+            TarifaMensajeria.objects.update_or_create(
+                provincia=provincia, municipio=municipio,
+                defaults={'costo': max(Decimal('0'), costo)},
+            )
+    tarifas = []
+    existentes = {(t.provincia, t.municipio): float(t.costo) for t in TarifaMensajeria.objects.all()}
+    for provincia, municipios in MUNICIPIOS_POR_PROVINCIA.items():
+        for municipio in municipios:
+            tarifas.append({
+                'provincia': provincia,
+                'municipio': municipio,
+                'costo': existentes.get((provincia, municipio), 0),
+            })
+    return Response({'ok': True, 'data': {'tarifas': tarifas}})
+
+
+@api_view(['GET', 'PUT'])
+@permission_classes([AllowAny])
 def configuracion_decoracion(request):
     if request.method == 'PUT':
         if not request.user or not request.user.is_authenticated:

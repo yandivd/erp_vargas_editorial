@@ -20,3 +20,18 @@ class Parametro(models.Model):
             return cls.objects.get(clave=clave).valor
         except cls.DoesNotExist:
             return default
+
+
+class TarifaMensajeria(models.Model):
+    provincia = models.CharField(max_length=100)
+    municipio = models.CharField(max_length=100)
+    costo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        verbose_name = 'Tarifa de mensajería'
+        verbose_name_plural = 'Tarifas de mensajería'
+        unique_together = ('provincia', 'municipio')
+        ordering = ['provincia', 'municipio']
+
+    def __str__(self):
+        return f"{self.municipio}, {self.provincia}: {self.costo}"

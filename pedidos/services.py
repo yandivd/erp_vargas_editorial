@@ -75,12 +75,33 @@ def normalizar_municipio(valor):
     return ' '.join(texto.split())
 
 
-_COSTOS_NORMALIZADOS = {}
-_NOMBRES_NORMALIZADOS = {}
-for _municipio, _costo in COSTOS_MENSAJERIA.items():
-    _clave = normalizar_municipio(_municipio)
-    _COSTOS_NORMALIZADOS[_clave] = _costo
-    _NOMBRES_NORMALIZADOS[_clave] = _municipio
+def _costos_mensajeria_default():
+    return dict(COSTOS_MENSAJERIA)
+
+
+def obtener_costos_mensajeria():
+    """Devuelve costos por municipio, con overrides desde TarifaMensajeria."""
+    costos = _costos_mensajeria_default()
+    try:
+        from core.models import TarifaMensajeria
+        for t in TarifaMensajeria.objects.all():
+            costos[t.municipio] = Decimal(str(t.costo))
+    except Exception:
+        pass
+    return costos
+
+
+def _build_costos_normalizados():
+    costos = obtener_costos_mensajeria()
+    normalizados = {}
+    nombres = {}
+    for municipio, costo in costos.items():
+        clave = normalizar_municipio(municipio)
+        normalizados[clave] = Decimal(str(costo))
+        nombres[clave] = municipio
+    return normalizados, nombres
+
+_COSTOS_NORMALIZADOS, _NOMBRES_NORMALIZADOS = _build_costos_normalizados()
 
 _PROVINCIA_POR_MUNICIPIO = {}
 for _provincia, _municipios in MUNICIPIOS_POR_PROVINCIA.items():
@@ -169,12 +190,14 @@ def costo_mensajeria_para_municipio(municipio, provincia=None):
     if not clave:
         return Decimal('0')
 
-    if clave in _COSTOS_NORMALIZADOS:
-        return _COSTOS_NORMALIZADOS[clave]
+    costos_norm, _ = _build_costos_normalizados()
+    if clave in costos_norm:
+        return costos_norm[clave]
 
-    coincidente = _municipio_coincidente(clave)
-    if coincidente:
-        return _COSTOS_NORMALIZADOS[coincidente]
+    # coincidente by scanning
+    for k in sorted(costos_norm, key=len, reverse=True):
+        if re.search(r'(?<!\w)' + re.escape(k) + r'(?!\w)', clave):
+            return costos_norm[k]
 
     if normalizar_municipio(provincia) == 'artemisa':
         return ARTEMISA_COSTO
