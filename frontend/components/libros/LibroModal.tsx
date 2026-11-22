@@ -48,7 +48,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
   const [titulo, setTitulo] = useState("");
   const [autor, setAutor] = useState("");
   const [paginas, setPaginas] = useState("");
-  const [precio, setPrecio] = useState("");
+  const [precioUsd, setPrecioUsd] = useState("");
   const [imagenFile, setImagenFile] = useState<File | null>(null);
   const [imagenPreviewUrl, setImagenPreviewUrl] = useState<string | null>(null);
   const [imagenBase, setImagenBase] = useState("");
@@ -78,8 +78,13 @@ export default function LibroModal({ libro }: LibroModalProps) {
       parametros,
     );
   }, [parametros, paginasNumero]);
-  const precioEfectivo =
-    !precioManual && calculo ? String(calculo.precio_sugerido) : precio;
+  const TASA_USD_FIJA = 930;
+  const precioEfectivoUsd = !precioManual && calculo
+    ? String(Math.round((calculo.precio_sugerido / TASA_USD_FIJA) * 10) / 10)
+    : precioUsd;
+  const precioCupEstimado = !precioManual && calculo
+    ? calculo.precio_sugerido
+    : Math.round((Number(precioEfectivoUsd || 0) * (parametros?.tasa_cambio || 1)) / 50) * 50;
 
   useEffect(() => {
     if (!abierto || parametros) {
@@ -138,7 +143,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
     setTitulo(libro?.titulo ?? "");
     setAutor(libro?.autor ?? "");
     setPaginas(libro ? String(libro.paginas) : "");
-    setPrecio(libro?.precio ?? "");
+    setPrecioUsd((libro as any)?.precio_usd !== undefined ? String((libro as any).precio_usd) : "");
     setPrecioManual(esEdicion);
     setImagenFile(null);
     setImagenPreviewUrl(null);
@@ -171,7 +176,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
     setPaginas(value);
 
     if (!precioManual && !value.trim()) {
-      setPrecio("");
+      setPrecioUsd("");
     }
   }
 
@@ -197,7 +202,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
     if (!calculo) {
       return;
     }
-    setPrecio(String(calculo.precio_sugerido));
+    setPrecioUsd(String(calculo.precio_sugerido_usd));
     setPrecioManual(false);
   }
 
@@ -221,16 +226,12 @@ export default function LibroModal({ libro }: LibroModalProps) {
       return;
     }
 
-    const precioValor = Number(precioEfectivo);
-    if (!Number.isFinite(precioValor) || precioValor < 0) {
-      setError("El precio debe ser un número mayor o igual que cero.");
+    const precioValorUsd = Number(precioEfectivoUsd);
+    if (!Number.isFinite(precioValorUsd) || precioValorUsd < 0) {
+      setError("El precio USD debe ser mayor o igual que cero.");
       return;
     }
 
-    if (!esEdicion && !imagenBase.trim()) {
-      setError("La imagen base (URL) es obligatoria.");
-      return;
-    }
 
     setGuardando(true);
     setError(null);
@@ -239,7 +240,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
     formData.set("titulo", titulo.trim());
     formData.set("autor", autor.trim());
     formData.set("paginas", String(paginasValor));
-    formData.set("precio", String(precioValor));
+    formData.set("precio_usd", String(precioValorUsd));
     formData.set("imagen_base", imagenBase.trim());
     formData.set("imagen_con_esquineros", imagenEsquineros.trim());
     formData.set("imagen_con_cantos", imagenCantos.trim());
@@ -425,9 +426,9 @@ export default function LibroModal({ libro }: LibroModalProps) {
                     type="number"
                     min={0}
                     step="0.01"
-                    value={precioEfectivo}
+                    value={precioEfectivoUsd}
                     onChange={(event) => {
-                      setPrecio(event.target.value);
+                      setPrecioUsd(event.target.value);
                       setPrecioManual(true);
                     }}
                     disabled={guardando}
@@ -534,9 +535,9 @@ export default function LibroModal({ libro }: LibroModalProps) {
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span className="flex items-center gap-1.5">
                         <Sparkles className="h-4 w-4" aria-hidden="true" />
-                        Costo total de producción {money(calculo.costo_total)} +
+                        Costo total de producción {money((calculo as any).costo_total_cup ?? (calculo as any).costo_total, "CUP")} +
                         margen por {calculo.paginas} páginas ={" "}
-                        <strong>{money(calculo.precio_sugerido)}</strong>
+                        <strong>{money(calculo.precio_sugerido_usd, "USD")}</strong> <span className="text-muted">({money(calculo.precio_sugerido, "CUP")})</span>
                       </span>
                       {precioManual ? (
                         <button
@@ -544,7 +545,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
                           onClick={usarPrecioSugerido}
                           className="self-start font-semibold underline underline-offset-2 sm:self-auto"
                         >
-                          Usar precio sugerido
+                          Usar precio USD sugerido
                         </button>
                       ) : null}
                     </div>

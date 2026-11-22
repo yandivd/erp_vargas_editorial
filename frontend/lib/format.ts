@@ -9,12 +9,17 @@ const integerFormat = new Intl.NumberFormat("es-CU", {
   maximumFractionDigits: 0,
 });
 
+const usdFormat = new Intl.NumberFormat("es-CU", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+});
+
 export function money(value: number | string | null | undefined, currency?: string): string {
   const number = Number(value ?? 0);
-  const isUsd = currency === "USD";
-  const prefix = isUsd ? "US$" : "$";
-  const formatter = isUsd ? integerFormat : numberFormat;
-  return `${prefix}${formatter.format(number)}`;
+  if (currency === "USD") {
+    return `${usdFormat.format(number)} USD`;
+  }
+  return `$${numberFormat.format(number)}`;
 }
 
 export function number(value: number | string | null | undefined): string {

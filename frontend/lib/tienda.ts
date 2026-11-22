@@ -184,15 +184,21 @@ export function escribirCarrito(next: CarritoItem[]): void {
   emitirTienda();
 }
 
-export function precioItem(
-  libro: LibroPublico,
-  item: Pick<CarritoItem, "esquineros" | "cantosPintados">,
-): number {
-  return calcularPrecioConAcabados(
-    Number(libro.precio),
-    item.cantosPintados,
-    item.esquineros,
-  );
+export function precioItemCup(libro: LibroPublico, item: Pick<CarritoItem, "esquineros" | "cantosPintados">): number {
+  const precioBase = Number(libro.precio_cup_referencia ?? libro.precio_cup ?? libro.precio) || 0;
+  return calcularPrecioConAcabados(precioBase, item.cantosPintados, item.esquineros);
+}
+
+export function precioItemUsd(libro: LibroPublico, item: Pick<CarritoItem, "esquineros" | "cantosPintados">): number {
+  const baseUsd = Number(libro.precio_usd ?? 0) || 0;
+  const baseCup = Number(libro.precio_cup_referencia ?? libro.precio_cup ?? libro.precio) || 0;
+  const finalCup = precioItemCup(libro, item);
+  if (!baseCup) return 0;
+  return (baseUsd * finalCup) / baseCup;
+}
+
+export function precioItem(libro: LibroPublico, item: Pick<CarritoItem, "esquineros" | "cantosPintados">): number {
+  return precioItemCup(libro, item);
 }
 
 export function totalItem(libro: LibroPublico, item: CarritoItem): number {

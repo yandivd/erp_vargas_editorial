@@ -39,6 +39,8 @@ export type CostoCalculado = {
   paginas: number;
   precio_sugerido: number;
   anticipo_sugerido: number;
+  tasa_cambio: number;
+  precio_sugerido_usd?: number;
 };
 
 export function redondear2(valor: number): number {
@@ -46,22 +48,14 @@ export function redondear2(valor: number): number {
 }
 
 function incrementoCantosTintados(precioBase: number): number {
-  if (precioBase < 5000) {
-    return 3000;
-  }
-  if (precioBase < 8000) {
-    return 4000;
-  }
+  if (precioBase < 5000) return 3000;
+  if (precioBase < 8000) return 4000;
   return 5000;
 }
 
 function incrementoEsquineros(precioBase: number): number {
-  if (precioBase < 5000) {
-    return 300;
-  }
-  if (precioBase < 8000) {
-    return 500;
-  }
+  if (precioBase < 5000) return 300;
+  if (precioBase < 8000) return 500;
   return 800;
 }
 
@@ -87,74 +81,36 @@ export function calcularCostoPorUnidad(
 ): CostoCalculado {
   const paginasPorHoja = Math.trunc(parametros.paginas_por_hoja) || 1;
   const hojas = Math.floor((paginas + paginasPorHoja - 1) / paginasPorHoja);
-  const costoPapel =
-    hojas *
-    (parametros.hojas_por_paquete
-      ? parametros.precio_papel_paquete / parametros.hojas_por_paquete
-      : 0);
-  const costoTinta =
-    paginas *
-    (parametros.rinde_tinta_paginas
-      ? parametros.precio_tinta_litro / parametros.rinde_tinta_paginas
-      : 0);
-  const costoPegamento = parametros.rinde_pegamento_lomos
-    ? parametros.precio_pegamento / parametros.rinde_pegamento_lomos
-    : 0;
+  const costoPapel = hojas * (parametros.hojas_por_paquete ? parametros.precio_papel_paquete / parametros.hojas_por_paquete : 0);
+  const costoTinta = paginas * (parametros.rinde_tinta_paginas ? parametros.precio_tinta_litro / parametros.rinde_tinta_paginas : 0);
+  const costoPegamento = parametros.rinde_pegamento_lomos ? parametros.precio_pegamento / parametros.rinde_pegamento_lomos : 0;
   const costoEsquinerosUsd = parametros.esquineros_por_paquete
-    ? (parametros.precio_esquineros_paquete_usd /
-        parametros.esquineros_por_paquete) *
-      parametros.esquineros_por_libro
+    ? (parametros.precio_esquineros_paquete_usd / parametros.esquineros_por_paquete) * parametros.esquineros_por_libro
     : 0;
   const esquineros = llevaEsquineros || llevaCantosTintados;
-  const costoEsquineros = esquineros
-    ? costoEsquinerosUsd * parametros.tasa_cambio
-    : 0;
-  const costoCantosTintados = llevaCantosTintados
-    ? parametros.precio_cantos_pintados
-    : 0;
+  const costoEsquineros = esquineros ? costoEsquinerosUsd * (parametros.tasa_cambio || 1) : 0;
+  const costoCantosTintados = llevaCantosTintados ? parametros.precio_cantos_pintados : 0;
   const costoPortada = parametros.precio_portada;
-  const costoEncuadernacion =
-    paginas > parametros.paginas_para_grueso
-      ? parametros.precio_encuadernacion_grueso
-      : parametros.precio_encuadernacion;
-  const costoElectricidad = parametros.libros_por_mes_estimado
-    ? parametros.electricidad_mensual / parametros.libros_por_mes_estimado
-    : 0;
+  const costoEncuadernacion = paginas > parametros.paginas_para_grueso ? parametros.precio_encuadernacion_grueso : parametros.precio_encuadernacion;
+  const costoElectricidad = parametros.libros_por_mes_estimado ? parametros.electricidad_mensual / parametros.libros_por_mes_estimado : 0;
   const costoDiseno = parametros.precio_diseno;
 
   const costoTotal = redondear2(
-    costoPapel +
-      costoTinta +
-      costoPegamento +
-      costoCantosTintados +
-      costoEsquineros +
-      costoPortada +
-      costoEncuadernacion +
-      costoElectricidad +
-      costoDiseno,
+    costoPapel + costoTinta + costoPegamento + costoCantosTintados + costoEsquineros +
+    costoPortada + costoEncuadernacion + costoElectricidad + costoDiseno,
   );
 
   const paginasMin = parametros.paginas_min;
-  const paginasMax =
-    parametros.paginas_max === paginasMin
-      ? paginasMin + 1
-      : parametros.paginas_max;
-  const proporcion =
-    (Math.min(Math.max(paginas, paginasMin), paginasMax) - paginasMin) /
-    (paginasMax - paginasMin);
-  const margen =
-    parametros.margen_min +
-    proporcion * (parametros.margen_max - parametros.margen_min);
-  const costoBase = redondear2(
-    costoTotal - costoCantosTintados - costoEsquineros,
-  );
+  const paginasMax = parametros.paginas_max === paginasMin ? paginasMin + 1 : parametros.paginas_max;
+  const proporcion = (Math.min(Math.max(paginas, paginasMin), paginasMax) - paginasMin) / (paginasMax - paginasMin);
+  const margen = parametros.margen_min + proporcion * (parametros.margen_max - parametros.margen_min);
+  const costoBase = redondear2(costoTotal - costoCantosTintados - costoEsquineros);
   const precioBase = Math.ceil((costoBase * (1 + margen)) / 100) * 100;
-  const incremento = llevaCantosTintados
-    ? incrementoCantosTintados(precioBase)
-    : esquineros
-      ? incrementoEsquineros(precioBase)
-      : 0;
+  const incremento = llevaCantosTintados ? incrementoCantosTintados(precioBase) : esquineros ? incrementoEsquineros(precioBase) : 0;
   const precioSugerido = precioBase + incremento;
+  const tasa = parametros.tasa_cambio || 1;
+  const TASA_USD_FIJA = 930;
+  const precioSugeridoUsd = Math.round((precioSugerido / TASA_USD_FIJA) * 10) / 10;
 
   return {
     hojas,
@@ -171,5 +127,7 @@ export function calcularCostoPorUnidad(
     paginas,
     precio_sugerido: precioSugerido,
     anticipo_sugerido: redondear2(precioSugerido / 2),
+    tasa_cambio: tasa,
+    precio_sugerido_usd: precioSugeridoUsd,
   };
 }

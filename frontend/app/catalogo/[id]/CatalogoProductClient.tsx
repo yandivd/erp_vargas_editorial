@@ -63,7 +63,7 @@ export default function CatalogoProductClient({ libro }: Props) {
     };
   }, [libro.id, favoritos]);
 
-  const precioBase = Number(libro.precio);
+  const precioBase = Number(libro.precio_cup_referencia ?? libro.precio_cup ?? libro.precio);
   const precioUnitario = calcularPrecioConAcabados(precioBase, cantosPintados, esquinerosEfectivos);
   const total = precioUnitario * cantidad;
   const incrementoEsquineros = calcularPrecioConAcabados(precioBase, false, true) - precioBase;
@@ -146,7 +146,8 @@ export default function CatalogoProductClient({ libro }: Props) {
                 <h1 className="mt-1 text-2xl font-extrabold text-ink md:text-3xl">{libro.titulo}</h1>
                 <p className="mt-1 text-sm text-muted">{libro.autor || "Autor desconocido"}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <span className="text-2xl font-extrabold text-brand">{money(precioBase, "CUP")}</span>
+                  <span className="text-2xl font-extrabold text-brand">{money(libro.precio_usd ?? 0, "USD")}</span>
+                  <span className="text-sm font-semibold text-muted">~ {money(libro.precio_cup_referencia ?? precioBase, "CUP")} (al cambio de hoy)</span>
                   {!libro.disponible ? (
                     <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
                       Agotado

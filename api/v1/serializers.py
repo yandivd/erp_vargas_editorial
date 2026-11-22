@@ -372,6 +372,10 @@ class AjusteFidelidadSerializer(serializers.Serializer):
 
 
 class LibroListV1Serializer(serializers.ModelSerializer):
+    precio_cup_referencia = serializers.SerializerMethodField()
+    precio_cup = serializers.SerializerMethodField()
+    precio_usd = serializers.DecimalField(max_digits=10, decimal_places=1, required=False, min_value=Decimal('0'))
+
     class Meta:
         model = Book
         fields = (
@@ -380,6 +384,9 @@ class LibroListV1Serializer(serializers.ModelSerializer):
             'autor',
             'paginas',
             'precio',
+            'precio_usd',
+            'precio_cup_referencia',
+            'precio_cup',
             'disponible',
             'imagen',
             'imagen_base',
@@ -388,10 +395,19 @@ class LibroListV1Serializer(serializers.ModelSerializer):
         )
         extra_kwargs = {
             'imagen': {'required': False, 'allow_null': True},
+            'precio': {'required': False},
+            'precio_usd': {'required': False},
+            'disponible': {'required': False},
             'imagen_base': {'required': False, 'allow_blank': True},
             'imagen_con_esquineros': {'required': False, 'allow_blank': True},
             'imagen_con_cantos': {'required': False, 'allow_blank': True},
         }
+
+    def get_precio_cup_referencia(self, obj):
+        return int(getattr(obj, 'precio_cup_referencia', getattr(obj, 'precio_cup', obj.precio or 0)))
+
+    def get_precio_cup(self, obj):
+        return self.get_precio_cup_referencia(obj)
 
     def validate_titulo(self, value):
         value = value.strip()
@@ -409,11 +425,29 @@ class LibroListV1Serializer(serializers.ModelSerializer):
             raise serializers.ValidationError('El precio no puede ser negativo.')
         return value
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        from decimal import Decimal, ROUND_HALF_UP
+        precio_usd = attrs.get('precio_usd')
+        precio = attrs.get('precio')
+        tasa_actual = ServicioFinanzas.obtener_tasa_usd_cup()
+        TASA_USD_FIJA = Decimal('930')
+
+        if self.instance is None:
+            attrs['disponible'] = True
+
+        # Si viene precio CUP (legacy/cálculo interno), derivar USD con tasa fija 930
+        if precio not in (None, '') and precio_usd in (None, ''):
+            attrs['precio_usd'] = (Decimal(str(precio)) / TASA_USD_FIJA).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+
+        if attrs.get('precio_usd') not in (None, ''):
+            attrs['precio_usd'] = Decimal(str(attrs['precio_usd'])).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+            if tasa_actual:
+                attrs['precio'] = (Decimal(str(attrs['precio_usd'])) * Decimal(str(tasa_actual))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return attrs
+
     def validate_imagen_base(self, value):
-        value = (value or '').strip()
-        if not value and self.instance is None:
-            raise serializers.ValidationError('La imagen base es obligatoria.')
-        return value
+        return (value or '').strip()
 
     def validate_imagen_con_esquineros(self, value):
         return (value or '').strip()
@@ -654,6 +688,8 @@ class PedidoListV1Serializer(serializers.ModelSerializer):
     estado_nombre = serializers.SerializerMethodField()
     estado_color = serializers.SerializerMethodField()
     estado_es_final = serializers.SerializerMethodField()
+    precio_usd = serializers.DecimalField(max_digits=10, decimal_places=1, read_only=True)
+    tasa_cambio_pedido = serializers.DecimalField(max_digits=12, decimal_places=4, read_only=True)
 
     class Meta:
         model = Pedido
@@ -676,6 +712,8 @@ class PedidoListV1Serializer(serializers.ModelSerializer):
             'estado_nombre',
             'estado_color',
             'estado_es_final',
+            'precio_usd',
+            'tasa_cambio_pedido',
             'precio_venta',
             'anticipo_requerido',
             'anticipo_recibido',
@@ -907,6 +945,8 @@ class EntregaPedidoV1Serializer(serializers.ModelSerializer):
             'libro_titulo',
             'libro_autor',
             'cantidad',
+            'precio_usd',
+            'tasa_cambio_pedido',
             'precio_venta',
             'anticipo_recibido',
             'saldo_pendiente',

@@ -47,6 +47,8 @@ type Libro = {
   autor: string;
   paginas: number;
   precio: string;
+  precio_usd?: number | string;
+  precio_cup?: number | string;
 };
 
 type CodigoDescuento = {
@@ -304,10 +306,8 @@ export default function NuevoPedidoModal() {
   );
   const saldo = redondear2(Math.max(0, precio - anticipoEnCup));
   const vuelto = redondear2(Math.max(0, anticipoEnCup - precio));
-  const precioEnUsd = tasaValida ? precio / (tasaCambio ?? 1) : 0;
-  const costoTotalPedido = costo
-    ? redondear2(costo.costo_total * cantidadNum)
-    : 0;
+  const precioEnUsd = tasaValida ? redondear2(precio / (tasaCambio ?? 1)) : 0;
+  const costoTotalPedido = costo ? redondear2(costo.costo_total * cantidadNum) : 0;
   const ganancia = redondear2(precio - costoTotalPedido);
 
   function anticipoSugeridoEnMoneda(montoCup: number): string {
@@ -442,7 +442,7 @@ export default function NuevoPedidoModal() {
 
     if (libro) {
       const precio = calcularPrecioConAcabados(
-        Number(libro.precio),
+        Number((libro as any).precio_cup ?? libro.precio),
         llevaCantosTintados,
         llevaEsquineros || llevaCantosTintados,
       );
@@ -467,7 +467,7 @@ export default function NuevoPedidoModal() {
 
     if (libro) {
       const precio = calcularPrecioConAcabados(
-        Number(libro.precio),
+        Number((libro as any).precio_cup ?? libro.precio),
         llevaCantosTintados,
         llevaEsquineros || llevaCantosTintados,
       );
@@ -1205,11 +1205,8 @@ export default function NuevoPedidoModal() {
 
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <div>
-                      <label
-                        htmlFor="precio-venta"
-                        className="mb-1.5 block text-sm font-semibold text-ink"
-                      >
-                        Precio venta (CUP) *
+                      <label htmlFor="precio-venta" className="mb-1.5 block text-sm font-semibold text-ink">
+                        Precio venta (CUP, se congela al crear)
                       </label>
                       <input
                         id="precio-venta"
@@ -1217,20 +1214,10 @@ export default function NuevoPedidoModal() {
                         min={0}
                         step="0.01"
                         value={precioVenta}
-                        onChange={(event) =>
-                          handlePrecioChange(event.target.value)
-                        }
+                        onChange={(event) => handlePrecioChange(event.target.value)}
                         className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
                       />
-                      {tasaValida && precio > 0 ? (
-                        <p className="mt-1 text-xs text-muted">
-                          Precio de venta equivale a: ${number(precioEnUsd)} USD
-                        </p>
-                      ) : tasaError ? (
-                        <p className="mt-1 text-xs text-amber-700">
-                          No se pudo cargar la tasa de cambio.
-                        </p>
-                      ) : null}
+                      <p className="mt-1 text-xs text-muted">Equivalente: {money(precioEnUsd, "USD")} (referencia)</p>
                     </div>
                     <div>
                       <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -1305,19 +1292,19 @@ export default function NuevoPedidoModal() {
                       <span className="font-semibold text-ink">
                         Costo unitario:
                       </span>{" "}
-                      {costo ? money(costo.costo_total) : "Completa las páginas"}
+                      {costo ? money(costo.costo_total, "CUP") : "Completa las páginas"}
                     </div>
                     <div>
                       <span className="font-semibold text-ink">
                         Costo total ({cantidadNum}):
                       </span>{" "}
-                      {costo ? money(costoTotalPedido) : "—"}
+                      {costo ? money(costoTotalPedido, "CUP") : "—"}
                     </div>
                     <div>
                       <span className="font-semibold text-ink">
                         Precio sugerido por unidad:
                       </span>{" "}
-                      {costo ? money(costo.precio_sugerido) : "—"}
+                      {costo ? <>{money(costo.precio_sugerido, "CUP")} <span className="text-muted">({money((costo.precio_sugerido_usd ?? costo.precio_sugerido/(costo.tasa_cambio||1)), "USD")})</span></> : "—"}
                     </div>
                     <div>
                       <span className="font-semibold text-ink">
@@ -1353,7 +1340,7 @@ export default function NuevoPedidoModal() {
                     </div>
                   </div>
 
-                  <DesgloseCostos costo={costo} />
+                  <DesgloseCostos costo={costo as any} />
                 </section>
 
                 <section className="space-y-3">

@@ -50,8 +50,9 @@ export default function TiendaGrid({ pedidos }: TiendaGridProps) {
                   Precio
                 </div>
                 <div className="text-lg font-bold text-brand">
-                  {money(pedido.precio_venta)}
+                  {money(pedido.precio_usd ?? 0, "USD")}
                 </div>
+                <div className="text-xs text-muted">{money(pedido.precio_venta, "CUP")} CUP</div>
               </div>
               <button
                 type="button"

@@ -159,7 +159,7 @@ export default function TiendaModal({
               Vender libro
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Pedido #{pedidoId} · Precio: {money(precio)}
+              Pedido #{pedidoId} · Precio: {money(tasaCambio ? precio / tasaCambio : 0, "USD")} / {money(precio, "CUP")}
             </p>
           </div>
           <button
@@ -278,7 +278,7 @@ export default function TiendaModal({
             <div className="mt-3 space-y-2 text-sm text-muted">
               <div>
                 <span className="font-semibold text-ink">Precio:</span>{" "}
-                {money(precio)}
+                {money(tasaCambio ? precio / tasaCambio : 0, "USD")} ({money(precio, "CUP")})
               </div>
               
               {/* NUEVO: Mostrar precio sugerido en USD cuando se paga en USD */}
