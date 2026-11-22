@@ -1916,6 +1916,7 @@ class LibroViewSetV1(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Book.objects.all().order_by('titulo')
     serializer_class = LibroListV1Serializer
+    pagination_class = PedidoPagination
     http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
 
     @action(detail=False, methods=['get'], url_path='parametros-costo')
@@ -1929,6 +1930,13 @@ class LibroViewSetV1(viewsets.ModelViewSet):
             queryset = queryset.filter(
                 Q(titulo__icontains=search) | Q(autor__icontains=search)
             )
+        if request.query_params.get('all') == '1':
+            serializer = self.get_serializer(queryset, many=True)
+            return Response({'ok': True, 'data': serializer.data})
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response({'ok': True, 'data': serializer.data})
 
@@ -2250,6 +2258,10 @@ class LeadViewSetV1(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'put', 'delete', 'head', 'options']
 
     def get_queryset(self):
+        try:
+            ServicioLeads.marcar_perdidos_por_antiguedad(30)
+        except Exception:
+            pass
         qs = super().get_queryset()
         search = self.request.query_params.get('search', '').strip()
         estado = self.request.query_params.get('estado', '').strip()

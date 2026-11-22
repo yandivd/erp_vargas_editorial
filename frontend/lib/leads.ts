@@ -33,3 +33,5 @@ export const ESTADO_LEAD_OPTIONS = [
   { value: "convertido", label: "Convertido" },
   { value: "perdido", label: "Perdido" },
 ] as const;
+
+export const INTERES_GENERAL = "Consulta general";

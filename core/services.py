@@ -1235,8 +1235,14 @@ def dashboard_clientes(desde=None, hasta=None):
 
 def dashboard_leads(desde=None, hasta=None):
     from clientes.models import Lead
+    from clientes.services import ServicioLeads
     from django.db.models import Count, Q
     from django.db.models.functions import TruncDate
+
+    try:
+        ServicioLeads.marcar_perdidos_por_antiguedad(30)
+    except Exception:
+        pass
 
     qs = Lead.objects.all()
     if desde:

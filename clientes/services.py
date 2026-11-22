@@ -247,3 +247,13 @@ class ServicioLeads:
                 lead.save(update_fields=['estado', 'cliente', 'fecha_conversion', 'fecha_actualizacion'])
                 count += 1
         return count
+
+    @staticmethod
+    def marcar_perdidos_por_antiguedad(dias=30):
+        """Marca como perdidos los leads activos con más de `dias` sin convertirse."""
+        limite = timezone.now() - timedelta(days=dias)
+        qs = Lead.objects.filter(
+            estado__in=[Lead.ESTADO_NUEVO, Lead.ESTADO_CONTACTADO, Lead.ESTADO_INTERESADO],
+            fecha_creacion__lt=limite,
+        )
+        return qs.update(estado=Lead.ESTADO_PERDIDO, fecha_actualizacion=timezone.now())
