@@ -359,16 +359,13 @@ export default function CheckoutPage() {
                         </p>
                       </div>
                       <span className="shrink-0 text-sm font-bold text-brand">
-                        {money(precioUnitarioUsd * item.cantidad, "USD")}
+                        {money(precioUnitarioCup * item.cantidad, "CUP")}
                       </span>
                     </div>
 
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                       <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
-                        {item.cantidad} x {money(precioUnitarioUsd, "USD")} ({money(Math.round(precioUnitarioCup / 50) * 50, "CUP")})
-                      </span>
-                      <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
-                        Total: {money(precioUnitarioUsd * item.cantidad, "USD")} ({money(Math.round(precioUnitarioCup * item.cantidad / 50) * 50, "CUP")})
+                        {item.cantidad} x {money(precioUnitarioCup, "CUP")}
                       </span>
                       {item.esquineros ? (
                         <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700">
@@ -454,7 +451,7 @@ export default function CheckoutPage() {
                   htmlFor="nombre"
                   className="mb-1 block text-sm font-semibold text-ink"
                 >
-                  Nombre completo *
+                  Nombre completo (Incluya los apellidos para poder diferenciarlo de otros clientes con el mismo nombre)*
                 </label>
                 <input
                   id="nombre"

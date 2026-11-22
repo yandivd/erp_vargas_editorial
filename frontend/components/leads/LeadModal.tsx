@@ -31,14 +31,16 @@ export default function LeadModal({ open, onClose, lead }: Props) {
   useEffect(() => {
     if (!open) return;
     const parsed = parseInteres(lead?.interes || "");
-    setForm(lead ? {
-      nombre: lead.nombre || "", telefono: lead.telefono || "", via_contacto: lead.via_contacto || "whatsapp",
-      estado: lead.estado || "nuevo", interes: lead.interes || "", notas: lead.notas || "",
-    } : empty);
-    setInteresGeneral(parsed.general);
-    setLibrosSeleccionados(parsed.libros);
-    setBuscaLibro("");
-    setError(null);
+    queueMicrotask(() => {
+      setForm(lead ? {
+        nombre: lead.nombre || "", telefono: lead.telefono || "", via_contacto: lead.via_contacto || "whatsapp",
+        estado: lead.estado || "nuevo", interes: lead.interes || "", notas: lead.notas || "",
+      } : empty);
+      setInteresGeneral(parsed.general);
+      setLibrosSeleccionados(parsed.libros);
+      setBuscaLibro("");
+      setError(null);
+    });
   }, [open, lead]);
 
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function LeadModal({ open, onClose, lead }: Props) {
         if (!active) return;
         const data = payload?.data ?? payload;
         const rows = Array.isArray(data) ? data : (data?.libros ?? data?.results ?? []);
-        setLibros(rows.map((l: any) => ({ id: l.id, titulo: l.titulo || `Libro ${l.id}` })));
+        setLibros((rows as Array<{ id: number; titulo?: string }>).map((l) => ({ id: l.id, titulo: l.titulo || `Libro ${l.id}` })));
       })
       .catch(() => { if (active) setLibros([]); });
     return () => { active = false; };
