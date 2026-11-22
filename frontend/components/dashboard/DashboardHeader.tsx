@@ -5,6 +5,7 @@ import {
   Filter,
   Gift,
   LayoutGrid,
+  Target,
   TrendingUp,
   Users,
   XCircle,
@@ -23,6 +24,7 @@ const tabIcons: Record<DashboardTab, LucideIcon> = {
   produccion: BookOpen,
   clientes: Users,
   fidelidad: Gift,
+  leads: Target,
 };
 
 function buildFilterQuery(desde: string, hasta: string): string {

@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from core.models import Parametro
 
-from .models import EventoFidelidad, TarjetaFidelidad
+from .models import Cliente, EventoFidelidad, Lead, TarjetaFidelidad
 
 
 class ServicioFidelidad:
@@ -216,3 +216,34 @@ class ServicioFidelidad:
             )
 
         return tarjeta
+
+
+
+
+class ServicioLeads:
+    @staticmethod
+    def convertir_por_telefono(cliente):
+        """Convierte leads con mismo teléfono en cliente."""
+        if cliente is None:
+            return 0
+        tel = (getattr(cliente, 'telefono', '') or '').strip()
+        if not tel:
+            return 0
+        digits = ''.join(ch for ch in tel if ch.isdigit())
+        if len(digits) < 6:
+            return 0
+        qs = Lead.objects.filter(estado__in=[Lead.ESTADO_NUEVO, Lead.ESTADO_CONTACTADO, Lead.ESTADO_INTERESADO])
+        candidatos = qs.filter(telefono__icontains=digits[-8:]) if len(digits) >= 8 else qs.filter(telefono__icontains=digits)
+        now = timezone.now()
+        count = 0
+        for lead in candidatos:
+            lead_digits = ''.join(ch for ch in (lead.telefono or '') if ch.isdigit())
+            if not lead_digits:
+                continue
+            if lead_digits == digits or lead_digits.endswith(digits[-8:]) or digits.endswith(lead_digits[-8:]):
+                lead.estado = Lead.ESTADO_CONVERTIDO
+                lead.cliente = cliente
+                lead.fecha_conversion = now
+                lead.save(update_fields=['estado', 'cliente', 'fecha_conversion', 'fecha_actualizacion'])
+                count += 1
+        return count

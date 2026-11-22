@@ -1233,6 +1233,87 @@ def dashboard_clientes(desde=None, hasta=None):
     }
 
 
+def dashboard_leads(desde=None, hasta=None):
+    from clientes.models import Lead
+    from django.db.models import Count, Q
+    from django.db.models.functions import TruncDate
+
+    qs = Lead.objects.all()
+    if desde:
+        qs = qs.filter(fecha_creacion__date__gte=desde)
+    if hasta:
+        qs = qs.filter(fecha_creacion__date__lte=hasta)
+
+    total = qs.count()
+    por_estado = {k: qs.filter(estado=k).count() for k, _ in Lead.ESTADO_CHOICES}
+    por_via = {k: qs.filter(via_contacto=k).count() for k, _ in Lead.VIA_CHOICES}
+    convertidos = por_estado.get(Lead.ESTADO_CONVERTIDO, 0)
+    tasa_conversion = round((convertidos / total * 100), 1) if total else 0
+    hoy = timezone.localdate()
+    inicio_mes = hoy.replace(day=1)
+    base_mes = Lead.objects.all()
+    mes_total = base_mes.filter(fecha_creacion__date__gte=inicio_mes).count()
+    mes_convertidos = base_mes.filter(estado=Lead.ESTADO_CONVERTIDO, fecha_conversion__date__gte=inicio_mes).count()
+    from datetime import timedelta
+    ultimos_30 = base_mes.filter(fecha_creacion__date__gte=hoy - timedelta(days=30)).count()
+
+    from django.db.models.functions import TruncMonth
+    tendencia_qs = qs.annotate(dia=TruncDate('fecha_creacion')).values('dia').annotate(total=Count('id')).order_by('dia')
+    tendencia = [{'dia': str(x['dia']), 'total': x['total']} for x in tendencia_qs]
+
+    tendencia_mes_qs = qs.annotate(mes=TruncMonth('fecha_creacion')).values('mes').annotate(
+        total=Count('id'),
+        convertidos=Count('id', filter=Q(estado=Lead.ESTADO_CONVERTIDO)),
+        perdidos=Count('id', filter=Q(estado=Lead.ESTADO_PERDIDO)),
+    ).order_by('mes')
+    tendencia_mensual = []
+    for x in tendencia_mes_qs:
+        t = x['total'] or 0
+        c = x['convertidos'] or 0
+        tendencia_mensual.append({
+            'mes': x['mes'].strftime('%Y-%m') if x['mes'] else '',
+            'total': t, 'convertidos': c, 'perdidos': x['perdidos'] or 0,
+            'tasa_conversion': round(c / t * 100, 1) if t else 0,
+        })
+
+    conversion_por_via = []
+    for k, l in Lead.VIA_CHOICES:
+        tv = por_via.get(k, 0)
+        cv = qs.filter(via_contacto=k, estado=Lead.ESTADO_CONVERTIDO).count()
+        if tv > 0:
+            conversion_por_via.append({'via': k, 'label': l, 'total': tv, 'convertidos': cv, 'tasa': round(cv/tv*100,1) if tv else 0})
+
+    recientes = list(qs.select_related('cliente').order_by('-fecha_creacion')[:20].values(
+        'id', 'nombre', 'telefono', 'via_contacto', 'estado', 'interes', 'fecha_creacion', 'cliente__nombre'
+    ))
+    for r in recientes:
+        r['fecha_creacion'] = r['fecha_creacion'].isoformat() if r['fecha_creacion'] else None
+        r['cliente_nombre'] = r.pop('cliente__nombre')
+
+    embudo = [
+        {'etapa': 'Nuevos', 'total': por_estado.get(Lead.ESTADO_NUEVO, 0)},
+        {'etapa': 'Contactados', 'total': por_estado.get(Lead.ESTADO_CONTACTADO, 0)},
+        {'etapa': 'Interesados', 'total': por_estado.get(Lead.ESTADO_INTERESADO, 0)},
+        {'etapa': 'Convertidos', 'total': por_estado.get(Lead.ESTADO_CONVERTIDO, 0)},
+    ]
+
+    return {
+        'kpis': {
+            'total': total, 'convertidos': convertidos, 'tasa_conversion': tasa_conversion,
+            'nuevos': por_estado.get(Lead.ESTADO_NUEVO, 0), 'contactados': por_estado.get(Lead.ESTADO_CONTACTADO, 0),
+            'interesados': por_estado.get(Lead.ESTADO_INTERESADO, 0), 'perdidos': por_estado.get(Lead.ESTADO_PERDIDO, 0),
+            'mes_total': mes_total, 'mes_convertidos': mes_convertidos, 'ultimos_30': ultimos_30,
+        },
+        'por_estado': [{'estado': k, 'label': l, 'total': por_estado.get(k, 0)} for k, l in Lead.ESTADO_CHOICES],
+        'por_via': [{'via': k, 'label': l, 'total': por_via.get(k, 0)} for k, l in Lead.VIA_CHOICES],
+        'tendencia': tendencia,
+        'tendencia_mensual': tendencia_mensual,
+        'conversion_por_via': conversion_por_via,
+        'embudo': embudo,
+        'recientes': recientes,
+    }
+
+
 def dashboard_fidelidad(desde=None, hasta=None):
     """KPIs de fidelidad. Las tarjetas son una foto actual; los pedidos respetan el filtro."""
     hoy = timezone.localdate()

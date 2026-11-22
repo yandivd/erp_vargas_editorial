@@ -28,8 +28,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from clientes.models import Cliente, TarjetaFidelidad
-from clientes.services import ServicioFidelidad
+from clientes.models import Cliente, Lead, TarjetaFidelidad
+from clientes.services import ServicioFidelidad, ServicioLeads
 from core.api import obtener_dashboard_data
 from core.api_utils import payload_paginacion
 from core.models import Parametro
@@ -81,6 +81,7 @@ from .serializers import (
     EntregaDetailV1Serializer,
     EntregaListV1Serializer,
     EstadoV1Serializer,
+    LeadV1Serializer,
     LibroListV1Serializer,
     LoteServicioV1Serializer,
     MovimientoCajaV1Serializer,
@@ -1272,6 +1273,20 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                     municipio=data.get('cliente_municipio') or '',
                 )
                 ServicioFidelidad.obtener_tarjeta(cliente)
+                try:
+                    ServicioLeads.convertir_por_telefono(cliente)
+                    if cliente_creado_en_pedido and not Lead.objects.filter(cliente=cliente).exists():
+                        Lead.objects.create(
+                            nombre=cliente.nombre or '',
+                            telefono=cliente.telefono or '',
+                            via_contacto=Lead.VIA_WHATSAPP,
+                            estado=Lead.ESTADO_CONVERTIDO,
+                            interes='Pedido creado directamente',
+                            cliente=cliente,
+                            fecha_conversion=timezone.now(),
+                        )
+                except Exception:
+                    pass
 
             libro = None
             if data.get('libro_id'):
@@ -1834,6 +1849,20 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         cliente = serializer.save()
         ServicioFidelidad.obtener_tarjeta(cliente)
+        try:
+            ServicioLeads.convertir_por_telefono(cliente)
+            if not Lead.objects.filter(cliente=cliente).exists():
+                Lead.objects.create(
+                    nombre=cliente.nombre or '',
+                    telefono=cliente.telefono or '',
+                    via_contacto=Lead.VIA_WHATSAPP,
+                    estado=Lead.ESTADO_CONVERTIDO,
+                    interes='Cliente creado directamente',
+                    cliente=cliente,
+                    fecha_conversion=timezone.now(),
+                )
+        except Exception:
+            pass
         return Response(
             {
                 'ok': True,
@@ -2210,6 +2239,98 @@ class EmpleadoViewSetV1(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+
+class LeadViewSetV1(viewsets.ModelViewSet):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = LeadV1Serializer
+    queryset = Lead.objects.select_related('cliente').all().order_by('-fecha_creacion')
+    http_method_names = ['get', 'post', 'patch', 'put', 'delete', 'head', 'options']
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        search = self.request.query_params.get('search', '').strip()
+        estado = self.request.query_params.get('estado', '').strip()
+        via = self.request.query_params.get('via', '').strip()
+        if search:
+            qs = qs.filter(Q(nombre__icontains=search) | Q(telefono__icontains=search) | Q(interes__icontains=search) | Q(notas__icontains=search))
+        if estado:
+            qs = qs.filter(estado=estado)
+        if via:
+            qs = qs.filter(via_contacto=via)
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        qs = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(qs, many=True)
+        return Response({'ok': True, 'data': {'leads': serializer.data}})
+
+    def retrieve(self, request, *args, **kwargs):
+        return Response({'ok': True, 'data': self.get_serializer(self.get_object()).data})
+
+    def create(self, request, *args, **kwargs):
+        ser = self.get_serializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        lead = ser.save()
+        # auto-convert if matching cliente exists
+        tel = (lead.telefono or '').strip()
+        if tel:
+            digits = ''.join(ch for ch in tel if ch.isdigit())
+            if len(digits) >= 6:
+                candidatos = Cliente.objects.exclude(telefono='').all()
+                match = None
+                for c in candidatos:
+                    cd = ''.join(ch for ch in (c.telefono or '') if ch.isdigit())
+                    if cd and (cd == digits or cd.endswith(digits[-8:]) or digits.endswith(cd[-8:])):
+                        match = c; break
+                if match:
+                    lead.estado = Lead.ESTADO_CONVERTIDO
+                    lead.cliente = match
+                    lead.fecha_conversion = timezone.now()
+                    lead.save(update_fields=['estado','cliente','fecha_conversion','fecha_actualizacion'])
+        return Response({'ok': True, 'data': self.get_serializer(lead).data}, status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, *args, **kwargs):
+        lead = self.get_object()
+        ser = self.get_serializer(lead, data=request.data, partial=True)
+        ser.is_valid(raise_exception=True)
+        lead = ser.save()
+        if lead.estado == Lead.ESTADO_CONVERTIDO and not lead.fecha_conversion:
+            lead.fecha_conversion = timezone.now(); lead.save(update_fields=['fecha_conversion','fecha_actualizacion'])
+        return Response({'ok': True, 'data': self.get_serializer(lead).data})
+
+    def update(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        self.get_object().delete()
+        return Response({'ok': True, 'data': None})
+
+    @action(detail=False, methods=['get'], url_path='estadisticas')
+    def estadisticas(self, request):
+        qs = Lead.objects.all()
+        total = qs.count()
+        por_estado = {k: qs.filter(estado=k).count() for k,_ in Lead.ESTADO_CHOICES}
+        por_via = {k: qs.filter(via_contacto=k).count() for k,_ in Lead.VIA_CHOICES}
+        convertidos = por_estado.get(Lead.ESTADO_CONVERTIDO, 0)
+        tasa = round((convertidos / total * 100), 1) if total else 0
+        hoy = timezone.localdate()
+        inicio_mes = hoy.replace(day=1)
+        mes_total = qs.filter(fecha_creacion__date__gte=inicio_mes).count()
+        mes_convertidos = qs.filter(estado=Lead.ESTADO_CONVERTIDO, fecha_conversion__date__gte=inicio_mes).count()
+        ultimos_30 = qs.filter(fecha_creacion__date__gte=hoy - timezone.timedelta(days=30)).count()
+        return Response({'ok': True, 'data': {
+            'total': total,
+            'por_estado': por_estado,
+            'por_via': por_via,
+            'tasa_conversion': tasa,
+            'convertidos': convertidos,
+            'mes_total': mes_total,
+            'mes_convertidos': mes_convertidos,
+            'ultimos_30': ultimos_30,
+        }})
 
 
 class ProveedorViewSetV1(viewsets.ModelViewSet):

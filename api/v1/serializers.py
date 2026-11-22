@@ -4,7 +4,7 @@ from django.db.models import Q, Sum
 from django.utils import timezone
 from rest_framework import serializers
 
-from clientes.models import Cliente
+from clientes.models import Cliente, Lead
 from clientes.services import ServicioFidelidad
 from empleados.models import Empleado, PagoNomina
 from finanzas.models import ActivoFijo, CierreCaja, MovimientoCaja
@@ -345,6 +345,32 @@ class ClienteCreateV1Serializer(serializers.ModelSerializer):
 
         attrs['provincia'] = provincia
         attrs['municipio'] = municipio
+        return attrs
+
+
+class LeadV1Serializer(serializers.ModelSerializer):
+    cliente_nombre = serializers.CharField(source='cliente.nombre', read_only=True, default=None)
+    via_contacto_display = serializers.CharField(source='get_via_contacto_display', read_only=True)
+    estado_display = serializers.CharField(source='get_estado_display', read_only=True)
+
+    class Meta:
+        model = Lead
+        fields = (
+            'id', 'nombre', 'telefono', 'via_contacto', 'via_contacto_display',
+            'estado', 'estado_display', 'interes', 'notas',
+            'cliente', 'cliente_nombre', 'fecha_creacion', 'fecha_actualizacion', 'fecha_conversion',
+        )
+        read_only_fields = ('id', 'cliente', 'cliente_nombre', 'fecha_creacion', 'fecha_actualizacion', 'fecha_conversion', 'via_contacto_display', 'estado_display')
+
+    def validate(self, attrs):
+        nombre = (attrs.get('nombre') if 'nombre' in attrs else getattr(self.instance, 'nombre', '') or '').strip()
+        telefono = (attrs.get('telefono') if 'telefono' in attrs else getattr(self.instance, 'telefono', '') or '').strip()
+        if not nombre and not telefono:
+            raise serializers.ValidationError('Indica al menos nombre o teléfono.')
+        if 'nombre' in attrs: attrs['nombre'] = nombre
+        if 'telefono' in attrs: attrs['telefono'] = telefono
+        if 'interes' in attrs: attrs['interes'] = (attrs.get('interes') or '').strip()
+        if 'notas' in attrs: attrs['notas'] = (attrs.get('notas') or '').strip()
         return attrs
 
 

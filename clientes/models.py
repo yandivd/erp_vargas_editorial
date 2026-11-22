@@ -135,6 +135,66 @@ class Cliente(models.Model):
         return None
 
 
+
+class Lead(models.Model):
+    VIA_WHATSAPP = 'whatsapp'
+    VIA_INSTAGRAM = 'instagram'
+    VIA_FACEBOOK = 'facebook'
+    VIA_TELEFONO = 'telefono'
+    VIA_PERSONAL = 'personal'
+    VIA_WEB = 'web'
+    VIA_REFERIDO = 'referido'
+    VIA_OTRO = 'otro'
+    VIA_CHOICES = [
+        (VIA_WHATSAPP, 'WhatsApp'),
+        (VIA_INSTAGRAM, 'Instagram'),
+        (VIA_FACEBOOK, 'Facebook'),
+        (VIA_TELEFONO, 'Teléfono'),
+        (VIA_PERSONAL, 'Personal'),
+        (VIA_WEB, 'Web'),
+        (VIA_REFERIDO, 'Referido'),
+        (VIA_OTRO, 'Otro'),
+    ]
+
+    ESTADO_NUEVO = 'nuevo'
+    ESTADO_CONTACTADO = 'contactado'
+    ESTADO_INTERESADO = 'interesado'
+    ESTADO_CONVERTIDO = 'convertido'
+    ESTADO_PERDIDO = 'perdido'
+    ESTADO_CHOICES = [
+        (ESTADO_NUEVO, 'Nuevo'),
+        (ESTADO_CONTACTADO, 'Contactado'),
+        (ESTADO_INTERESADO, 'Interesado'),
+        (ESTADO_CONVERTIDO, 'Convertido'),
+        (ESTADO_PERDIDO, 'Perdido'),
+    ]
+
+    nombre = models.CharField(max_length=200, blank=True)
+    telefono = models.CharField(max_length=50, blank=True, db_index=True)
+    via_contacto = models.CharField(max_length=20, choices=VIA_CHOICES, default=VIA_WHATSAPP)
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default=ESTADO_NUEVO)
+    interes = models.CharField(max_length=255, blank=True, verbose_name='Interés / producto')
+    notas = models.TextField(blank=True)
+    cliente = models.ForeignKey(
+        'Cliente', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='leads_convertidos', verbose_name='Cliente convertido',
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    fecha_conversion = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Lead'
+        verbose_name_plural = 'Leads'
+        ordering = ['-fecha_creacion']
+
+    def __str__(self):
+        return self.nombre or self.telefono or f'Lead #{self.pk}'
+
+    @property
+    def nombre_display(self):
+        return self.nombre or self.telefono or f'Lead #{self.pk}'
+
 class TarjetaFidelidad(models.Model):
     cliente = models.OneToOneField(
         Cliente,

@@ -7,6 +7,7 @@ from .services import (
     REFERENCIA_CORTE_FINANCIERO,
     dashboard_clientes,
     dashboard_fidelidad,
+    dashboard_leads,
     dashboard_produccion,
     dashboard_resumen,
     parse_fecha,
@@ -34,7 +35,7 @@ def _cache_key(tab, desde, hasta):
 
 
 def obtener_dashboard_data(tab, desde_str='', hasta_str=''):
-    if tab not in ('resumen', 'produccion', 'clientes', 'fidelidad'):
+    if tab not in ('resumen', 'produccion', 'clientes', 'fidelidad', 'leads'):
         raise ValueError('Tab no válida')
 
     desde = parse_fecha(desde_str)
@@ -52,6 +53,8 @@ def obtener_dashboard_data(tab, desde_str='', hasta_str=''):
             data = dashboard_produccion(desde, hasta)
         elif tab == 'fidelidad':
             data = dashboard_fidelidad(desde, hasta)
+        elif tab == 'leads':
+            data = dashboard_leads(desde, hasta)
         else:
             data = dashboard_clientes(desde, hasta)
 

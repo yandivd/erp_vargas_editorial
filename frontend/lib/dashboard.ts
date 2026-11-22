@@ -2,7 +2,8 @@ export type DashboardTab =
   | "resumen"
   | "produccion"
   | "clientes"
-  | "fidelidad";
+  | "fidelidad"
+  | "leads";
 
 export type DashboardMeta = {
   desde: string;
@@ -356,17 +357,38 @@ export type DashboardFidelidad = {
   bonos_pendientes_lista: TarjetaFidelidadResumen[];
 };
 
+export type DashboardLeads = {
+  meta?: DashboardMeta;
+  kpis: {
+    total: number; convertidos: number; tasa_conversion: number; nuevos: number;
+    contactados: number; interesados: number; perdidos: number;
+    mes_total: number; mes_convertidos: number; ultimos_30: number;
+  };
+  por_estado: { estado: string; label: string; total: number }[];
+  por_via: { via: string; label: string; total: number }[];
+  tendencia: { dia: string; total: number }[];
+  tendencia_mensual: { mes: string; total: number; convertidos: number; perdidos: number; tasa_conversion: number }[];
+  conversion_por_via: { via: string; label: string; total: number; convertidos: number; tasa: number }[];
+  embudo: { etapa: string; total: number }[];
+  recientes: {
+    id: number; nombre: string; telefono: string; via_contacto: string; estado: string;
+    interes: string; fecha_creacion: string | null; cliente_nombre: string | null;
+  }[];
+};
+
 export type DashboardData =
   | DashboardResumen
   | DashboardProduccion
   | DashboardClientes
-  | DashboardFidelidad;
+  | DashboardFidelidad
+  | DashboardLeads;
 
 export const DASHBOARD_TABS: { id: DashboardTab; label: string }[] = [
   { id: "resumen", label: "Resumen" },
   { id: "produccion", label: "Producción" },
   { id: "clientes", label: "Clientes" },
   { id: "fidelidad", label: "Fidelidad" },
+  { id: "leads", label: "Leads" },
 ];
 
 export function isDashboardTab(value: string | undefined): value is DashboardTab {
@@ -374,6 +396,7 @@ export function isDashboardTab(value: string | undefined): value is DashboardTab
     value === "resumen" ||
     value === "produccion" ||
     value === "clientes" ||
-    value === "fidelidad"
+    value === "fidelidad" ||
+    value === "leads"
   );
 }

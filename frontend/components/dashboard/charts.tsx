@@ -694,3 +694,73 @@ export function TendenciaFidelidadChart({
     </ResponsiveContainer>
   );
 }
+
+
+export function LeadsMensualChart({ data }: { data: { mes: string; total: number; convertidos: number; perdidos: number }[] }) {
+  if (!data.length) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="mes" tick={axisTick} />
+        <YAxis tick={axisTick} allowDecimals={false} />
+        <Tooltip />
+        <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
+        <Bar dataKey="total" name="Leads" fill="#3b82f6" radius={[3,3,0,0]} />
+        <Bar dataKey="convertidos" name="Convertidos" fill="#10b981" radius={[3,3,0,0]} />
+        <Bar dataKey="perdidos" name="Perdidos" fill="#ef4444" radius={[3,3,0,0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function LeadsConversionViaChart({ data }: { data: { label: string; total: number; convertidos: number; tasa: number }[] }) {
+  if (!data.length) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="label" tick={axisTick} />
+        <YAxis yAxisId="left" tick={axisTick} allowDecimals={false} />
+        <YAxis yAxisId="right" orientation="right" tick={axisTick} unit="%" />
+        <Tooltip />
+        <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
+        <Bar yAxisId="left" dataKey="total" name="Leads" fill="#94a3b8" radius={[3,3,0,0]} />
+        <Bar yAxisId="left" dataKey="convertidos" name="Convertidos" fill="#10b981" radius={[3,3,0,0]} />
+        <Line yAxisId="right" type="monotone" dataKey="tasa" name="Tasa %" stroke="#f59e0b" strokeWidth={2} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function LeadsEmbudoChart({ data }: { data: { etapa: string; total: number }[] }) {
+  if (!data.length) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} layout="vertical" margin={{ top: 8, right: 16, left: 20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis type="number" tick={axisTick} allowDecimals={false} />
+        <YAxis type="category" dataKey="etapa" tick={axisTick} width={90} />
+        <Tooltip />
+        <Bar dataKey="total" name="Leads" fill="#8b5cf6" radius={[0,3,3,0]}>
+          {data.map((_, i) => <Cell key={i} fill={chartColors[i % chartColors.length]} />)}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function LeadsTendenciaDiariaChart({ data }: { data: { dia: string; total: number }[] }) {
+  if (!data.length) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="dia" tick={axisTick} />
+        <YAxis tick={axisTick} allowDecimals={false} />
+        <Tooltip />
+        <Area type="monotone" dataKey="total" name="Leads" stroke="#3b82f6" fill="rgba(59,130,246,.12)" strokeWidth={2} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}

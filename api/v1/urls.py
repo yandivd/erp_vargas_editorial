@@ -19,6 +19,7 @@ router.register(r'clientes', views.ClienteViewSetV1, basename='clientes')
 router.register(r'libros', views.LibroViewSetV1, basename='libros')
 router.register(r'pedidos', views.PedidoViewSetV1, basename='pedidos')
 router.register(r'empleados', views.EmpleadoViewSetV1, basename='empleados')
+router.register(r'leads', views.LeadViewSetV1, basename='leads')
 router.register(r'proveedores', views.ProveedorViewSetV1, basename='proveedores')
 
 urlpatterns = [
@@ -42,6 +43,7 @@ urlpatterns = [
     path('dashboard/produccion/', views.dashboard, {'tab': 'produccion'}, name='dashboard_produccion'),
     path('dashboard/clientes/', views.dashboard, {'tab': 'clientes'}, name='dashboard_clientes'),
     path('dashboard/fidelidad/', views.dashboard, {'tab': 'fidelidad'}, name='dashboard_fidelidad'),
+    path('dashboard/leads/', views.dashboard, {'tab': 'leads'}, name='dashboard_leads'),
     path('catalogo/', views.catalogo, name='catalogo'),
     path(
         'catalogo/libros/<int:pk>/recomendaciones/',
