@@ -59,6 +59,7 @@ from pedidos.services import (
     costo_mensajeria_para_cliente,
     costo_mensajeria_para_municipio,
     provincia_para_municipio,
+    redondear_cup_50,
     ubicacion_para_cliente,
 )
 from proveedores.models import Proveedor
@@ -1307,15 +1308,16 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
             if data.get('libro_id'):
                 libro = Book.objects.get(pk=data['libro_id'])
             else:
-                tasa_libro = ServicioFinanzas.obtener_tasa_usd_cup()
-            precio_cup = Decimal(str(data.get('precio_venta') or 0))
-            precio_usd = (precio_cup / Decimal(str(tasa_libro))).quantize(Decimal('0.1')) if tasa_libro else Decimal('0')
-            libro = Book.objects.create(
+                precio_cup = Decimal(str(data.get('precio_venta') or 0))
+                precio_usd_libro = (precio_cup / Decimal('930')).quantize(
+                    Decimal('0.1'), rounding=ROUND_HALF_UP
+                )
+                libro = Book.objects.create(
                     titulo=data.get('libro_titulo') or '',
                     autor=data.get('libro_autor') or '',
                     paginas=int(data.get('libro_paginas') or 0),
                     precio=precio_cup,
-                    precio_usd=precio_usd,
+                    precio_usd=precio_usd_libro,
                 )
 
             cod_obj = None
@@ -1358,11 +1360,9 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
             tasa_anticipo = data.get('tasa_cambio')
             tasa_pedido = ServicioFinanzas.obtener_tasa_usd_cup()
             precio_usd = Decimal(str(getattr(libro, 'precio_usd', 0) or 0)).quantize(Decimal('0.1'))
-            precio_venta_cup = Decimal(str(getattr(libro, 'precio_cup_referencia', 0) or 0))
-            if precio_venta_cup <= 0:
-                precio_venta_cup = Decimal(str(data.get('precio_venta') or 0))
-            if precio_usd <= 0 and tasa_pedido:
-                precio_usd = (precio_venta_cup / Decimal(str(tasa_pedido))).quantize(Decimal('0.1'))
+            precio_venta_cup = Decimal(
+                redondear_cup_50(precio_usd * tasa_pedido)
+            )
 
             cantidad_pedidos = max(1, int(data.get('cantidad') or 1))
             pedidos_creados = []
