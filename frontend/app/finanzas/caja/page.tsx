@@ -32,6 +32,7 @@ type PageProps = {
     desde?: string;
     hasta?: string;
     categoria?: string;
+    tipo?: string;
     page?: string;
   }>;
 };
@@ -45,6 +46,8 @@ export default async function CajaPage({ searchParams }: PageProps) {
   const desde = (params.desde ?? "").trim();
   const hasta = (params.hasta ?? "").trim();
   const categoria = (params.categoria ?? "").trim();
+  const tipoRaw = (params.tipo ?? "").trim().toUpperCase();
+  const tipo = tipoRaw === "GASTO" ? "EGRESO" : tipoRaw;
   const parsedPage = Number(params.page ?? "1");
   const page =
     Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -52,26 +55,16 @@ export default async function CajaPage({ searchParams }: PageProps) {
   const movimientosQuery = new URLSearchParams();
   movimientosQuery.set("page", String(page));
   movimientosQuery.set("per_page", "10");
-  if (desde) {
-    movimientosQuery.set("desde", desde);
-  }
-  if (hasta) {
-    movimientosQuery.set("hasta", hasta);
-  }
-  if (categoria) {
-    movimientosQuery.set("categoria", categoria);
-  }
+  if (desde) movimientosQuery.set("desde", desde);
+  if (hasta) movimientosQuery.set("hasta", hasta);
+  if (categoria) movimientosQuery.set("categoria", categoria);
+  if (tipo === "INGRESO" || tipo === "EGRESO") movimientosQuery.set("tipo", tipo);
 
   const resumenQuery = new URLSearchParams();
-  if (desde) {
-    resumenQuery.set("desde", desde);
-  }
-  if (hasta) {
-    resumenQuery.set("hasta", hasta);
-  }
-  if (categoria) {
-    resumenQuery.set("categoria", categoria);
-  }
+  if (desde) resumenQuery.set("desde", desde);
+  if (hasta) resumenQuery.set("hasta", hasta);
+  if (categoria) resumenQuery.set("categoria", categoria);
+  if (tipo === "INGRESO" || tipo === "EGRESO") resumenQuery.set("tipo", tipo);
   const resumenPath = resumenQuery.toString()
     ? `finanzas/caja/resumen?${resumenQuery.toString()}`
     : "finanzas/caja/resumen";

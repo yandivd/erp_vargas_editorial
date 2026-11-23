@@ -2699,6 +2699,8 @@ def _caja_queryset(request):
         queryset = queryset.filter(categoria=categoria)
 
     tipo = (request.query_params.get('tipo') or '').strip().upper()
+    if tipo == 'GASTO':
+        tipo = 'EGRESO'
     if tipo in ('INGRESO', 'EGRESO'):
         queryset = queryset.filter(tipo=tipo)
 
