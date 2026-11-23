@@ -585,6 +585,21 @@ def inventario(request):
     if busqueda:
         materiales = materiales.filter(Q(nombre__icontains=busqueda))
 
+    if str(request.query_params.get('all') or '') == '1':
+        data = [
+            {
+                'id': material.id,
+                'nombre': material.nombre,
+                'unidad_medida': material.unidad_medida,
+                'stock_actual': float(material.stock_actual),
+                'stock_minimo': float(material.stock_minimo),
+                'stock_bajo': bool(material.stock_bajo),
+                'alerta': bool(material.stock_bajo),
+            }
+            for material in materiales
+        ]
+        return Response({'ok': True, 'data': {'materiales': data}})
+
     paginador = Paginator(materiales, int(request.query_params.get('per_page') or 20))
     pagina = paginador.get_page(request.query_params.get('page'))
 
@@ -1168,7 +1183,7 @@ def entrega_crear(request):
 class PedidoPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = 'per_page'
-    max_page_size = 100
+    max_page_size = 10000
 
     def get_paginated_response(self, data):
         return Response({
@@ -1821,6 +1836,13 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         queryset = self._filtrar(self.get_queryset(), request)
+        if str(request.query_params.get('all') or '') == '1':
+            clientes = ClienteListV1Serializer(queryset, many=True).data
+            return Response({
+                'ok': True,
+                'data': {'clientes': clientes},
+                'meta': {'total_clientes': len(clientes)},
+            })
         paginator = Paginator(queryset, self._per_page(request))
         page_obj = paginator.get_page(request.query_params.get('page') or 1)
         clientes = ClienteListV1Serializer(page_obj.object_list, many=True).data
@@ -1835,6 +1857,7 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
                     'nombre': request.query_params.get('nombre', ''),
                     'telefono': request.query_params.get('telefono', ''),
                     'deuda': request.query_params.get('deuda', ''),
+                    'orden': request.query_params.get('orden', 'nombre_asc'),
                 },
             },
         })
@@ -1916,7 +1939,6 @@ class LibroViewSetV1(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Book.objects.all().order_by('titulo')
     serializer_class = LibroListV1Serializer
-    pagination_class = PedidoPagination
     http_method_names = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options']
 
     @action(detail=False, methods=['get'], url_path='parametros-costo')
@@ -1930,13 +1952,6 @@ class LibroViewSetV1(viewsets.ModelViewSet):
             queryset = queryset.filter(
                 Q(titulo__icontains=search) | Q(autor__icontains=search)
             )
-        if request.query_params.get('all') == '1':
-            serializer = self.get_serializer(queryset, many=True)
-            return Response({'ok': True, 'data': serializer.data})
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
         serializer = self.get_serializer(queryset, many=True)
         return Response({'ok': True, 'data': serializer.data})
 
@@ -2061,21 +2076,22 @@ class EmpleadoViewSetV1(viewsets.ModelViewSet):
 
         return queryset
 
-    def _per_page(self):
-        try:
-            valor = int(self.request.query_params.get('per_page') or 10)
-        except (TypeError, ValueError):
-            valor = 10
-        return valor if 1 <= valor <= 500 else 10
-
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        paginator = Paginator(queryset, self._per_page())
+        if str(request.query_params.get('all') or '') == '1':
+            return Response({
+                'ok': True,
+                'data': {'empleados': EmpleadoV1Serializer(queryset, many=True).data},
+                'meta': {'total_empleados': queryset.count()},
+            })
+        try:
+            per_page = int(request.query_params.get('per_page') or 10)
+        except (TypeError, ValueError):
+            per_page = 10
+        per_page = per_page if 1 <= per_page <= 500 else 10
+        paginator = Paginator(queryset, per_page)
         page_obj = paginator.get_page(request.query_params.get('page') or 1)
-        empleados = EmpleadoV1Serializer(
-            page_obj.object_list,
-            many=True,
-        ).data
+        empleados = EmpleadoV1Serializer(page_obj.object_list, many=True).data
 
         return Response({
             'ok': True,
@@ -2375,21 +2391,22 @@ class ProveedorViewSetV1(viewsets.ModelViewSet):
 
         return queryset
 
-    def _per_page(self):
-        try:
-            valor = int(self.request.query_params.get('per_page') or 10)
-        except (TypeError, ValueError):
-            valor = 10
-        return valor if 1 <= valor <= 500 else 10
-
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        paginator = Paginator(queryset, self._per_page())
+        if str(request.query_params.get('all') or '') == '1':
+            return Response({
+                'ok': True,
+                'data': {'proveedores': ProveedorV1Serializer(queryset, many=True).data},
+                'meta': {'total_proveedores': queryset.count()},
+            })
+        try:
+            per_page = int(request.query_params.get('per_page') or 10)
+        except (TypeError, ValueError):
+            per_page = 10
+        per_page = per_page if 1 <= per_page <= 500 else 10
+        paginator = Paginator(queryset, per_page)
         page_obj = paginator.get_page(request.query_params.get('page') or 1)
-        proveedores = ProveedorV1Serializer(
-            page_obj.object_list,
-            many=True,
-        ).data
+        proveedores = ProveedorV1Serializer(page_obj.object_list, many=True).data
 
         return Response({
             'ok': True,

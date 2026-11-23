@@ -40,7 +40,7 @@ export default function SalidaRapidaModal({
 
       try {
         const response = await apiFetch<PedidoListItem[]>(
-          "pedidos?en_taller=true&per_page=100",
+          "pedidos?en_taller=true&per_page=200",
         );
 
         if (!cancelado) {

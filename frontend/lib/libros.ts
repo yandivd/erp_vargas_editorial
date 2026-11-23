@@ -6,6 +6,7 @@ export type Libro = {
   autor: string;
   paginas: number;
   precio: string;
+  disponible?: boolean;
   imagen: string | null;
   imagen_base?: string | null;
   imagen_con_esquineros?: string | null;

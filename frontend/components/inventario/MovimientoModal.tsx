@@ -54,7 +54,7 @@ export default function MovimientoModal({
     async function cargarProveedores() {
       try {
         const response = await apiFetch<{ proveedores: ProveedorInventario[] }>(
-          "proveedores?per_page=100",
+          "proveedores?all=1",
         );
 
         if (!cancelado) {
@@ -84,7 +84,7 @@ export default function MovimientoModal({
     async function cargarPedidos() {
       try {
         const response = await apiFetch<PedidoListItem[]>(
-          "pedidos?en_taller=true&per_page=100",
+          "pedidos?en_taller=true&per_page=200",
         );
 
         if (!cancelado) {

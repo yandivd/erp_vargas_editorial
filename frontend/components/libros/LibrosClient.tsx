@@ -12,9 +12,7 @@ import type { Libro } from "@/lib/libros";
 export default function LibrosClient({ initialLibros }: { initialLibros: Libro[] }) {
   const t = useTable(initialLibros, {
     searchKeys: (l) => [l.titulo, l.autor, String(l.paginas)],
-    filters: {
-      disponibilidad: (l: any, v) => v === "disponible" ? !!l.disponible : v === "no" ? !l.disponible : true,
-    },
+    filters: { disponibilidad: (l, v) => v === "disponible" ? !!l.disponible : v === "no" ? !l.disponible : true },
   });
   return (
     <div>
@@ -31,7 +29,7 @@ export default function LibrosClient({ initialLibros }: { initialLibros: Libro[]
       <section className="rounded-xl border border-line bg-white p-4 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.02)] md:p-6">
         <TableControls search={t.search} onSearch={t.setSearch} filters={t.filters} onFilter={t.setFilter}
           filterDefs={[{ key: "disponibilidad", label: "Disponibilidad", options: [{ value: "disponible", label: "Disponible" }, { value: "no", label: "No disponible" }] }]}
-          page={t.page} totalPages={t.totalPages} total={t.total} start={t.start} end={t.end} onPage={t.setPage} />
+          total={t.total} page={t.page} totalPages={t.totalPages} start={t.start} end={t.end} onPage={t.setPage} />
         {t.pageRows.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 py-12 text-center text-muted"><SearchX className="mb-3 h-10 w-10 text-slate-300" /><p className="font-semibold text-ink">No encontramos libros</p></div>
         ) : (

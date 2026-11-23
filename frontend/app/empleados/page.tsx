@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function EmpleadosPage() {
   const [empleadosResult, utilidadesResult] = await Promise.all([
-    apiFetchEnvelope<EmpleadosData>("empleados?per_page=500")
+    apiFetchEnvelope<EmpleadosData>("empleados?all=1")
       .then((envelope) => ({ data: envelope.data.empleados ?? [], error: null as string | null }))
       .catch((error: unknown) => ({ data: [] as Empleado[], error: error instanceof Error ? error.message : "No se pudieron cargar los empleados." })),
     apiFetch<UtilidadesDisponibles>("empleados/utilidades-disponibles")

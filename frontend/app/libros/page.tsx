@@ -6,7 +6,7 @@ import type { Libro } from "@/lib/libros";
 export const dynamic = "force-dynamic";
 
 export default async function LibrosPage() {
-  const result = await apiFetchEnvelope<Libro[]>("libros?per_page=500")
+  const result = await apiFetchEnvelope<Libro[]>("libros")
     .then((envelope) => ({ data: envelope.data ?? [], error: null }))
     .catch((error: unknown) => ({ data: [] as Libro[], error: error instanceof Error ? error.message : "No se pudieron cargar los libros." }));
 
