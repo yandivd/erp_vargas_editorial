@@ -2755,25 +2755,16 @@ def finanzas_caja(request):
 @permission_classes([IsAuthenticated])
 def finanzas_caja_resumen(request):
     movimientos = _caja_queryset(request)
-    ingresos_brutos = (
-        movimientos.filter(tipo='INGRESO')
-        .exclude(Q_NO_INGRESO_OPERATIVO)
-        .aggregate(t=Sum('monto'))['t']
-        or Decimal('0')
-    )
-    vueltos = (
-        movimientos.filter(
-            tipo='EGRESO',
-            categoria=CATEGORIA_VUELTO_CLIENTE,
-        ).aggregate(t=Sum('monto'))['t']
-        or Decimal('0')
-    )
-    total_egresos = (
-        movimientos.filter(tipo='EGRESO')
-        .exclude(Q_NO_EGRESO_OPERATIVO)
-        .aggregate(t=Sum('monto'))['t']
-        or Decimal('0')
-    )
+    tasa = ServicioFinanzas.obtener_tasa_usd_cup()
+
+    def _equiv(qs):
+        cup = qs.filter(moneda='CUP').aggregate(t=Sum('monto'))['t'] or Decimal('0')
+        usd = qs.filter(moneda='USD').aggregate(t=Sum('monto'))['t'] or Decimal('0')
+        return cup + (usd * tasa)
+
+    ingresos_brutos = _equiv(movimientos.filter(tipo='INGRESO').exclude(Q_NO_INGRESO_OPERATIVO))
+    vueltos = _equiv(movimientos.filter(tipo='EGRESO', categoria=CATEGORIA_VUELTO_CLIENTE))
+    total_egresos = _equiv(movimientos.filter(tipo='EGRESO').exclude(Q_NO_EGRESO_OPERATIVO))
 
     return Response({
         'ok': True,
@@ -2782,10 +2773,8 @@ def finanzas_caja_resumen(request):
             'total_egresos': float(total_egresos),
             'saldo_actual_cup': float(ServicioFinanzas.saldo_caja('CUP')),
             'saldo_actual_usd': float(ServicioFinanzas.saldo_caja('USD')),
-            'tasa_usd': float(ServicioFinanzas.obtener_tasa_usd_cup()),
-            'depreciacion_activos_mensual': float(
-                depreciacion_activos_mensual()
-            ),
+            'tasa_usd': float(tasa),
+            'depreciacion_activos_mensual': float(depreciacion_activos_mensual()),
         },
     })
 

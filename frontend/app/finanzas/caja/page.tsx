@@ -147,13 +147,13 @@ export default async function CajaPage({ searchParams }: PageProps) {
         <KpiCard
           label="Ingresos del período"
           value={resumen ? moneyCaja(resumen.total_ingresos, "CUP") : "—"}
-          sub="Movimientos operativos filtrados"
+          sub="Equivalente CUP (incluye USD), según filtros"
           tone="emerald"
         />
         <KpiCard
           label="Egresos del período"
           value={resumen ? moneyCaja(resumen.total_egresos, "CUP") : "—"}
-          sub="Movimientos operativos filtrados"
+          sub="Equivalente CUP (incluye USD), según filtros"
           tone="red"
         />
         <KpiCard
