@@ -1360,8 +1360,16 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
             tasa_anticipo = data.get('tasa_cambio')
             tasa_pedido = ServicioFinanzas.obtener_tasa_usd_cup()
             precio_usd = Decimal(str(getattr(libro, 'precio_usd', 0) or 0)).quantize(Decimal('0.1'))
-            precio_venta_cup = Decimal(
+            precio_venta_calculado = Decimal(
                 redondear_cup_50(precio_usd * tasa_pedido)
+            )
+            precio_venta_solicitado = Decimal(
+                str(data.get('precio_venta') or 0)
+            )
+            precio_venta_cup = (
+                precio_venta_solicitado
+                if precio_venta_solicitado > 0
+                else precio_venta_calculado
             )
 
             cantidad_pedidos = max(1, int(data.get('cantidad') or 1))

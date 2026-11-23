@@ -318,6 +318,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let anticipoEditado = false;
     let precioEditadoManualmente = false;
     let descuentoActivo = false;
+    let ultimoLibroSeleccionado = null;
     let temporizadorPaginas = null;
     let ultimaPeticionCosto = 0;
     let controladorCosto = null;
@@ -528,14 +529,19 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function cargarLibroSeleccionado() {
-        anticipoEditado = false;
-        precioEditadoManualmente = false;
+        const libroActual = libroSelect ? libroSelect.value : '';
 
-        if (descuentoActivo) {
-            resetearDescuento();
+        if (libroActual !== ultimoLibroSeleccionado) {
+            ultimoLibroSeleccionado = libroActual;
+            anticipoEditado = false;
+            precioEditadoManualmente = false;
+
+            if (descuentoActivo) {
+                resetearDescuento();
+            }
         }
 
-        if (libroSelect && libroSelect.value) {
+        if (libroActual) {
             const opcionSeleccionada = libroSelect.options[libroSelect.selectedIndex];
             const paginas = opcionSeleccionada.getAttribute('data-paginas');
             const precioBase = parseFloat(opcionSeleccionada.getAttribute('data-precio')) || 0;
@@ -544,8 +550,12 @@ document.addEventListener('DOMContentLoaded', function () {
             const precio = precioBase + incrementoPorAcabados(precioBase, cantosTintados, esquineros);
 
             if (paginasInput) paginasInput.value = paginas;
-            if (precioInput) precioInput.value = precio.toFixed(2);
-            if (anticipoInput) anticipoInput.value = (precio / 2).toFixed(2);
+            if (precioInput && !precioEditadoManualmente) {
+                precioInput.value = precio.toFixed(2);
+            }
+            if (anticipoInput && !anticipoEditado) {
+                anticipoInput.value = (precio / 2).toFixed(2);
+            }
         }
 
         actualizarCosto();
@@ -588,6 +598,7 @@ document.addEventListener('DOMContentLoaded', function () {
         modalNuevoPedido.addEventListener('shown.bs.modal', function () {
             precioEditadoManualmente = false;
             anticipoEditado = false;
+            ultimoLibroSeleccionado = null;
             cargarCodigos();
         });
     }
@@ -754,7 +765,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 actualizarGanancia();
 
                 if (descuentoActivo) {
+                    const valorEscrito = precioInput.value;
                     resetearDescuento();
+                    precioInput.value = valorEscrito;
                     btnAplicarDescuento.innerHTML = '<i class="bi bi-tag"></i>';
                     btnAplicarDescuento.classList.remove('btn-outline-danger');
                     btnAplicarDescuento.classList.add('btn-outline-success');
@@ -764,6 +777,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (anticipoInput) {
             anticipoInput.addEventListener('input', () => {
+                if (descuentoActivo) {
+                    const valorEscrito = anticipoInput.value;
+                    resetearDescuento();
+                    anticipoInput.value = valorEscrito;
+                }
                 anticipoEditado = true;
             });
         }

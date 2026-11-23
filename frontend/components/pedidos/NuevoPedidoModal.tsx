@@ -332,6 +332,20 @@ export default function NuevoPedidoModal() {
     return Math.round(((precioCup / tasaRef) * tasaActual) / 50) * 50;
   }
 
+  function aplicarPrecioSugerido(precioCup: number, forzar = false) {
+    if (forzar || !precioEditadoManualmente) {
+      if (esPrecioUsd) {
+        const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
+        setPrecioVenta(String(Math.round(precioCup / tasa)));
+      } else {
+        setPrecioVenta(String(redondear2(precioCup)));
+      }
+    }
+    if (forzar || !anticipoEditado) {
+      setAnticipoRequerido(anticipoSugeridoEnMoneda(precioCup / 2));
+    }
+  }
+
   function calcularActual(
     paginasActuales: number,
     cantosTintados: boolean,
@@ -413,17 +427,15 @@ export default function NuevoPedidoModal() {
     setBonoInfo(null);
     setBonoError(null);
 
-    if (precioOriginal !== null) {
+    if (precioOriginal !== null && !precioEditadoManualmente) {
       setPrecioVenta(precioOriginal);
     }
-    if (anticipoOriginal !== null) {
+    if (anticipoOriginal !== null && !anticipoEditado) {
       setAnticipoRequerido(anticipoOriginal);
     }
 
     setPrecioOriginal(null);
     setAnticipoOriginal(null);
-    setPrecioEditadoManualmente(false);
-    setAnticipoEditado(false);
   }
 
   function handleClienteChange(value: string) {
@@ -449,10 +461,15 @@ export default function NuevoPedidoModal() {
 
   function handleLibroChange(value: string) {
     const libro = libros.find((item) => String(item.id) === value) ?? null;
+    const cambioDeLibro = value !== libroId;
     setLibroId(value);
     setModoLibro("existente");
     setLibroSeleccionado(libro);
     resetDescuento();
+
+    if (!cambioDeLibro) {
+      return;
+    }
 
     if (libro) {
       const precio = calcularPrecioConAcabados(
@@ -460,19 +477,19 @@ export default function NuevoPedidoModal() {
         llevaCantosTintados,
         llevaEsquineros || llevaCantosTintados,
       );
-      setPrecioVenta(String(precio));
-      setAnticipoRequerido(anticipoSugeridoEnMoneda(precio / 2));
-      setPrecioEditadoManualmente(false);
-      setAnticipoEditado(false);
+      aplicarPrecioSugerido(precio, true);
     } else {
       setPrecioVenta("0");
       setAnticipoRequerido("0");
-      setPrecioEditadoManualmente(false);
-      setAnticipoEditado(false);
     }
+    setPrecioEditadoManualmente(false);
+    setAnticipoEditado(false);
   }
 
   function handleModoLibroExistente() {
+    if (modoLibro === "existente") {
+      return;
+    }
     setModoLibro("existente");
     const libro =
       libros.find((item) => String(item.id) === libroId) ?? null;
@@ -485,22 +502,18 @@ export default function NuevoPedidoModal() {
         llevaCantosTintados,
         llevaEsquineros || llevaCantosTintados,
       );
-      setPrecioVenta(String(precio));
-      setAnticipoRequerido(anticipoSugeridoEnMoneda(precio / 2));
-      setPrecioEditadoManualmente(false);
-      setAnticipoEditado(false);
+      aplicarPrecioSugerido(precio);
     } else {
       setPrecioVenta("0");
       setAnticipoRequerido("0");
-      setPrecioEditadoManualmente(false);
-      setAnticipoEditado(false);
     }
   }
 
   function handleModoLibroNuevo() {
+    if (modoLibro === "nuevo") {
+      return;
+    }
     setModoLibro("nuevo");
-    setPrecioEditadoManualmente(false);
-    setAnticipoEditado(false);
     resetDescuento();
 
     const calculo = calcularActual(
@@ -509,22 +522,13 @@ export default function NuevoPedidoModal() {
       llevaEsquineros || llevaCantosTintados,
     );
     if (calculo) {
-      const precioAjustado = ajustarPrecioPorTasa(calculo.precio_sugerido);
-      if (esPrecioUsd) {
-        const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
-        setPrecioVenta(String(Math.round(precioAjustado / tasa)));
-      } else {
-        setPrecioVenta(String(precioAjustado));
-      }
-      setAnticipoRequerido(anticipoSugeridoEnMoneda(precioAjustado / 2));
+      aplicarPrecioSugerido(ajustarPrecioPorTasa(calculo.precio_sugerido));
     }
   }
 
   function handleLibroPaginasChange(value: string) {
     setModoLibro("nuevo");
     setLibroPaginas(value);
-    setPrecioEditadoManualmente(false);
-    setAnticipoEditado(false);
     resetDescuento();
 
     const calculo = calcularActual(
@@ -533,14 +537,7 @@ export default function NuevoPedidoModal() {
       llevaEsquineros || llevaCantosTintados,
     );
     if (calculo) {
-      const precioAjustado = ajustarPrecioPorTasa(calculo.precio_sugerido);
-      if (esPrecioUsd) {
-        const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
-        setPrecioVenta(String(Math.round(precioAjustado / tasa)));
-      } else {
-        setPrecioVenta(String(precioAjustado));
-      }
-      setAnticipoRequerido(anticipoSugeridoEnMoneda(precioAjustado / 2));
+      aplicarPrecioSugerido(ajustarPrecioPorTasa(calculo.precio_sugerido));
     }
   }
 
@@ -555,20 +552,7 @@ export default function NuevoPedidoModal() {
         esquineros,
       );
       if (calculo) {
-        const precioAjustado = ajustarPrecioPorTasa(calculo.precio_sugerido);
-        if (!precioEditadoManualmente) {
-          if (esPrecioUsd) {
-            const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
-            setPrecioVenta(String(Math.round(precioAjustado / tasa)));
-          } else {
-            setPrecioVenta(String(precioAjustado));
-          }
-        }
-        if (!anticipoEditado) {
-          setAnticipoRequerido(
-            anticipoSugeridoEnMoneda(precioAjustado / 2),
-          );
-        }
+        aplicarPrecioSugerido(ajustarPrecioPorTasa(calculo.precio_sugerido));
       }
       return;
     }
@@ -580,17 +564,7 @@ export default function NuevoPedidoModal() {
         cantosTintados,
         esquineros,
       );
-      if (!precioEditadoManualmente) {
-        if (esPrecioUsd) {
-          const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
-          setPrecioVenta(String(Math.round(nuevoPrecio / tasa)));
-        } else {
-          setPrecioVenta(String(nuevoPrecio));
-        }
-      }
-      if (!anticipoEditado) {
-        setAnticipoRequerido(anticipoSugeridoEnMoneda(nuevoPrecio / 2));
-      }
+      aplicarPrecioSugerido(nuevoPrecio);
     }
   }
 
@@ -610,6 +584,15 @@ export default function NuevoPedidoModal() {
     if (esUsd && value !== "" && !/^\d+$/.test(value)) return;
     setPrecioVenta(value);
     setPrecioEditadoManualmente(true);
+
+    if (!anticipoEditado) {
+      const precioNum = Number(value || 0);
+      setAnticipoRequerido(
+        esUsd
+          ? String(Math.floor(precioNum / 2))
+          : String(redondear2(precioNum / 2)),
+      );
+    }
   }
 
   function handleMonedaChange(next: MonedaAnticipo) {
@@ -674,8 +657,6 @@ export default function NuevoPedidoModal() {
       setPrecioVenta(String(nuevoPrecioCup));
     }
     setAnticipoRequerido(anticipoSugeridoEnMoneda(nuevoPrecioCup / 2));
-    setPrecioEditadoManualmente(true);
-    setAnticipoEditado(true);
     setBonoInfo(
       `Bono de fidelidad aplicado: ${money(monto)} — Precio final: ${money(
         nuevoPrecioCup,
@@ -729,8 +710,6 @@ export default function NuevoPedidoModal() {
       setAnticipoRequerido(
         anticipoSugeridoEnMoneda(nuevoPrecioCup / 2),
       );
-      setPrecioEditadoManualmente(true);
-      setAnticipoEditado(true);
       setDescuentoInfo(
         `${descuento.descripcion || "Descuento aplicado"} — ${descuento.porcentaje}% — Precio final: ${money(
           descuento.precio_final,
@@ -1254,7 +1233,7 @@ export default function NuevoPedidoModal() {
                   <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     <div>
                       <label htmlFor="precio-venta" className="mb-1.5 block text-sm font-semibold text-ink">
-                        Precio venta ({esUsd ? "USD" : "CUP"}, se congela al crear)
+                        Precio venta ({esUsd ? "USD" : "CUP"}, editable, se congela al crear)
                       </label>
                       <input
                         id="precio-venta"
@@ -1277,7 +1256,7 @@ export default function NuevoPedidoModal() {
                         htmlFor="anticipo-requerido"
                         className="mb-1.5 block text-sm font-semibold text-ink"
                       >
-                        Anticipo ({esUsd ? "USD" : "CUP"})
+                        Anticipo ({esUsd ? "USD" : "CUP"}, editable)
                       </label>
                       <input
                         id="anticipo-requerido"
