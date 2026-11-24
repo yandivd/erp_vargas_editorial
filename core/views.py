@@ -448,7 +448,9 @@ def exportar_datos_ia(request):
 
 
 def exportar_rentabilidad_ia(request):
-    data = exportar_rentabilidad_para_ia()
+    desde = parse_fecha(request.GET.get('desde', ''))
+    hasta = parse_fecha(request.GET.get('hasta', ''))
+    data = exportar_rentabilidad_para_ia(desde, hasta)
     response = JsonResponse(data, json_dumps_params={'indent': 2, 'ensure_ascii': False})
     response['Content-Disposition'] = 'attachment; filename="rentabilidad_para_ia.json"'
     return response

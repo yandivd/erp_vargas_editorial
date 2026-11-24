@@ -13,6 +13,7 @@ export type DashboardMeta = {
   tasa_cambio?: number;
   advertencia_tasa?: boolean;
   formula_ganancia?: string;
+  formula_punto_equilibrio?: string;
 };
 
 export type ResumenKpis = {
@@ -61,6 +62,12 @@ export type ResumenKpis = {
   pedidos_activos: number;
   deuda_clientes: number;
   dinero_proyectado: number;
+  punto_equilibrio: number;
+  margen_contribucion: number;
+  sueldo_dueno: number;
+  flujo_caja_neto_mes: number;
+  ingresos_caja_mes: number;
+  egresos_caja_mes: number;
 };
 
 export type DesgloseIngreso = {
@@ -141,6 +148,13 @@ export type AnalisisCategoria = {
   cantidad: number;
 };
 
+export type TicketCategoria = {
+  categoria: string;
+  pedidos: number;
+  ticket_promedio: number;
+  precio_libro_promedio: number;
+};
+
 export type Consejo = {
   tipo: string;
   titulo: string;
@@ -164,6 +178,7 @@ export type DashboardResumen = {
   calor: Calor;
   transacciones: Transaccion[];
   analisis_categorias: AnalisisCategoria[];
+  ticket_por_categoria: TicketCategoria[];
   consejos: Consejo[];
 };
 
@@ -172,6 +187,10 @@ export type ProduccionKpis = {
   libros_unicos: number;
   libros_con_un_pedido: number;
   libros_repetidos: number;
+  lead_time_dias: number;
+  pedidos_estancados: number;
+  capacidad_semanal: number;
+  libros_producidos_30d: number;
 };
 
 export type TopLibro = {
@@ -217,6 +236,16 @@ export type TiempoEstado = {
   pedidos: number;
 };
 
+export type PedidoEstancado = {
+  id: number;
+  referencia: string;
+  cliente: string;
+  libro: string;
+  estado: string;
+  dias: number;
+  fecha_estado: string;
+};
+
 export type DashboardProduccion = {
   kpis: ProduccionKpis;
   top10_data: TopLibro[];
@@ -224,6 +253,7 @@ export type DashboardProduccion = {
   recientes_data: LibroReciente[];
   comportamiento_pedidos_mes: ComportamientoPedidoMes[];
   tiempos_por_estado: TiempoEstado[];
+  pedidos_estancados_data: PedidoEstancado[];
   pedidos_mes_data: {
     labels: string[];
     series: PedidosMesSerie[];

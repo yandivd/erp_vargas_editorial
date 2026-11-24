@@ -46,6 +46,29 @@ export default function ProduccionTab({ data }: { data: DashboardProduccion }) {
           label="Libros Repetidos"
           value={integer(data.kpis.libros_repetidos)}
         />
+        <KpiCard
+          label="Lead time"
+          value={`${Number(data.kpis.lead_time_dias ?? 0).toFixed(1)} d`}
+          sub="Impreso → Listo para Entregar"
+          tone="blue"
+        />
+        <KpiCard
+          label="Pedidos estancados"
+          value={integer(data.kpis.pedidos_estancados ?? 0)}
+          sub="Más de 5 días sin avanzar"
+          tone={(data.kpis.pedidos_estancados ?? 0) > 0 ? "red" : "emerald"}
+          valueClassName={
+            (data.kpis.pedidos_estancados ?? 0) > 0
+              ? "text-red-500"
+              : "text-emerald-600"
+          }
+        />
+        <KpiCard
+          label="Capacidad del taller"
+          value={`${Number(data.kpis.capacidad_semanal ?? 0).toFixed(1)} lib/sem`}
+          sub={`${integer(data.kpis.libros_producidos_30d ?? 0)} libros en 30 días`}
+          tone="cyan"
+        />
       </div>
 
       <div className="mb-4 grid gap-3 md:grid-cols-2">
@@ -132,6 +155,62 @@ export default function ProduccionTab({ data }: { data: DashboardProduccion }) {
                 ))
               ) : (
                 <EmptyTableRow colSpan={5}>Sin pedidos</EmptyTableRow>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Pedidos estancados (> 5 días)"
+        icon={<Clock className="h-5 w-5 text-red-500" aria-hidden="true" />}
+      >
+        <div className={tableWrapClass}>
+          <table className={tableClass}>
+            <thead>
+              <tr>
+                <th className={thClass}>Pedido</th>
+                <th className={thClass}>Cliente</th>
+                <th className={`${thClass} hidden md:table-cell`}>Libro</th>
+                <th className={thClass}>Estado</th>
+                <th className={`${thClass} text-right`}>Días</th>
+                <th className={`${thClass} hidden text-right md:table-cell`}>
+                  Último movimiento
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.pedidos_estancados_data?.length ? (
+                data.pedidos_estancados_data.map((pedido) => (
+                  <tr
+                    key={pedido.id}
+                    className="border-b border-red-100 bg-red-50 text-red-800 transition-colors hover:bg-red-100"
+                  >
+                    <td className={`${tdClass} font-semibold`}>
+                      <Link
+                        href={`/pedidos/${pedido.id}`}
+                        className="text-red-700 no-underline hover:underline"
+                      >
+                        {pedido.referencia}
+                      </Link>
+                    </td>
+                    <td className={tdClass}>{pedido.cliente}</td>
+                    <td className={`${tdClass} hidden md:table-cell`}>
+                      {pedido.libro}
+                    </td>
+                    <td className={tdClass}>{pedido.estado}</td>
+                    <td className={`${tdClass} whitespace-nowrap text-right font-bold`}>
+                      {integer(pedido.dias)} d
+                    </td>
+                    <td className={`${tdClass} hidden text-right md:table-cell`}>
+                      {pedido.fecha_estado}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <EmptyTableRow colSpan={6}>
+                  No hay pedidos estancados.
+                </EmptyTableRow>
               )}
             </tbody>
           </table>
