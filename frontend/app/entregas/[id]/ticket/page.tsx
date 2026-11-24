@@ -1,8 +1,8 @@
 import { AlertTriangle } from "lucide-react";
-import TicketActions from "@/components/entregas/TicketActions";
+import type { Metadata } from "next";
 import { apiFetch } from "@/lib/api";
 import type { EntregaDetail } from "@/lib/entregas";
-import { formatDate, money } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +11,11 @@ type PageProps = {
     id: string;
   }>;
 };
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  return { title: `Entrega #${id}` };
+}
 
 function fechaHoy(): string {
   return new Intl.DateTimeFormat("es-CU", {
@@ -25,9 +30,149 @@ function referenciaPedido(
   referencia: string | null | undefined,
   id: number,
 ): string {
-  const refStr = String(referencia || "");
-  return refStr.trim() ? refStr : String(id);
+  const ref = String(referencia || "").trim();
+  return ref || String(id);
 }
+
+function floatformat0(value: string | number | null | undefined): string {
+  return String(Math.round(Number(value ?? 0)));
+}
+
+function floatformat2(value: string | number | null | undefined): string {
+  return Number(value ?? 0).toFixed(2);
+}
+
+const printStyles = `
+  @page {
+    size: 58mm auto;
+    margin: 0;
+  }
+
+  body, div, p, span, table, th, td {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    height: auto !important;
+    min-height: 100% !important;
+    overflow-y: auto !important;
+  }
+
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #000;
+    background: #ffffff;
+    width: 100%;
+  }
+
+  .hoja {
+    width: 100%;
+    height: auto !important;
+  }
+
+  .etiqueta {
+    width: 100%;
+    background: #ffffff;
+    padding: 2mm;
+    display: flex;
+    flex-direction: column;
+    font-size: 24px;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  .etq-header {
+    text-align: center;
+    border-bottom: 3px dashed #000;
+    padding-bottom: 2mm;
+    margin-bottom: 2mm;
+    page-break-after: avoid;
+  }
+
+  .etq-logo {
+    height: 80px;
+    width: auto;
+    max-width: 90%;
+    margin-bottom: 10px;
+    display: inline-block;
+  }
+
+  .etq-empresa {
+    font-size: 32px !important;
+    font-weight: 900;
+  }
+
+  .etq-sub {
+    font-size: 22px !important;
+  }
+
+  .etq-cuerpo p {
+    font-size: 24px !important;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .etq-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 3mm 0;
+  }
+
+  .etq-tabla th {
+    font-size: 24px !important;
+    text-align: left;
+    border-bottom: 3px solid #000;
+    border-top: 3px solid #000;
+    padding: 1.5mm 0;
+  }
+
+  .etq-tabla td {
+    font-size: 24px !important;
+    padding: 1.5mm 0;
+    vertical-align: top;
+    word-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .etq-tabla .right { text-align: right; }
+  .etq-tabla .center { text-align: center; }
+
+  .etq-totales {
+    border-top: 3px dashed #000;
+    padding-top: 2mm;
+    margin-top: 2mm;
+  }
+
+  .etq-totales .fila span {
+    font-size: 24px !important;
+    display: inline-block;
+  }
+
+  .etq-totales .fila {
+    display: flex;
+    justify-content: space-between;
+    margin: 2mm 0;
+  }
+
+  .etq-totales .fila.total-final span {
+    font-size: 32px !important;
+    font-weight: 900;
+  }
+
+  .etq-totales .fila.total-final {
+    border-top: 3px solid #000;
+    padding-top: 2mm;
+    margin-top: 2mm;
+  }
+
+  .etq-qr { margin-top: 4mm; padding-top: 3mm; border-top: 3px dashed #000; text-align: center; page-break-inside: avoid; break-inside: avoid; }
+  .etq-qr-img { width: 45mm; height: 45mm; display: block; margin: 0 auto 2mm auto; image-rendering: pixelated; }
+  .etq-qr-texto { font-size: 16px !important; font-weight: bold; text-align: center; }
+`;
 
 export default async function TicketEntregaPage({ params }: PageProps) {
   const { id } = await params;
@@ -58,303 +203,125 @@ export default async function TicketEntregaPage({ params }: PageProps) {
   }
 
   const entrega = result.data;
-  const direccion =
-    entrega.direccion || entrega.cliente_direccion || "—";
+  const direccion = entrega.direccion || entrega.cliente_direccion || "—";
   const fechaEntrega = formatDate(entrega.fecha_entrega) || "—";
+  const totalDescuento = Number(entrega.total_descuento ?? 0);
+  const numero = String(entrega.id).padStart(5, "0");
 
   return (
-    <div className="ticket-preview">
-      <style>{`
-        @page {
-          size: 58mm auto;
-          margin: 0;
-        }
+    <>
+      <style>{printStyles}</style>
+      <div className="hoja">
+        <div className="etiqueta">
+          <div className="etq-header">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/img/logo.png" alt="Logo" className="etq-logo" />
+            <p className="etq-empresa">Vargas Editorial</p>
+            <p className="etq-sub">Tel: +53 54545068</p>
+            <p className="etq-sub" style={{ color: "#c0392b" }}>
+              Comprobante de Entrega
+            </p>
+            <p className="etq-sub">
+              No. {numero} | Fecha: {fechaHoy()}
+            </p>
+          </div>
 
-        .ticket-preview {
-          min-height: 100vh;
-          padding: 16px;
-          background: #e2e8f0;
-        }
+          <div className="etq-cuerpo">
+            <p>
+              <strong>Cliente:</strong> {entrega.cliente_nombre}
+            </p>
+            <p>
+              <strong>Tel:</strong> {entrega.cliente_telefono || "—"}
+            </p>
+            <p>
+              <strong>Dir:</strong> {direccion}
+            </p>
+            <p>
+              <strong>Entrega:</strong> {fechaEntrega} ({entrega.cantidad_pedidos}{" "}
+              ped.)
+            </p>
 
-        .ticket {
-          width: 58mm;
-          max-width: 100%;
-          margin: 0 auto;
-          padding: 2mm;
-          background: #fff;
-          color: #000;
-          font-family: 'Courier New', Courier, monospace;
-          font-size: 8pt;
-          font-weight: bold;
-          line-height: 1.3;
-          text-transform: uppercase;
-          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
-        }
-
-        .ticket-center {
-          text-align: center;
-        }
-
-        .ticket-logo {
-          display: block;
-          width: 34mm;
-          max-width: 90%;
-          max-height: 20mm;
-          margin: 0 auto 2mm;
-          object-fit: contain;
-          filter: grayscale(1);
-        }
-
-        .ticket-empresa {
-          margin: 0;
-          font-size: 12pt;
-          font-weight: 900;
-          letter-spacing: 0.02em;
-        }
-
-        .ticket-sub {
-          margin: 0.6mm 0;
-          font-size: 8pt;
-        }
-
-        .ticket-titulo {
-          margin: 1.5mm 0 0.8mm;
-          padding: 1mm 0;
-          border-top: 2px solid #000;
-          border-bottom: 2px solid #000;
-          font-size: 9.5pt;
-          font-weight: 900;
-        }
-
-        .ticket-sep {
-          margin: 2mm 0;
-          border-top: 1px dashed #000;
-        }
-
-        .ticket-sep-doble {
-          margin: 2mm 0;
-          border-top: 2px solid #000;
-        }
-
-        .ticket-cuerpo p {
-          margin: 0 0 0.8mm;
-          font-size: 8pt;
-        }
-
-        .ticket-tabla {
-          width: 100%;
-          margin: 2mm 0;
-          border-collapse: collapse;
-          table-layout: fixed;
-          font-size: 7pt;
-        }
-
-        .ticket-tabla th,
-        .ticket-tabla td {
-          padding: 0.9mm 0.4mm;
-          vertical-align: top;
-          word-break: break-word;
-        }
-
-        .ticket-tabla th {
-          border-top: 1.5px solid #000;
-          border-bottom: 1.5px solid #000;
-          font-size: 6.8pt;
-          text-align: left;
-        }
-
-        .ticket-tabla td {
-          border-bottom: 1px dotted #000;
-        }
-
-        .ticket-tabla .ref {
-          width: 16%;
-          text-align: left;
-        }
-
-        .ticket-tabla .libro {
-          width: 34%;
-          text-align: left;
-        }
-
-        .ticket-tabla .cant {
-          width: 8%;
-          text-align: center;
-        }
-
-        .ticket-tabla .precio,
-        .ticket-tabla .saldo {
-          width: 21%;
-          text-align: right;
-        }
-
-        .ticket-totales {
-          margin-top: 2mm;
-          padding-top: 2mm;
-          border-top: 1px dashed #000;
-        }
-
-        .ticket-fila {
-          display: flex;
-          justify-content: space-between;
-          gap: 2mm;
-          margin: 1mm 0;
-          font-size: 8pt;
-        }
-
-        .ticket-fila.total-final {
-          margin-top: 1.5mm;
-          padding-top: 1.5mm;
-          border-top: 2px solid #000;
-          font-size: 10pt;
-          font-weight: 900;
-        }
-
-        .ticket-nota,
-        .ticket-footer {
-          margin: 1.5mm 0 0;
-          text-align: center;
-          font-size: 7pt;
-        }
-
-        .ticket-footer {
-          margin-top: 3mm;
-        }
-
-        .ticket-firma {
-          margin: 2mm auto 0;
-          width: 80%;
-          border-top: 1px solid #000;
-          padding-top: 1mm;
-          text-align: center;
-          font-size: 7pt;
-        }
-
-        @media print {
-          html,
-          body {
-            min-height: 0 !important;
-            background: #fff !important;
-          }
-
-          .no-print {
-            display: none !important;
-          }
-
-          .ticket-preview {
-            min-height: 0;
-            padding: 0;
-            background: #fff;
-          }
-
-          .ticket {
-            width: 100%;
-            max-width: none;
-            margin: 0;
-            padding: 2mm;
-            box-shadow: none;
-          }
-        }
-      `}</style>
-
-      <TicketActions />
-
-      <article className="ticket">
-        <header className="ticket-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/img/logo.jpg"
-            alt="Vargas Editorial"
-            className="ticket-logo"
-          />
-          <p className="ticket-sub">Libros por encargo y encuadernación</p>
-          <p className="ticket-sub">Tel: +53 54545068</p>
-          <p className="ticket-sub">Artemisa, Cuba</p>
-          <p className="ticket-titulo">Comprobante de Entrega</p>
-          <p className="ticket-sub">
-            No. {String(entrega.id).padStart(5, "0")} | Fecha: {fechaHoy()}
-          </p>
-        </header>
-
-        <div className="ticket-sep" />
-
-        <section className="ticket-cuerpo">
-          <p>
-            <strong>Cliente:</strong> {entrega.cliente_nombre}
-          </p>
-          <p>
-            <strong>Tel:</strong> {entrega.cliente_telefono || "—"}
-          </p>
-          <p>
-            <strong>Dir:</strong> {direccion}
-          </p>
-          <p>
-            <strong>Entrega:</strong> {fechaEntrega} (
-            {entrega.cantidad_pedidos} ped.)
-          </p>
-        </section>
-
-        <table className="ticket-tabla">
-          <thead>
-            <tr>
-              <th className="ref">Ref</th>
-              <th className="libro">Libro</th>
-              <th className="cant">C</th>
-              <th className="precio">Precio</th>
-              <th className="saldo">Saldo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entrega.pedidos.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="ticket-center">
-                  Sin pedidos asociados
-                </td>
-              </tr>
-            ) : (
-              entrega.pedidos.map((pedido) => (
-                <tr key={pedido.id}>
-                  <td className="ref">
-                    {referenciaPedido(pedido.referencia_externa, pedido.id)}
-                  </td>
-                  <td className="libro">{pedido.libro_titulo}</td>
-                  <td className="cant">{pedido.cantidad}</td>
-                  <td className="precio">{money(pedido.precio_venta)}</td>
-                  <td className="saldo">{money(pedido.saldo_pendiente)}</td>
+            <table className="etq-tabla">
+              <thead>
+                <tr>
+                  <th style={{ width: "15%", textAlign: "left" }}>Ref</th>
+                  <th className="center" style={{ width: "60%" }}>
+                    Libro
+                  </th>
+                  <th className="right" style={{ width: "25%" }}>
+                    Saldo
+                  </th>
                 </tr>
-              ))
+              </thead>
+              <tbody>
+                {entrega.pedidos.map((pedido) => (
+                  <tr key={pedido.id}>
+                    <td style={{ textAlign: "left" }}>
+                      {referenciaPedido(pedido.referencia_externa, pedido.id)}
+                    </td>
+                    <td className="center">{pedido.libro_titulo}</td>
+                    <td className="right">
+                      ${floatformat0(pedido.saldo_pendiente)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="etq-totales">
+            {totalDescuento > 0 ? (
+              <>
+                <div className="fila" style={{ color: "#27ae60" }}>
+                  <span>Descuento:</span>
+                  <span>-${floatformat0(totalDescuento)}</span>
+                </div>
+                <div className="fila">
+                  <span>Subtotal:</span>
+                  <span>${floatformat0(entrega.total_pedidos)}</span>
+                </div>
+              </>
+            ) : (
+              <div className="fila">
+                <span>Total Pedidos:</span>
+                <span>${floatformat0(entrega.total_pedidos)}</span>
+              </div>
             )}
-          </tbody>
-        </table>
 
-        <div className="ticket-totales">
-          <div className="ticket-fila">
-            <span>Total Pedidos:</span>
-            <span>{money(entrega.total_pedidos)}</span>
+            <div className="fila">
+              <span>Anticipos:</span>
+              <span>-${floatformat0(entrega.total_anticipos)}</span>
+            </div>
+            <div className="fila">
+              <span>Mensajería:</span>
+              <span>
+                {entrega.entregado
+                  ? "Entregada"
+                  : `$${floatformat0(entrega.costo_mensajeria)}`}
+              </span>
+            </div>
+
+            <div className="fila total-final" style={{ color: "#c0392b" }}>
+              <span>Total a Cobrar:</span>
+              <span>${floatformat2(entrega.total_pendiente)}</span>
+            </div>
           </div>
-          <div className="ticket-fila">
-            <span>Anticipos:</span>
-            <span>-{money(entrega.total_anticipos)}</span>
-          </div>
-          <div className="ticket-fila">
-            <span>Mensajería:</span>
-            <span>
-              {entrega.entregado ? "Entregada" : money(entrega.costo_mensajeria)}
-            </span>
-          </div>
-          <div className="ticket-fila total-final">
-            <span>Total a Cobrar:</span>
-            <span>{money(entrega.total_pendiente)}</span>
-          </div>
+
+          {entrega.qr_imagen ? (
+            <div className="etq-qr">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={entrega.qr_imagen}
+                alt="QR tarjeta cliente"
+                className="etq-qr-img"
+              />
+              <p className="etq-qr-texto">
+                Escanea para ver tu tarjeta de cliente
+              </p>
+            </div>
+          ) : null}
         </div>
-
-        <div className="ticket-sep-doble" />
-
-
-        <footer className="ticket-footer">
-          <p>Gracias por confiar en nosotros</p>
-        </footer>
-      </article>
-    </div>
+      </div>
+    </>
   );
 }

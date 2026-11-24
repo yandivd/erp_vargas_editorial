@@ -75,7 +75,7 @@
                         <a href="{% url 'pedidos:imprimir_entrega' e.id %}" target="_blank" class="btn btn-sm btn-outline-dark d-none d-sm-inline-block" title="Imprimir Carta">
                             <i class="bi bi-printer"></i>
                         </a>
-                        <a href="{% url 'pedidos:imprimir_entrega_carta' e.id %}" target="_blank" class="btn btn-sm btn-outline-dark" title="Ticket 5×8">
+                        <a href="{{ frontend_url }}/entregas/{{ e.id }}/ticket" target="_blank" class="btn btn-sm btn-outline-dark" title="Ticket 5×8">
                             <i class="bi bi-receipt"></i>
                         </a>
                     </td>

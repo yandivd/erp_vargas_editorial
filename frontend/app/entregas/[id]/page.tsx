@@ -114,7 +114,7 @@ export default async function EntregaDetailPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <a
-            href={`https://vargaserp.pythonanywhere.com/pedidos/entregas/${entrega.id}/comprobante-carta/`}
+            href={`/entregas/${entrega.id}/ticket`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-3.5 py-2 text-sm font-semibold text-ink transition hover:border-brand hover:bg-blue-50 hover:text-brand"

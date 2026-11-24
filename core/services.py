@@ -139,6 +139,12 @@ def tasa_cambio():
     return Decimal(str(valor)), valor <= 1
 
 
+def _parametros_para_costeador():
+    from core.models import Parametro
+
+    return dict(Parametro.objects.values_list('clave', 'valor'))
+
+
 def convertir_cup_a_usd(monto, tasa=None):
     tasa = tasa or tasa_cambio()[0]
     if not tasa or tasa <= 0:
@@ -189,6 +195,143 @@ def anticipos_reconocidos(desde=None, hasta=None):
     if hasta:
         qs = qs.filter(pedido__fecha_entrega_real__date__lte=hasta)
     return qs
+
+
+def _fila_kpi_movimiento(
+    movimiento,
+    fecha=None,
+    categoria_label=None,
+    concepto=None,
+):
+    proveedor = movimiento.proveedor if movimiento.proveedor_id else None
+    return {
+        'id': movimiento.pk,
+        'tipo': movimiento.tipo,
+        'tipo_label': movimiento.get_tipo_display(),
+        'categoria': movimiento.categoria,
+        'categoria_label': categoria_label or movimiento.get_categoria_display(),
+        'monto': float(movimiento.monto),
+        'moneda': movimiento.moneda,
+        'moneda_label': movimiento.get_moneda_display(),
+        'metodo': movimiento.metodo,
+        'metodo_label': movimiento.get_metodo_display(),
+        'concepto': concepto if concepto is not None else movimiento.concepto,
+        'fecha': fecha or movimiento.fecha,
+        'pedido_id': movimiento.pedido_id,
+        'proveedor_id': movimiento.proveedor_id,
+        'proveedor_nombre': proveedor.nombre if proveedor else '',
+    }
+
+
+def movimientos_para_kpi(tipo, desde=None, hasta=None, moneda=None):
+    """Filas que componen exactamente el KPI de ingresos o gastos."""
+    desde = parse_fecha(desde)
+    hasta = parse_fecha(hasta)
+    if desde and hasta and desde > hasta:
+        desde, hasta = hasta, desde
+
+    if tipo not in ('ingresos', 'gastos'):
+        raise ValueError("Tipo de KPI no válido")
+
+    movs = movimientos_financieros(desde, hasta)
+    filas = []
+
+    if tipo == 'ingresos':
+        ingresos = (
+            movs.filter(tipo='INGRESO')
+            .exclude(Q_NO_INGRESO_OPERATIVO | Q_INGRESO_DIFERIDO)
+            .select_related('pedido', 'proveedor', 'cliente')
+        )
+        vueltos = (
+            movs.filter(tipo='EGRESO', categoria=CATEGORIA_VUELTO_CLIENTE)
+            .select_related('pedido', 'proveedor', 'cliente')
+        )
+        anticipos = (
+            anticipos_reconocidos(desde, hasta)
+            .select_related('pedido', 'proveedor', 'cliente', 'pedido__cliente')
+        )
+
+        if moneda in ('CUP', 'USD'):
+            ingresos = ingresos.filter(moneda=moneda)
+            vueltos = vueltos.filter(moneda=moneda)
+            anticipos = anticipos.filter(moneda=moneda)
+
+        for movimiento in ingresos:
+            filas.append(_fila_kpi_movimiento(movimiento))
+        for movimiento in anticipos:
+            filas.append(
+                _fila_kpi_movimiento(
+                    movimiento,
+                    fecha=movimiento.pedido.fecha_entrega_real or movimiento.fecha,
+                    categoria_label='Anticipos reconocidos al entregar',
+                    concepto=(
+                        f'Anticipo reconocido al entregar Pedido #{movimiento.pedido_id}'
+                    ),
+                )
+            )
+        for movimiento in vueltos:
+            filas.append(_fila_kpi_movimiento(movimiento))
+    else:
+        egresos = (
+            movs.filter(tipo='EGRESO')
+            .exclude(Q_NO_GASTO_OPERATIVO)
+            .select_related('pedido', 'proveedor', 'cliente')
+        )
+        if moneda in ('CUP', 'USD'):
+            egresos = egresos.filter(moneda=moneda)
+        for movimiento in egresos:
+            filas.append(_fila_kpi_movimiento(movimiento))
+
+        if moneda != 'USD':
+            consumos = (
+                consumos_inventario(desde, hasta)
+                .values('material__nombre')
+                .annotate(
+                    total=Sum('costo_total'),
+                    fecha=Max('fecha'),
+                )
+                .order_by('-total')
+            )
+            for indice, consumo in enumerate(consumos):
+                total = Decimal(str(consumo['total'] or 0))
+                if total <= 0:
+                    continue
+                filas.append({
+                    'id': -(1000000 + indice),
+                    'tipo': 'EGRESO',
+                    'tipo_label': 'Egreso',
+                    'categoria': 'CONSUMO_MATERIAL',
+                    'categoria_label': 'Consumo de material',
+                    'monto': float(total),
+                    'moneda': 'CUP',
+                    'moneda_label': 'CUP',
+                    'metodo': 'INVENTARIO',
+                    'metodo_label': 'Inventario',
+                    'concepto': f"Consumo de material: {consumo['material__nombre']}",
+                    'fecha': consumo['fecha'],
+                    'pedido_id': None,
+                    'proveedor_id': None,
+                    'proveedor_nombre': '',
+                })
+
+    filas.sort(key=lambda fila: fila['fecha'], reverse=True)
+    return filas
+
+
+def total_para_kpi(tipo, desde=None, hasta=None, moneda=None):
+    """Total del KPI, en equivalente CUP salvo que se pida una moneda."""
+    tasa, _ = tasa_cambio()
+    totales = {'CUP': Decimal('0'), 'USD': Decimal('0')}
+
+    for fila in movimientos_para_kpi(tipo, desde, hasta, moneda):
+        monto = Decimal(str(fila['monto']))
+        if tipo == 'ingresos' and fila['tipo'] == 'EGRESO':
+            monto = -monto
+        totales[fila['moneda']] += monto
+
+    if moneda in ('CUP', 'USD'):
+        return totales[moneda]
+    return totales['CUP'] + convertir_usd_a_cup(totales['USD'], tasa)
 
 
 def pedidos_financieros(desde=None, hasta=None):
@@ -341,6 +484,7 @@ def resumen_monedas(
 def dashboard_resumen(desde=None, hasta=None):
     hoy = timezone.localdate()
     tasa, advertencia = tasa_cambio()
+    parametros = _parametros_para_costeador()
     consumos = consumos_inventario(desde, hasta)
     costo_consumo_cup = (
         consumos.aggregate(t=Sum('costo_total'))['t'] or Decimal('0')
@@ -394,7 +538,11 @@ def dashboard_resumen(desde=None, hasta=None):
     }
     for pedido in pedidos:
         costo = Decimal(
-            str(CosteadorPedido(pedido).calcular()['costo_total'])
+            str(
+                CosteadorPedido(
+                    pedido, tasa_cambio=tasa, parametros=parametros
+                ).calcular()['costo_total']
+            )
         )
         precio_venta = Decimal(str(pedido.precio_venta or 0))
         contribucion_periodo += precio_venta - costo
@@ -440,7 +588,9 @@ def dashboard_resumen(desde=None, hasta=None):
     gastos_equiv_cup = Decimal(str(monedas['equivalente']['gastos_cup']))
     depreciacion_activos_cup = depreciacion_activos_mensual()
     saldo_contable_cup = saldo_operativo_cup - depreciacion_activos_cup
-    ganancia_promedio_cup = obtener_ganancia_promedio()
+    ganancia_promedio_cup = obtener_ganancia_promedio(
+        parametros=parametros, tasa_cambio=tasa
+    )
     ingresos_equiv = Decimal(str(monedas['equivalente']['ingresos_cup']))
     margen_operativo = (
         saldo_operativo_cup / ingresos_equiv * 100
@@ -453,10 +603,10 @@ def dashboard_resumen(desde=None, hasta=None):
         else Decimal('0')
     )
 
-    from core.models import Parametro
-
     try:
-        sueldo_dueno = Decimal(str(Parametro.get('sueldo_dueno', Decimal('0')) or 0))
+        sueldo_dueno = Decimal(
+            str(parametros.get('sueldo_dueno', Decimal('0')) or 0)
+        )
     except Exception:
         sueldo_dueno = Decimal('0')
     gastos_break_even = gastos_equiv_cup + sueldo_dueno
@@ -1869,8 +2019,7 @@ def _monto_en_cup(movimiento, tasa):
 
 
 def exportar_rentabilidad_para_ia(desde=None, hasta=None):
-    from core.models import Parametro
-
+    parametros = _parametros_para_costeador()
     tasa, advertencia_tasa = tasa_cambio()
     desde = desde or FECHA_CORTE_FINANCIERO
     ahora = timezone.now()
@@ -1901,7 +2050,13 @@ def exportar_rentabilidad_para_ia(desde=None, hasta=None):
     contribucion = Decimal('0')
     for pedido in pedidos:
         ingreso = Decimal(str(pedido.precio_venta or 0))
-        costo = Decimal(str(CosteadorPedido(pedido).calcular()['costo_total']))
+        costo = Decimal(
+            str(
+                CosteadorPedido(
+                    pedido, tasa_cambio=tasa, parametros=parametros
+                ).calcular()['costo_total']
+            )
+        )
         ganancia = ingreso - costo
         precio_libro = (
             Decimal(str(pedido.libro.precio_cup_referencia or 0))
@@ -1985,7 +2140,9 @@ def exportar_rentabilidad_para_ia(desde=None, hasta=None):
             total_gastos_fijos += monto_cup
 
     try:
-        sueldo_dueno = Decimal(str(Parametro.get('sueldo_dueno', Decimal('0')) or 0))
+        sueldo_dueno = Decimal(
+            str(parametros.get('sueldo_dueno', Decimal('0')) or 0)
+        )
     except Exception:
         sueldo_dueno = Decimal('0')
 
@@ -2136,10 +2293,10 @@ def secciones_rentabilidad_ia(desde=None, hasta=None):
     y agrega nómina, servicios externos, mejores clientes, deudores, flujo por
     moneda y KPIs de fidelidad.
     """
-    from core.models import Parametro
     from empleados.models import PagoNomina
     from proveedores.models import Proveedor
 
+    parametros = _parametros_para_costeador()
     tasa, _ = tasa_cambio()
 
     pedidos_qs = (
@@ -2160,7 +2317,9 @@ def secciones_rentabilidad_ia(desde=None, hasta=None):
         )
         costo = Decimal(
             str(
-                CosteadorPedido(pedido, tasa_cambio=tasa).calcular()['costo_total']
+                CosteadorPedido(
+                    pedido, tasa_cambio=tasa, parametros=parametros
+                ).calcular()['costo_total']
             )
         )
         ganancia = ingreso - costo

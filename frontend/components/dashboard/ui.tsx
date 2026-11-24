@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 const kpiTones = {
@@ -20,18 +21,20 @@ export function KpiCard({
   sub,
   tone = "neutral",
   valueClassName = "",
+  href,
 }: {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
   tone?: KpiTone;
   valueClassName?: string;
+  href?: string;
 }) {
-  return (
-    <div
-      className="relative h-full overflow-hidden rounded-xl border border-line border-t-4 bg-white p-5 transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.05)]"
-      style={{ borderTopColor: kpiTones[tone] }}
-    >
+  const className =
+    "relative block h-full overflow-hidden rounded-xl border border-line border-t-4 bg-white p-5 transition-all duration-300 hover:-translate-y-[3px] hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.05)]";
+  const style = { borderTopColor: kpiTones[tone] };
+  const content = (
+    <>
       <div className="mb-2 text-[0.7rem] font-bold uppercase tracking-[1px] text-muted">
         {label}
       </div>
@@ -41,6 +44,20 @@ export function KpiCard({
         {value}
       </div>
       {sub ? <div className="mt-2 text-[0.72rem] text-muted">{sub}</div> : null}
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={className} style={style}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className={className} style={style}>
+      {content}
     </div>
   );
 }

@@ -190,7 +190,7 @@ def costo_mensajeria_para_municipio(municipio, provincia=None):
     if not clave:
         return Decimal('0')
 
-    costos_norm, _ = _build_costos_normalizados()
+    costos_norm = _COSTOS_NORMALIZADOS
     if clave in costos_norm:
         return costos_norm[clave]
 
@@ -232,11 +232,14 @@ def redondear_cup_50(valor):
 class CosteadorPedido:
     """Calcula el costo de producción en CUP (MN)."""
 
-    def __init__(self, pedido, tasa_cambio=None):
+    def __init__(self, pedido, tasa_cambio=None, parametros=None):
         self.pedido = pedido
         self._tasa_override = tasa_cambio
+        self._parametros = parametros
 
     def _param(self, clave, default=0):
+        if self._parametros is not None:
+            return Decimal(str(self._parametros.get(clave, default)))
         return Decimal(str(Parametro.get(clave, default)))
 
     def _tasa_cambio(self):
@@ -308,10 +311,10 @@ class CosteadorPedido:
         costo_total = Decimal(str(costo['costo_total']))
         costo_base = costo_total - Decimal(str(costo['costo_scotch'])) - Decimal(str(costo['costo_esquineros']))
         paginas = Decimal(str(self.pedido.paginas))
-        pag_min = Decimal(str(Parametro.get('paginas_min', 100)))
-        pag_max = Decimal(str(Parametro.get('paginas_max', 1000)))
-        margen_min = Decimal(str(Parametro.get('margen_min', 0.8)))
-        margen_max = Decimal(str(Parametro.get('margen_max', 2.0)))
+        pag_min = self._param('paginas_min', 100)
+        pag_max = self._param('paginas_max', 1000)
+        margen_min = self._param('margen_min', 0.8)
+        margen_max = self._param('margen_max', 2.0)
         if pag_max == pag_min:
             pag_max = pag_min + 1
         proporcion = (min(max(paginas, pag_min), pag_max) - pag_min) / (pag_max - pag_min)
@@ -328,7 +331,7 @@ class CosteadorPedido:
 
 
 
-def obtener_ganancia_promedio():
+def obtener_ganancia_promedio(parametros=None, tasa_cambio=None):
     """
     Promedio de ganancia (precio_venta - costo_total) de los pedidos entregados
     desde el 02/08/2026. Usa la fecha real de entrega o, si falta, la creación.
@@ -346,7 +349,9 @@ def obtener_ganancia_promedio():
     cantidad_pedidos = 0
 
     for pedido in pedidos:
-        costo = CosteadorPedido(pedido).calcular()
+        costo = CosteadorPedido(
+            pedido, tasa_cambio=tasa_cambio, parametros=parametros
+        ).calcular()
         ganancia_total += Decimal(str(pedido.precio_venta)) - Decimal(str(costo['costo_total']))
         cantidad_pedidos += 1
 

@@ -32,22 +32,35 @@ import {
 export default function ResumenTab({ data }: { data: DashboardResumen }) {
   const { kpis, meta } = data;
 
+  function kpiHref(kpi: "ingresos" | "gastos") {
+    const params = new URLSearchParams({ kpi });
+    if (meta?.desde) {
+      params.set("desde", meta.desde);
+    }
+    if (meta?.hasta) {
+      params.set("hasta", meta.hasta);
+    }
+    return `/finanzas/caja?${params.toString()}`;
+  }
+
   return (
     <>
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3 xl:grid-cols-4">
         <KpiCard
           label="Total ingresos"
           value={money(kpis.total_ingresos)}
-          sub={`USD neto: ${money(kpis.ingresos_usd, "USD")}`}
+          sub={`USD neto: ${money(kpis.ingresos_usd, "USD")} · Ver detalle`}
           tone="emerald"
           valueClassName="text-emerald-600"
+          href={kpiHref("ingresos")}
         />
         <KpiCard
           label="Gastos operativos"
           value={money(kpis.total_gastos_operativos)}
-          sub={`Depreciación: ${money(kpis.depreciacion_activos_cup)}`}
+          sub={`Depreciación: ${money(kpis.depreciacion_activos_cup)} · Ver detalle`}
           tone="red"
           valueClassName="text-red-500"
+          href={kpiHref("gastos")}
         />
         <KpiCard
           label="Utilidades"

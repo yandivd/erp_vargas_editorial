@@ -33,6 +33,7 @@ type PageProps = {
     hasta?: string;
     categoria?: string;
     tipo?: string;
+    kpi?: string;
     page?: string;
   }>;
 };
@@ -48,6 +49,9 @@ export default async function CajaPage({ searchParams }: PageProps) {
   const categoria = (params.categoria ?? "").trim();
   const tipoRaw = (params.tipo ?? "").trim().toUpperCase();
   const tipo = tipoRaw === "GASTO" ? "EGRESO" : tipoRaw;
+  const kpiRaw = (params.kpi ?? "").trim().toLowerCase();
+  const kpi: "ingresos" | "gastos" | "" =
+    kpiRaw === "ingresos" || kpiRaw === "gastos" ? kpiRaw : "";
   const parsedPage = Number(params.page ?? "1");
   const page =
     Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -59,12 +63,14 @@ export default async function CajaPage({ searchParams }: PageProps) {
   if (hasta) movimientosQuery.set("hasta", hasta);
   if (categoria) movimientosQuery.set("categoria", categoria);
   if (tipo === "INGRESO" || tipo === "EGRESO") movimientosQuery.set("tipo", tipo);
+  if (kpi) movimientosQuery.set("kpi", kpi);
 
   const resumenQuery = new URLSearchParams();
   if (desde) resumenQuery.set("desde", desde);
   if (hasta) resumenQuery.set("hasta", hasta);
   if (categoria) resumenQuery.set("categoria", categoria);
   if (tipo === "INGRESO" || tipo === "EGRESO") resumenQuery.set("tipo", tipo);
+  if (kpi) resumenQuery.set("kpi", kpi);
   const resumenPath = resumenQuery.toString()
     ? `finanzas/caja/resumen?${resumenQuery.toString()}`
     : "finanzas/caja/resumen";
@@ -143,6 +149,21 @@ export default async function CajaPage({ searchParams }: PageProps) {
         </div>
       ) : null}
 
+      {kpi ? (
+        <div className="mb-4 rounded-lg border border-brand/30 bg-blue-50 px-4 py-3 text-sm text-brand">
+          <strong>
+            Vista del dashboard: {kpi === "ingresos" ? "Total ingresos" : "Gastos operativos"}.
+          </strong>{" "}
+          El total equivalente CUP incluye todos los movimientos, anticipos reconocidos y
+          consumos que forman el KPI.
+          {resumen?.kpi_total !== undefined ? (
+            <span className="ml-1 font-bold">
+              Total: {moneyCaja(resumen.kpi_total, "CUP")}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <KpiCard
           label="Ingresos del período"
@@ -185,6 +206,7 @@ export default async function CajaPage({ searchParams }: PageProps) {
         initialHasta={hasta}
         initialCategoria={categoria}
         categorias={meta?.categorias ?? []}
+        kpi={kpi}
       />
 
       {movimientosResult.error ? (
@@ -223,6 +245,7 @@ export default async function CajaPage({ searchParams }: PageProps) {
                   desde={desde}
                   hasta={hasta}
                   categoria={categoria}
+                  kpi={kpi}
                 />
               ) : null}
             </>

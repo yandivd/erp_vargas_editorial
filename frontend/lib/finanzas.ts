@@ -38,6 +38,7 @@ export type CajaResumen = {
   saldo_actual_usd: number;
   tasa_usd: number;
   depreciacion_activos_mensual: number;
+  kpi_total?: number;
 };
 
 export type DivisaOperacionResponse = {

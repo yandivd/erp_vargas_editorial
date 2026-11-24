@@ -1,3 +1,5 @@
+import time
+
 from django.core.cache import cache
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -28,10 +30,34 @@ def dashboard_page(request):
 
 def _cache_key(tab, desde, hasta):
     tasa, _ = tasa_cambio()
+    desde_txt = desde.isoformat() if desde else 'todo'
+    hasta_txt = hasta.isoformat() if hasta else 'todo'
     return (
         f'dashboard_api_v{DASHBOARD_CACHE_VERSION}_{tab}_'
-        f'{desde or "todo"}_{hasta or "todo"}_{tasa}'
+        f'{desde_txt}_{hasta_txt}_{tasa}'
     )
+
+
+def _calcular_dashboard_data(tab, desde, hasta, desde_str, hasta_str):
+    if tab == 'resumen':
+        data = dashboard_resumen(desde, hasta)
+    elif tab == 'produccion':
+        data = dashboard_produccion(desde, hasta)
+    elif tab == 'fidelidad':
+        data = dashboard_fidelidad(desde, hasta)
+    elif tab == 'leads':
+        data = dashboard_leads(desde, hasta)
+    else:
+        data = dashboard_clientes(desde, hasta)
+
+    data.setdefault('meta', {})
+    data['meta'].update({
+        'desde': desde_str,
+        'hasta': hasta_str,
+        'corte_financiero': FECHA_CORTE_FINANCIERO.isoformat(),
+        'referencia_corte': REFERENCIA_CORTE_FINANCIERO,
+    })
+    return data
 
 
 def obtener_dashboard_data(tab, desde_str='', hasta_str=''):
@@ -43,30 +69,30 @@ def obtener_dashboard_data(tab, desde_str='', hasta_str=''):
     if desde and hasta and desde > hasta:
         desde, hasta = hasta, desde
 
-    key = _cache_key(tab, desde_str, hasta_str)
+    key = _cache_key(tab, desde, hasta)
     data = cache.get(key)
-    
-    if data is None:
-        if tab == 'resumen':
-            data = dashboard_resumen(desde, hasta)
-        elif tab == 'produccion':
-            data = dashboard_produccion(desde, hasta)
-        elif tab == 'fidelidad':
-            data = dashboard_fidelidad(desde, hasta)
-        elif tab == 'leads':
-            data = dashboard_leads(desde, hasta)
-        else:
-            data = dashboard_clientes(desde, hasta)
+    if data is not None:
+        return data
 
-        data.setdefault('meta', {})
-        data['meta'].update({
-            'desde': desde_str,
-            'hasta': hasta_str,
-            'corte_financiero': FECHA_CORTE_FINANCIERO.isoformat(),
-            'referencia_corte': REFERENCIA_CORTE_FINANCIERO,
-        })
-        cache.set(key, data, DASHBOARD_CACHE_TTL)
+    lock_key = f'{key}:lock'
+    if cache.add(lock_key, 1, 15):
+        try:
+            data = _calcular_dashboard_data(
+                tab, desde, hasta, desde_str, hasta_str
+            )
+            cache.set(key, data, DASHBOARD_CACHE_TTL)
+        finally:
+            cache.delete(lock_key)
+        return data
 
+    for _ in range(10):
+        time.sleep(0.05)
+        data = cache.get(key)
+        if data is not None:
+            return data
+
+    data = _calcular_dashboard_data(tab, desde, hasta, desde_str, hasta_str)
+    cache.set(key, data, DASHBOARD_CACHE_TTL)
     return data
 
 

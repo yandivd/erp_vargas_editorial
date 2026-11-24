@@ -39,7 +39,9 @@ from core.services import (
     Q_NO_EGRESO_OPERATIVO,
     Q_NO_INGRESO_OPERATIVO,
     depreciacion_activos_mensual,
+    movimientos_para_kpi,
     parse_fecha,
+    total_para_kpi,
 )
 from empleados.models import Empleado, PagoNomina
 from finanzas.models import ActivoFijo, CierreCaja, GastoOperativo, MovimientoCaja
@@ -2744,6 +2746,16 @@ def proveedor_lote_orden(request, lote_id):
     })
 
 
+def _kpi_param(request):
+    valor = (request.query_params.get('kpi') or '').strip().lower()
+    return valor if valor in ('ingresos', 'gastos') else ''
+
+
+def _caja_moneda_param(request):
+    moneda = (request.query_params.get('moneda') or '').strip().upper()
+    return moneda if moneda in ('CUP', 'USD') else None
+
+
 def _caja_queryset(request):
     queryset = MovimientoCaja.objects.select_related(
         'pedido',
@@ -2794,24 +2806,53 @@ def _paginacion_caja(paginator, page_obj):
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def finanzas_caja(request):
-    queryset = _caja_queryset(request)
-    paginator = Paginator(queryset, _per_page_caja(request))
+    kpi = _kpi_param(request)
+    if kpi:
+        desde = parse_fecha(request.query_params.get('desde'))
+        hasta = parse_fecha(request.query_params.get('hasta'))
+        if desde and hasta and desde > hasta:
+            desde, hasta = hasta, desde
+        movimientos_qs = movimientos_para_kpi(
+            kpi,
+            desde,
+            hasta,
+            _caja_moneda_param(request),
+        )
+    else:
+        movimientos_qs = _caja_queryset(request)
+
+    paginator = Paginator(movimientos_qs, _per_page_caja(request))
     page_obj = paginator.get_page(request.query_params.get('page') or 1)
-    movimientos = MovimientoCajaV1Serializer(
-        page_obj.object_list,
-        many=True,
-    ).data
+    if kpi:
+        movimientos = list(page_obj.object_list)
+    else:
+        movimientos = MovimientoCajaV1Serializer(
+            page_obj.object_list,
+            many=True,
+        ).data
+
+    meta = {
+        'categorias': [
+            {'value': value, 'label': label}
+            for value, label in MovimientoCaja.CATEGORIA_CHOICES
+        ],
+    }
+    if kpi:
+        meta.update({
+            'kpi': kpi,
+            'kpi_total': float(total_para_kpi(
+                kpi,
+                desde,
+                hasta,
+                _caja_moneda_param(request),
+            )),
+        })
 
     return Response({
         'ok': True,
         'data': {'movimientos': movimientos},
         'pagination': _paginacion_caja(paginator, page_obj),
-        'meta': {
-            'categorias': [
-                {'value': value, 'label': label}
-                for value, label in MovimientoCaja.CATEGORIA_CHOICES
-            ],
-        },
+        'meta': meta,
     })
 
 
@@ -2831,16 +2872,36 @@ def finanzas_caja_resumen(request):
     vueltos = _equiv(movimientos.filter(tipo='EGRESO', categoria=CATEGORIA_VUELTO_CLIENTE))
     total_egresos = _equiv(movimientos.filter(tipo='EGRESO').exclude(Q_NO_EGRESO_OPERATIVO))
 
+    data = {
+        'total_ingresos': float(ingresos_brutos - vueltos),
+        'total_egresos': float(total_egresos),
+        'saldo_actual_cup': float(ServicioFinanzas.saldo_caja('CUP')),
+        'saldo_actual_usd': float(ServicioFinanzas.saldo_caja('USD')),
+        'tasa_usd': float(tasa),
+        'depreciacion_activos_mensual': float(depreciacion_activos_mensual()),
+    }
+
+    kpi = _kpi_param(request)
+    if kpi:
+        desde = parse_fecha(request.query_params.get('desde'))
+        hasta = parse_fecha(request.query_params.get('hasta'))
+        if desde and hasta and desde > hasta:
+            desde, hasta = hasta, desde
+        total_kpi = float(total_para_kpi(
+            kpi,
+            desde,
+            hasta,
+            _caja_moneda_param(request),
+        ))
+        data['kpi_total'] = total_kpi
+        if kpi == 'ingresos':
+            data['total_ingresos'] = total_kpi
+        else:
+            data['total_egresos'] = total_kpi
+
     return Response({
         'ok': True,
-        'data': {
-            'total_ingresos': float(ingresos_brutos - vueltos),
-            'total_egresos': float(total_egresos),
-            'saldo_actual_cup': float(ServicioFinanzas.saldo_caja('CUP')),
-            'saldo_actual_usd': float(ServicioFinanzas.saldo_caja('USD')),
-            'tasa_usd': float(tasa),
-            'depreciacion_activos_mensual': float(depreciacion_activos_mensual()),
-        },
+        'data': data,
     })
 
 
