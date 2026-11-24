@@ -7,12 +7,13 @@ import {
 } from "@/lib/authCookies";
 import { isTokenExpired, refreshAccessToken } from "@/lib/authTokens";
 
-const PUBLIC_PREFIXES = ["/fidelidad/", "/api/"];
+const PUBLIC_PREFIXES = ["/fidelidad/", "/mi-tarjeta/", "/api/"];
 
 function isPublicPath(pathname: string): boolean {
   return (
     pathname === "/login" ||
     pathname === "/catalogo" ||
+    pathname === "/tarjeta" ||
     pathname.startsWith("/catalogo/") ||
     PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
   );
