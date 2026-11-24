@@ -5,6 +5,7 @@ import {
   Filter,
   Gift,
   LayoutGrid,
+  QrCode,
   Target,
   TrendingUp,
   Users,
@@ -114,6 +115,16 @@ export default function DashboardHeader({
           </form>
 
           <DashboardThemeSelector />
+
+          <a
+            href="/api/bff/tarjeta/qr/"
+            download="qr-tarjeta.png"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            title="Descargar QR de Tarjeta"
+          >
+            <QrCode className="h-4 w-4" aria-hidden="true" />
+            Descargar QR de Tarjeta
+          </a>
 
           <a
             href={exportHref}

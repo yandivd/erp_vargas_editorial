@@ -37,6 +37,12 @@ urlpatterns = [
         views.fidelidad_publica,
         name='fidelidad_publica',
     ),
+    path(
+        'fidelidad/buscar-por-telefono/',
+        views.fidelidad_buscar_por_telefono,
+        name='fidelidad_buscar_por_telefono',
+    ),
+    path('tarjeta/qr/', views.tarjeta_qr, name='tarjeta_qr'),
     path('exportar-ia/', core_views.exportar_datos_ia, name='exportar_datos_ia'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('dashboard/resumen/', views.dashboard, {'tab': 'resumen'}, name='dashboard_resumen'),

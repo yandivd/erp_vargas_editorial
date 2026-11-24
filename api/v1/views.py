@@ -14,6 +14,7 @@ from django.db.models import (
     ProtectedError,
 )
 from django.db.models.functions import Cast
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status, viewsets
@@ -253,6 +254,62 @@ def fidelidad_publica(request, token):
             **estado,
         },
     })
+
+
+@api_view(['GET'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def fidelidad_buscar_por_telefono(request):
+    telefono = (request.query_params.get('telefono') or '').strip()
+    digitos = ''.join(caracter for caracter in telefono if caracter.isdigit())
+
+    if len(digitos) < 6:
+        return Response(
+            {'ok': False, 'error': 'No encontramos una tarjeta con ese número'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    tarjeta_encontrada = None
+    tarjetas = TarjetaFidelidad.objects.select_related('cliente').order_by('id')
+    for tarjeta in tarjetas:
+        digitos_cliente = ''.join(
+            caracter
+            for caracter in (tarjeta.cliente.telefono or '')
+            if caracter.isdigit()
+        )
+        coincide = digitos in digitos_cliente
+        if not coincide and len(digitos) >= 8 and len(digitos_cliente) >= 8:
+            coincide = digitos[-8:] == digitos_cliente[-8:]
+        if coincide:
+            tarjeta_encontrada = tarjeta
+            break
+
+    if tarjeta_encontrada is None:
+        return Response(
+            {'ok': False, 'error': 'No encontramos una tarjeta con ese número'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    return Response({
+        'ok': True,
+        'data': {
+            'token': str(tarjeta_encontrada.token),
+            'cliente_id': tarjeta_encontrada.cliente_id,
+            'cliente_nombre': tarjeta_encontrada.cliente.nombre,
+        },
+    })
+
+
+@api_view(['GET'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def tarjeta_qr(request):
+    from erp.utils.qr import generar_qr_png
+
+    url = f"{settings.FRONTEND_URL.rstrip('/')}/tarjeta"
+    response = HttpResponse(generar_qr_png(url), content_type='image/png')
+    response['Content-Disposition'] = 'attachment; filename="qr-tarjeta.png"'
+    return response
 
 
 @api_view(['GET'])

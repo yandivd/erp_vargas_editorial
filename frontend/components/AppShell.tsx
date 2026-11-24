@@ -10,8 +10,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
   if (
     pathname === "/login" ||
     pathname === "/catalogo" ||
+    pathname === "/tarjeta" ||
     pathname.startsWith("/catalogo/") ||
     pathname.startsWith("/fidelidad/") ||
+    pathname.startsWith("/mi-tarjeta/") ||
     pathname.startsWith("/inventario/orden-trabajo/") ||
     pathname.startsWith("/proveedores/lotes/") ||
     (pathname.startsWith("/entregas/") && pathname.endsWith("/ticket")) ||
