@@ -2,10 +2,10 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.db.models import Avg, Count, F, Max, Min, OuterRef, Q, Subquery, Sum
-from django.db.models.functions import ExtractHour, ExtractWeekDay, TruncMonth, TruncWeek
+from django.db.models.functions import Coalesce, ExtractHour, ExtractWeekDay, TruncMonth, TruncWeek
 from django.utils import timezone
 
-from clientes.models import Cliente, EventoFidelidad, TarjetaFidelidad
+from clientes.models import Cliente, EventoFidelidad, Lead, TarjetaFidelidad
 from clientes.services import ServicioFidelidad
 from finanzas.models import ActivoFijo, LoteDivisa, MovimientoCaja
 from inventario.models import Material, MovimientoInventario
@@ -15,6 +15,24 @@ from pedidos.services import CosteadorPedido, obtener_ganancia_promedio
 
 FECHA_CORTE_FINANCIERO = date(2026, 8, 2)
 REFERENCIA_CORTE_FINANCIERO = 487
+DIAS_ESTANCAMIENTO = 5
+DIAS_CAPACIDAD_TALLER = 30
+CONCEPTOS_PRODUCCION_GASTO = (
+    'guillotinado',
+    'encuadernacion',
+    'encuadernación',
+    'portada',
+    'canto',
+    'impresion',
+    'impresión',
+    'material',
+    'papel',
+    'tinta',
+    'pegamento',
+    'scotch',
+    'esquinero',
+    'cartulina',
+)
 
 CATEGORIAS_TRANSFERENCIA = ['COMPRA_DIVISA', 'VENTA_DIVISA', 'TRANSFERENCIA']
 CATEGORIA_VUELTO_CLIENTE = 'VUELTO_CLIENTE'
@@ -345,7 +363,7 @@ def dashboard_resumen(desde=None, hasta=None):
     )
     pasivos = pasivos_operativos()
 
-    pedidos = pedidos_financieros(desde, hasta)
+    pedidos = pedidos_financieros(desde, hasta).select_related('libro')
     total_pedidos = pedidos.count()
     clientes_unicos = pedidos.values('cliente').distinct().count()
     ventas = pedidos.aggregate(t=Sum('precio_venta'))['t'] or Decimal('0')
@@ -365,19 +383,58 @@ def dashboard_resumen(desde=None, hasta=None):
     )
     total_recaudado_ventas = anticipos_total + saldo_entregados
 
+    ids_entregados = {pedido.id for pedido in pedidos_entregados}
     costo_produccion_entregados = Decimal('0')
     ganancia_entregados = Decimal('0')
-    for pedido in pedidos_entregados:
+    contribucion_periodo = Decimal('0')
+    precio_libro_rangos = {
+        'Económico': {'total': Decimal('0'), 'cantidad': 0, 'precio_libro': Decimal('0')},
+        'Estándar': {'total': Decimal('0'), 'cantidad': 0, 'precio_libro': Decimal('0')},
+        'Premium': {'total': Decimal('0'), 'cantidad': 0, 'precio_libro': Decimal('0')},
+    }
+    for pedido in pedidos:
         costo = Decimal(
             str(CosteadorPedido(pedido).calcular()['costo_total'])
         )
-        costo_produccion_entregados += costo
-        ganancia_entregados += Decimal(str(pedido.precio_venta)) - costo
+        precio_venta = Decimal(str(pedido.precio_venta or 0))
+        contribucion_periodo += precio_venta - costo
+        if pedido.id in ids_entregados:
+            costo_produccion_entregados += costo
+            ganancia_entregados += precio_venta - costo
+
+        precio_libro = (
+            Decimal(str(pedido.libro.precio_cup_referencia or 0))
+            if pedido.libro_id
+            else Decimal('0')
+        )
+        if precio_libro < 5000:
+            categoria = 'Económico'
+        elif precio_libro <= 8000:
+            categoria = 'Estándar'
+        else:
+            categoria = 'Premium'
+        rango = precio_libro_rangos[categoria]
+        rango['total'] += precio_venta
+        rango['cantidad'] += 1
+        rango['precio_libro'] += precio_libro
+
     ganancia_promedio_pedido = (
         ganancia_entregados / len(pedidos_entregados)
         if pedidos_entregados
         else Decimal('0')
     )
+    margen_contribucion = (
+        contribucion_periodo / ventas if ventas > 0 else Decimal('0')
+    )
+    ticket_por_categoria = [
+        {
+            'categoria': categoria,
+            'pedidos': datos['cantidad'],
+            'ticket_promedio': float(datos['total'] / datos['cantidad']) if datos['cantidad'] else 0.0,
+            'precio_libro_promedio': float(datos['precio_libro'] / datos['cantidad']) if datos['cantidad'] else 0.0,
+        }
+        for categoria, datos in precio_libro_rangos.items()
+    ]
 
     saldo_operativo_cup = Decimal(str(monedas['equivalente']['saldo_neto_cup']))
     gastos_equiv_cup = Decimal(str(monedas['equivalente']['gastos_cup']))
@@ -395,6 +452,35 @@ def dashboard_resumen(desde=None, hasta=None):
         if ingresos_equiv > 0
         else Decimal('0')
     )
+
+    from core.models import Parametro
+
+    try:
+        sueldo_dueno = Decimal(str(Parametro.get('sueldo_dueno', Decimal('0')) or 0))
+    except Exception:
+        sueldo_dueno = Decimal('0')
+    gastos_break_even = gastos_equiv_cup + sueldo_dueno
+    punto_equilibrio = (
+        gastos_break_even / margen_contribucion
+        if margen_contribucion > 0
+        else Decimal('0')
+    )
+
+    inicio_mes = hoy.replace(day=1)
+    caja_mes = {}
+    for moneda in ('CUP', 'USD'):
+        movs_mes = movimientos_caja(inicio_mes, hoy, moneda)
+        caja_mes[moneda] = {
+            'ingresos': _sumar(movs_mes, 'INGRESO', Q_NO_INGRESO_OPERATIVO),
+            'egresos': _sumar(movs_mes, 'EGRESO', Q_TRANSFERENCIA),
+        }
+    ingresos_caja_mes = caja_mes['CUP']['ingresos'] + convertir_usd_a_cup(
+        caja_mes['USD']['ingresos'], tasa
+    )
+    egresos_caja_mes = caja_mes['CUP']['egresos'] + convertir_usd_a_cup(
+        caja_mes['USD']['egresos'], tasa
+    )
+    flujo_caja_neto_mes = ingresos_caja_mes - egresos_caja_mes
 
     movs = movimientos_financieros(desde, hasta)
 
@@ -901,6 +987,12 @@ def dashboard_resumen(desde=None, hasta=None):
         'pedidos_activos': pasivos['pedidos_activos'],
         'deuda_clientes': float(deuda_clientes),
         'dinero_proyectado': float(dinero_proyectado),
+        'punto_equilibrio': float(punto_equilibrio),
+        'margen_contribucion': float(margen_contribucion * 100),
+        'sueldo_dueno': float(sueldo_dueno),
+        'flujo_caja_neto_mes': float(flujo_caja_neto_mes),
+        'ingresos_caja_mes': float(ingresos_caja_mes),
+        'egresos_caja_mes': float(egresos_caja_mes),
     }
 
     return {
@@ -912,6 +1004,7 @@ def dashboard_resumen(desde=None, hasta=None):
             'tasa_cambio': float(tasa),
             'advertencia_tasa': advertencia,
             'formula_ganancia': 'sum(precio_venta - costo_total) / pedidos Entregados desde 2026-08-02',
+            'formula_punto_equilibrio': '(gastos_operativos + sueldo_dueno) / margen_contribucion',
         },
         'kpis': kpis,
         'desglose_ingresos': desglose_data,
@@ -929,6 +1022,7 @@ def dashboard_resumen(desde=None, hasta=None):
         'transacciones': transacciones_data,
         'analisis_categorias': analisis_data,
         'consejos': consejos,
+        'ticket_por_categoria': ticket_por_categoria,
     }
 
 
@@ -1033,6 +1127,85 @@ def dashboard_produccion(desde=None, hasta=None):
     for evento in historial:
         historial_por_pedido.setdefault(evento.pedido_id, []).append(evento)
 
+    lead_time_muestras = []
+    for eventos in historial_por_pedido.values():
+        t_impreso = next(
+            (e.fecha for e in eventos if e.estado_nuevo.nombre == 'Impreso'),
+            None,
+        )
+        if not t_impreso:
+            continue
+        t_listo = next(
+            (
+                e.fecha
+                for e in eventos
+                if e.estado_nuevo.nombre == 'Listo para Entregar'
+                and e.fecha >= t_impreso
+            ),
+            None,
+        )
+        if not t_listo:
+            continue
+        lead_time_muestras.append((t_listo - t_impreso).total_seconds() / 86400)
+    lead_time_promedio = (
+        round(sum(lead_time_muestras) / len(lead_time_muestras), 1)
+        if lead_time_muestras
+        else 0
+    )
+
+    ahora = timezone.now()
+    limite_estancamiento = ahora - timedelta(days=DIAS_ESTANCAMIENTO)
+    ultimo_estado = (
+        HistorialEstado.objects.filter(pedido=OuterRef('pk'))
+        .order_by('-fecha')
+        .values('fecha')[:1]
+    )
+    estancados = (
+        pedidos_activos()
+        .filter(es_historico=False)
+        .annotate(fecha_ultimo_estado=Coalesce(Subquery(ultimo_estado), 'fecha_pedido'))
+        .filter(fecha_ultimo_estado__lt=limite_estancamiento)
+        .select_related('libro', 'estado', 'cliente')
+        .order_by('fecha_ultimo_estado')
+    )
+    pedidos_estancados_data = [
+        {
+            'id': pedido.id,
+            'referencia': (
+                f'#{pedido.id}'
+                if pedido.referencia_externa is None
+                else str(pedido.referencia_externa)
+            ),
+            'cliente': pedido.cliente.nombre if pedido.cliente_id else '—',
+            'libro': pedido.libro.titulo if pedido.libro_id else '—',
+            'estado': pedido.estado.nombre if pedido.estado_id else '—',
+            'dias': max(0, (ahora - pedido.fecha_ultimo_estado).days),
+            'fecha_estado': (
+                timezone.localtime(pedido.fecha_ultimo_estado).strftime('%d/%m/%Y')
+                if pedido.fecha_ultimo_estado
+                else '—'
+            ),
+        }
+        for pedido in estancados
+    ]
+
+    hace_30_dias = ahora - timedelta(days=DIAS_CAPACIDAD_TALLER)
+    libros_producidos_30d = (
+        Pedido.objects.filter(
+            id__in=HistorialEstado.objects.filter(
+                estado_nuevo__nombre='Listo para Entregar',
+                fecha__gte=hace_30_dias,
+            ).values('pedido_id'),
+            es_historico=False,
+        )
+        .exclude(estado__nombre='Cancelado')
+        .aggregate(t=Sum('cantidad'))['t']
+        or 0
+    )
+    capacidad_semanal = round(
+        float(libros_producidos_30d) * 7 / DIAS_CAPACIDAD_TALLER, 1
+    )
+
     colores_estado = {
         e.nombre: e.color
         for e in Estado.objects.filter(nombre__in=ESTADOS_TIEMPO_ORDEN)
@@ -1121,12 +1294,17 @@ def dashboard_produccion(desde=None, hasta=None):
             'libros_unicos': libros_unicos,
             'libros_con_un_pedido': libros_con_un_pedido,
             'libros_repetidos': libros_repetidos,
+            'lead_time_dias': lead_time_promedio,
+            'pedidos_estancados': len(pedidos_estancados_data),
+            'capacidad_semanal': capacidad_semanal,
+            'libros_producidos_30d': libros_producidos_30d,
         },
         'top10_data': top10_data,
         'ranking_data': ranking_data,
         'recientes_data': recientes_data,
         'comportamiento_pedidos_mes': comportamiento_data,
         'tiempos_por_estado': tiempos_data,
+        'pedidos_estancados_data': pedidos_estancados_data,
         'pedidos_mes_data': {
             'labels': [m.strftime('%b %Y') for m in meses],
             'series': [
@@ -1629,83 +1807,324 @@ def dashboard_fidelidad(desde=None, hasta=None):
     }
 
 
-def exportar_rentabilidad_para_ia():
-    desde = FECHA_CORTE_FINANCIERO
-    movimientos = movimientos_financieros(desde, None, None)
-    ingresos_movimientos = movimientos.filter(tipo='INGRESO').exclude(Q_NO_INGRESO_OPERATIVO)
-    pedidos = (
-        Pedido.objects.filter(cliente__isnull=False, fecha_pedido__date__gte=desde)
+def _plan_por_precio_cup(precio_cup):
+    if precio_cup < 5000:
+        return 'Base'
+    if precio_cup <= 8000:
+        return 'Medio'
+    return 'Premium'
+
+
+def _es_concepto_produccion(texto):
+    texto = str(texto or '').lower()
+    return any(clave in texto for clave in CONCEPTOS_PRODUCCION_GASTO)
+
+
+def _tipo_gasto(movimiento):
+    texto = f'{movimiento.categoria} {movimiento.concepto}'.lower()
+    fijos = (
+        'alquiler',
+        'renta',
+        'internet',
+        'luz',
+        'electricidad',
+        'telefono',
+        'teléfono',
+        'nomina',
+        'nómina',
+        'salario',
+        'seguro',
+        'software',
+        'suscripcion',
+        'suscripción',
+        'agua',
+    )
+    variables = (
+        'humidificador',
+        'insumo',
+        'mensajeria',
+        'mensajería',
+        'envio',
+        'envío',
+        'comision',
+        'comisión',
+        *CONCEPTOS_PRODUCCION_GASTO,
+    )
+    if any(clave in texto for clave in fijos):
+        return 'Fijo'
+    if any(clave in texto for clave in variables):
+        return 'Variable'
+    if movimiento.categoria == 'PAGO_NOMINA':
+        return 'Fijo'
+    if movimiento.categoria in ('MENSAJERIA', 'PAGO_PROVEEDOR', 'COMPRA_MATERIAL'):
+        return 'Variable'
+    return 'Fijo'
+
+
+def _monto_en_cup(movimiento, tasa):
+    monto = Decimal(str(movimiento.monto or 0))
+    if movimiento.moneda == 'CUP':
+        return monto
+    return monto * tasa
+
+
+def exportar_rentabilidad_para_ia(desde=None, hasta=None):
+    from core.models import Parametro
+
+    tasa, advertencia_tasa = tasa_cambio()
+    desde = desde or FECHA_CORTE_FINANCIERO
+    ahora = timezone.now()
+
+    pedidos_qs = (
+        Pedido.objects.filter(
+            cliente__isnull=False,
+            es_historico=False,
+            fecha_pedido__date__gte=desde,
+        )
         .exclude(estado__nombre__in=['Cancelado', 'Borrador'])
         .select_related('cliente', 'libro', 'estado')
         .order_by('fecha_pedido')
     )
+    if hasta:
+        pedidos_qs = pedidos_qs.filter(fecha_pedido__date__lte=hasta)
+    pedidos = list(pedidos_qs)
 
-    rentabilidad = []
-    clientes_agrupados = {}
+    ultimo_evento = {}
+    for evento in HistorialEstado.objects.filter(
+        pedido_id__in=[pedido.id for pedido in pedidos]
+    ).order_by('pedido_id', '-fecha'):
+        ultimo_evento.setdefault(evento.pedido_id, evento.fecha)
 
+    pedidos_json = []
+    ingresos_pedidos = Decimal('0')
+    costos_produccion = Decimal('0')
+    contribucion = Decimal('0')
     for pedido in pedidos:
-        ingreso = Decimal(str(pedido.precio_venta)) - Decimal(str(pedido.descuento_aplicado or 0))
+        ingreso = Decimal(str(pedido.precio_venta or 0))
         costo = Decimal(str(CosteadorPedido(pedido).calcular()['costo_total']))
         ganancia = ingreso - costo
-        cliente_nombre = pedido.cliente.nombre if pedido.cliente else ''
+        precio_libro = (
+            Decimal(str(pedido.libro.precio_cup_referencia or 0))
+            if pedido.libro_id
+            else Decimal('0')
+        )
+        fecha_estado = ultimo_evento.get(pedido.id) or pedido.fecha_pedido
+        dias_en_estado = max(0, (ahora - fecha_estado).days) if fecha_estado else 0
 
-        rentabilidad.append({
+        pedidos_json.append({
             'pedido_id': pedido.id,
-            'cliente': cliente_nombre,
-            'estado': pedido.estado.nombre,
+            'cliente': pedido.cliente.nombre if pedido.cliente_id else '',
             'fecha_pedido': pedido.fecha_pedido.date().isoformat() if pedido.fecha_pedido else '',
-            'ingreso': float(ingreso),
-            'costo': float(costo),
-            'ganancia': float(ganancia),
+            'estado_actual': pedido.estado.nombre if pedido.estado_id else '',
+            'dias_en_estado_actual': dias_en_estado,
+            'plan_elegido': _plan_por_precio_cup(precio_libro),
+            'precio_libro_referencia_cup': float(precio_libro),
+            'ingreso_total': float(ingreso),
+            'descuento_aplicado': float(pedido.descuento_aplicado or 0),
+            'costo_total': float(costo),
+            'ganancia_real': float(ganancia),
         })
+        ingresos_pedidos += ingreso
+        costos_produccion += costo
+        contribucion += ganancia
 
-        if cliente_nombre:
-            cliente_data = clientes_agrupados.setdefault(
-                cliente_nombre,
-                {
-                    'cliente': cliente_nombre,
-                    'total_pedidos': 0,
-                    'ingreso_total': 0.0,
-                    'ganancia_total': 0.0,
-                },
+    margen_contribucion = (
+        contribucion / ingresos_pedidos if ingresos_pedidos > 0 else Decimal('0')
+    )
+
+    movimientos = movimientos_financieros(desde, hasta, None)
+    ingresos_caja = sum(
+        (
+            _monto_en_cup(movimiento, tasa)
+            for movimiento in movimientos.filter(tipo='INGRESO').exclude(
+                Q_NO_INGRESO_OPERATIVO
             )
-            cliente_data['total_pedidos'] += 1
-            cliente_data['ingreso_total'] += float(ingreso)
-            cliente_data['ganancia_total'] += float(ganancia)
+        ),
+        Decimal('0'),
+    )
 
-    clientes = [clientes_agrupados[cliente] for cliente in sorted(clientes_agrupados)]
-    ingresos_caja = [
-        {
-            'movimiento_id': movimiento.id,
+    gastos_qs = (
+        movimientos.filter(tipo='EGRESO')
+        .exclude(
+            Q_TRANSFERENCIA
+            | Q(
+                categoria__in=[
+                    'RETIRO_UTILIDADES',
+                    'COMPRA_ACTIVO',
+                    CATEGORIA_VUELTO_CLIENTE,
+                    'COMPRA_MATERIAL',
+                ]
+            )
+        )
+        .select_related('cliente', 'proveedor', 'pedido')
+        .order_by('-fecha')
+    )
+    gastos_json = []
+    total_gastos = Decimal('0')
+    total_gastos_fijos = Decimal('0')
+    for movimiento in gastos_qs:
+        if _es_concepto_produccion(f'{movimiento.categoria} {movimiento.concepto}'):
+            continue
+        monto_cup = _monto_en_cup(movimiento, tasa)
+        tipo_gasto = _tipo_gasto(movimiento)
+        gastos_json.append({
             'fecha': movimiento.fecha.date().isoformat() if movimiento.fecha else '',
-            'tipo': movimiento.tipo,
-            'categoria': movimiento.get_categoria_display() if hasattr(movimiento, 'get_categoria_display') else movimiento.categoria,
+            'categoria': (
+                movimiento.get_categoria_display()
+                if hasattr(movimiento, 'get_categoria_display')
+                else movimiento.categoria
+            ),
+            'concepto': movimiento.concepto,
             'monto': float(movimiento.monto),
             'moneda': movimiento.moneda,
-            'pedido_id': movimiento.pedido_id,
-            'cliente_id': movimiento.cliente_id,
-            'cliente': movimiento.cliente.nombre if movimiento.cliente else '',
-            'concepto': movimiento.concepto,
-        }
-        for movimiento in ingresos_movimientos.select_related('pedido', 'cliente').order_by('-fecha')[:200]
-    ]
+            'monto_cup': float(monto_cup),
+            'tipo_gasto': tipo_gasto,
+        })
+        total_gastos += monto_cup
+        if tipo_gasto == 'Fijo':
+            total_gastos_fijos += monto_cup
+
+    try:
+        sueldo_dueno = Decimal(str(Parametro.get('sueldo_dueno', Decimal('0')) or 0))
+    except Exception:
+        sueldo_dueno = Decimal('0')
+
+    base_equilibrio = total_gastos_fijos + sueldo_dueno
+    punto_equilibrio = (
+        base_equilibrio / margen_contribucion if margen_contribucion > 0 else Decimal('0')
+    )
+    utilidad_bruta = ingresos_pedidos - costos_produccion
+    utilidad_neta = utilidad_bruta - total_gastos - sueldo_dueno
+
+    produccion = dashboard_produccion(desde, hasta)
+    metricas_produccion = {
+        'lead_time_promedio': produccion['kpis']['lead_time_dias'],
+        'tiempos_por_etapa': {
+            item['estado']: round(item['promedio_horas'] / 24, 2)
+            for item in produccion['tiempos_por_estado']
+        },
+        'pedidos_estancados': [
+            item['id'] for item in produccion['pedidos_estancados_data']
+        ],
+        'capacidad_taller': produccion['kpis']['capacidad_semanal'],
+    }
+
+    historico_qs = (
+        Pedido.objects.filter(cliente__isnull=False, es_historico=False)
+        .exclude(estado__nombre__in=['Cancelado', 'Borrador'])
+    )
+    if hasta:
+        historico_qs = historico_qs.filter(fecha_pedido__date__lte=hasta)
+    historico = list(
+        historico_qs.values('cliente_id', 'cliente__nombre')
+        .annotate(
+            total_pedidos=Count('id'),
+            ingreso_total=Sum('precio_venta'),
+            ultima_compra=Max('fecha_pedido'),
+        )
+        .order_by('cliente__nombre')
+    )
+    detalle_clientes = []
+    ingresos_historicos = Decimal('0')
+    clientes_con_recompra = 0
+    for fila in historico:
+        ingreso_cliente = Decimal(str(fila['ingreso_total'] or 0))
+        ingresos_historicos += ingreso_cliente
+        if fila['total_pedidos'] >= 2:
+            clientes_con_recompra += 1
+        ultima = fila['ultima_compra']
+        dias_desde_ultima = max(0, (ahora - ultima).days) if ultima else None
+        if dias_desde_ultima is None or dias_desde_ultima > 180:
+            estado_cliente = 'Inactivo'
+        elif dias_desde_ultima > 90:
+            estado_cliente = 'En Riesgo'
+        else:
+            estado_cliente = 'Activo'
+        detalle_clientes.append({
+            'cliente_id': fila['cliente_id'],
+            'cliente': fila['cliente__nombre'],
+            'pedidos_totales': fila['total_pedidos'],
+            'ingreso_total': float(ingreso_cliente),
+            'ultima_compra': ultima.date().isoformat() if ultima else None,
+            'dias_desde_ultima_compra': dias_desde_ultima,
+            'estado_cliente': estado_cliente,
+        })
+    total_clientes = len(historico)
+    ltv = ingresos_historicos / total_clientes if total_clientes else Decimal('0')
+    tasa_recompra = (
+        Decimal(clientes_con_recompra) / Decimal(total_clientes) * 100
+        if total_clientes
+        else Decimal('0')
+    )
+
+    leads_qs = Lead.objects.all()
+    if desde:
+        leads_qs = leads_qs.filter(fecha_creacion__date__gte=desde)
+    if hasta:
+        leads_qs = leads_qs.filter(fecha_creacion__date__lte=hasta)
+    total_leads = leads_qs.count()
+    leads_convertidos = leads_qs.filter(estado=Lead.ESTADO_CONVERTIDO).count()
+    leads_por_origen = []
+    for valor, etiqueta in Lead.VIA_CHOICES:
+        origen_qs = leads_qs.filter(via_contacto=valor)
+        total_origen = origen_qs.count()
+        convertidos_origen = origen_qs.filter(estado=Lead.ESTADO_CONVERTIDO).count()
+        leads_por_origen.append({
+            'source': etiqueta,
+            'total': total_origen,
+            'convertidos': convertidos_origen,
+            'tasa_conversion': (
+                round(convertidos_origen / total_origen * 100, 1)
+                if total_origen
+                else 0
+            ),
+        })
+    leads = {
+        'total': total_leads,
+        'convertidos': leads_convertidos,
+        'tasa_conversion': (
+            round(leads_convertidos / total_leads * 100, 1) if total_leads else 0
+        ),
+        'por_origen': leads_por_origen,
+    }
 
     return {
         'meta': {
             'endpoint': '/exportar/rentabilidad/',
             'fecha_corte': FECHA_CORTE_FINANCIERO.isoformat(),
-            'periodo': {'desde': FECHA_CORTE_FINANCIERO.isoformat(), 'hasta': None},
-            'formato': 'json-para_ia',
+            'periodo': {
+                'desde': desde.isoformat(),
+                'hasta': hasta.isoformat() if hasta else None,
+            },
+            'moneda_base': 'CUP',
+            'tasa_cambio': float(tasa),
+            'advertencia_tasa': advertencia_tasa,
+            'generado_en': ahora.isoformat(),
+            'formato': 'json-para_ia-v2',
         },
-        'rentabilidad': rentabilidad,
-        'resumen': {
-            'total_pedidos': len(rentabilidad),
-            'ingreso_total': float(sum(item['ingreso'] for item in rentabilidad)),
-            'costo_total': float(sum(item['costo'] for item in rentabilidad)),
-            'ganancia_total': float(sum(item['ganancia'] for item in rentabilidad)),
+        'resumen_financiero': {
+            'total_ingresos': float(ingresos_caja),
+            'ingreso_total_pedidos': float(ingresos_pedidos),
+            'total_costos_produccion': float(costos_produccion),
+            'total_gastos_operativos': float(total_gastos),
+            'gastos_fijos': float(total_gastos_fijos),
+            'gastos_variables': float(total_gastos - total_gastos_fijos),
+            'utilidad_bruta': float(utilidad_bruta),
+            'utilidad_neta': float(utilidad_neta),
+            'sueldo_dueno': float(sueldo_dueno),
+            'punto_equilibrio': float(punto_equilibrio),
+            'margen_contribucion': float(margen_contribucion * 100),
         },
-        'clientes': clientes,
-        'ingresos_caja': ingresos_caja,
+        'pedidos': pedidos_json,
+        'metricas_produccion': metricas_produccion,
+        'clientes': {
+            'ltv': float(ltv),
+            'tasa_recompra': float(tasa_recompra),
+            'total_clientes': total_clientes,
+            'detalle': detalle_clientes,
+        },
+        'leads': leads,
+        'gastos_operativos': gastos_json,
     }
 
 
@@ -1722,7 +2141,6 @@ def secciones_rentabilidad_ia(desde=None, hasta=None):
     from proveedores.models import Proveedor
 
     tasa, _ = tasa_cambio()
-    parametros = {param.clave: param.valor for param in Parametro.objects.all()}
 
     pedidos_qs = (
         Pedido.objects.filter(cliente__isnull=False)
@@ -1742,9 +2160,7 @@ def secciones_rentabilidad_ia(desde=None, hasta=None):
         )
         costo = Decimal(
             str(
-                CosteadorPedido(
-                    pedido, parametros=parametros, tasa_cambio=tasa
-                ).calcular()['costo_total']
+                CosteadorPedido(pedido, tasa_cambio=tasa).calcular()['costo_total']
             )
         )
         ganancia = ingreso - costo

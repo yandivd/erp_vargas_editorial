@@ -111,6 +111,23 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
           tone="red"
           valueClassName="text-red-500"
         />
+        <KpiCard
+          label="Punto de equilibrio"
+          value={money(kpis.punto_equilibrio ?? 0)}
+          sub={`Margen contribución: ${Number(kpis.margen_contribucion ?? 0).toFixed(1)}% · Sueldo dueño: ${money(kpis.sueldo_dueno ?? 0)}`}
+          tone="amber"
+        />
+        <KpiCard
+          label="Flujo caja neto (mes)"
+          value={money(kpis.flujo_caja_neto_mes ?? 0)}
+          sub={`Ingresos ${money(kpis.ingresos_caja_mes ?? 0)} · Egresos ${money(kpis.egresos_caja_mes ?? 0)}`}
+          tone={(kpis.flujo_caja_neto_mes ?? 0) >= 0 ? "emerald" : "red"}
+          valueClassName={
+            (kpis.flujo_caja_neto_mes ?? 0) >= 0
+              ? "text-emerald-600"
+              : "text-red-500"
+          }
+        />
         <div className="col-span-2 md:col-span-3 xl:col-span-4">
           <KpiCard
             label="Dinero proyectado"
@@ -344,6 +361,57 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
                 ))
               ) : (
                 <EmptyTableRow colSpan={4}>Sin movimientos</EmptyTableRow>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Ticket promedio por categoría"
+        icon={<BarChart3 className="h-5 w-5 text-slate-700" aria-hidden="true" />}
+      >
+        <div className={tableWrapClass}>
+          <table className={tableClass}>
+            <thead>
+              <tr>
+                <th className={thClass}>Categoría</th>
+                <th className={`${thClass} hidden text-right md:table-cell`}>
+                  Pedidos
+                </th>
+                <th className={`${thClass} hidden text-right md:table-cell`}>
+                  Precio libro prom.
+                </th>
+                <th className={`${thClass} text-right`}>Ticket promedio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data.ticket_por_categoria ?? []).length ? (
+                data.ticket_por_categoria.map((item) => (
+                  <tr key={item.categoria} className={tableRowClass}>
+                    <td className={tdClass}>
+                      <span className="font-semibold">{item.categoria}</span>
+                      <span className="ml-2 text-xs text-muted">
+                        {item.categoria === "Económico"
+                          ? "< 5000"
+                          : item.categoria === "Estándar"
+                            ? "5000 - 8000"
+                            : "> 8000"}
+                      </span>
+                    </td>
+                    <td className={`${tdClass} hidden text-right md:table-cell`}>
+                      {integer(item.pedidos)}
+                    </td>
+                    <td className={`${tdClass} hidden text-right md:table-cell`}>
+                      {money(item.precio_libro_promedio)}
+                    </td>
+                    <td className={`${tdClass} whitespace-nowrap text-right font-semibold`}>
+                      {money(item.ticket_promedio)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <EmptyTableRow colSpan={4}>Sin pedidos</EmptyTableRow>
               )}
             </tbody>
           </table>
