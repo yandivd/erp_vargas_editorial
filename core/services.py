@@ -139,6 +139,12 @@ def tasa_cambio():
     return Decimal(str(valor)), valor <= 1
 
 
+def _parametros_para_costeador():
+    from core.models import Parametro
+
+    return dict(Parametro.objects.values_list('clave', 'valor'))
+
+
 def convertir_cup_a_usd(monto, tasa=None):
     tasa = tasa or tasa_cambio()[0]
     if not tasa or tasa <= 0:
@@ -341,6 +347,7 @@ def resumen_monedas(
 def dashboard_resumen(desde=None, hasta=None):
     hoy = timezone.localdate()
     tasa, advertencia = tasa_cambio()
+    parametros = _parametros_para_costeador()
     consumos = consumos_inventario(desde, hasta)
     costo_consumo_cup = (
         consumos.aggregate(t=Sum('costo_total'))['t'] or Decimal('0')
@@ -394,7 +401,11 @@ def dashboard_resumen(desde=None, hasta=None):
     }
     for pedido in pedidos:
         costo = Decimal(
-            str(CosteadorPedido(pedido).calcular()['costo_total'])
+            str(
+                CosteadorPedido(
+                    pedido, tasa_cambio=tasa, parametros=parametros
+                ).calcular()['costo_total']
+            )
         )
         precio_venta = Decimal(str(pedido.precio_venta or 0))
         contribucion_periodo += precio_venta - costo
@@ -440,7 +451,9 @@ def dashboard_resumen(desde=None, hasta=None):
     gastos_equiv_cup = Decimal(str(monedas['equivalente']['gastos_cup']))
     depreciacion_activos_cup = depreciacion_activos_mensual()
     saldo_contable_cup = saldo_operativo_cup - depreciacion_activos_cup
-    ganancia_promedio_cup = obtener_ganancia_promedio()
+    ganancia_promedio_cup = obtener_ganancia_promedio(
+        parametros=parametros, tasa_cambio=tasa
+    )
     ingresos_equiv = Decimal(str(monedas['equivalente']['ingresos_cup']))
     margen_operativo = (
         saldo_operativo_cup / ingresos_equiv * 100
@@ -453,10 +466,10 @@ def dashboard_resumen(desde=None, hasta=None):
         else Decimal('0')
     )
 
-    from core.models import Parametro
-
     try:
-        sueldo_dueno = Decimal(str(Parametro.get('sueldo_dueno', Decimal('0')) or 0))
+        sueldo_dueno = Decimal(
+            str(parametros.get('sueldo_dueno', Decimal('0')) or 0)
+        )
     except Exception:
         sueldo_dueno = Decimal('0')
     gastos_break_even = gastos_equiv_cup + sueldo_dueno
@@ -1869,8 +1882,7 @@ def _monto_en_cup(movimiento, tasa):
 
 
 def exportar_rentabilidad_para_ia(desde=None, hasta=None):
-    from core.models import Parametro
-
+    parametros = _parametros_para_costeador()
     tasa, advertencia_tasa = tasa_cambio()
     desde = desde or FECHA_CORTE_FINANCIERO
     ahora = timezone.now()
@@ -1901,7 +1913,13 @@ def exportar_rentabilidad_para_ia(desde=None, hasta=None):
     contribucion = Decimal('0')
     for pedido in pedidos:
         ingreso = Decimal(str(pedido.precio_venta or 0))
-        costo = Decimal(str(CosteadorPedido(pedido).calcular()['costo_total']))
+        costo = Decimal(
+            str(
+                CosteadorPedido(
+                    pedido, tasa_cambio=tasa, parametros=parametros
+                ).calcular()['costo_total']
+            )
+        )
         ganancia = ingreso - costo
         precio_libro = (
             Decimal(str(pedido.libro.precio_cup_referencia or 0))
@@ -1985,7 +2003,9 @@ def exportar_rentabilidad_para_ia(desde=None, hasta=None):
             total_gastos_fijos += monto_cup
 
     try:
-        sueldo_dueno = Decimal(str(Parametro.get('sueldo_dueno', Decimal('0')) or 0))
+        sueldo_dueno = Decimal(
+            str(parametros.get('sueldo_dueno', Decimal('0')) or 0)
+        )
     except Exception:
         sueldo_dueno = Decimal('0')
 
@@ -2136,10 +2156,10 @@ def secciones_rentabilidad_ia(desde=None, hasta=None):
     y agrega nómina, servicios externos, mejores clientes, deudores, flujo por
     moneda y KPIs de fidelidad.
     """
-    from core.models import Parametro
     from empleados.models import PagoNomina
     from proveedores.models import Proveedor
 
+    parametros = _parametros_para_costeador()
     tasa, _ = tasa_cambio()
 
     pedidos_qs = (
@@ -2160,7 +2180,9 @@ def secciones_rentabilidad_ia(desde=None, hasta=None):
         )
         costo = Decimal(
             str(
-                CosteadorPedido(pedido, tasa_cambio=tasa).calcular()['costo_total']
+                CosteadorPedido(
+                    pedido, tasa_cambio=tasa, parametros=parametros
+                ).calcular()['costo_total']
             )
         )
         ganancia = ingreso - costo

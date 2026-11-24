@@ -1037,6 +1037,8 @@ class EntregaDetailV1Serializer(EntregaListV1Serializer):
     )
     pedidos = EntregaPedidoV1Serializer(many=True, read_only=True)
     notas = serializers.CharField(read_only=True)
+    total_descuento = serializers.SerializerMethodField()
+    qr_imagen = serializers.SerializerMethodField()
 
     class Meta(EntregaListV1Serializer.Meta):
         fields = EntregaListV1Serializer.Meta.fields + (
@@ -1044,7 +1046,20 @@ class EntregaDetailV1Serializer(EntregaListV1Serializer):
             'cliente_direccion',
             'notas',
             'pedidos',
+            'total_descuento',
+            'qr_imagen',
         )
+
+    def get_total_descuento(self, obj):
+        return float(
+            sum(p.descuento_aplicado or Decimal('0') for p in obj.pedidos.all())
+        )
+
+    def get_qr_imagen(self, obj):
+        from erp.utils.qr import generar_qr_base64
+
+        tarjeta = ServicioFidelidad.obtener_tarjeta(obj.cliente)
+        return generar_qr_base64(tarjeta.token if tarjeta else None)
 
 
 class ClienteDetailV1Serializer(ClienteListV1Serializer):

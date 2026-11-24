@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { MouseEvent } from "react";
 import {
   BookOpen,
   Bot,
@@ -49,11 +50,16 @@ export default function DashboardHeader({
   desde,
   hasta,
   meta,
+  onTabSelect,
 }: {
   tab: DashboardTab;
   desde: string;
   hasta: string;
   meta?: DashboardMeta;
+  onTabSelect?: (
+    tab: DashboardTab,
+    event: MouseEvent<HTMLAnchorElement>,
+  ) => void;
 }) {
   const filterQuery = buildFilterQuery(desde, hasta);
   const exportHref = `/api/bff/exportar-ia${filterQuery ? `?${filterQuery}` : ""}`;
@@ -173,6 +179,9 @@ export default function DashboardHeader({
             <Link
               key={item.id}
               href={tabHref(item.id, desde, hasta)}
+              onClick={
+                onTabSelect ? (event) => onTabSelect(item.id, event) : undefined
+              }
               className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition ${
                 active
                   ? "border-brand text-brand"

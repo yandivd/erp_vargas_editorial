@@ -1,7 +1,9 @@
 import { AlertTriangle, ClipboardList, SearchX } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 import CrearEntregaModal from "@/components/entregas/CrearEntregaModal";
 import NuevoPedidoModal from "@/components/pedidos/NuevoPedidoModal";
+import PedidosContentSkeleton from "@/components/pedidos/PedidosContentSkeleton";
 import PedidosFilters from "@/components/pedidos/PedidosFilters";
 import PedidosPagination from "@/components/pedidos/PedidosPagination";
 import PedidosTable from "@/components/pedidos/PedidosTable";
@@ -27,6 +29,14 @@ type PageProps = {
   }>;
 };
 
+type PedidosContentProps = {
+  search: string;
+  estado: string;
+  enTaller: boolean;
+  orden: string;
+  page: number;
+};
+
 export default async function PedidosPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const search = (params.search ?? "").trim();
@@ -38,6 +48,31 @@ export default async function PedidosPage({ searchParams }: PageProps) {
   const page =
     Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
+  return (
+    <div>
+      <PageHeader enTaller={enTaller} />
+      <ViewTabs enTaller={enTaller} search={search} orden={orden} />
+
+      <Suspense fallback={<PedidosContentSkeleton />}>
+        <PedidosContent
+          search={search}
+          estado={estado}
+          enTaller={enTaller}
+          orden={orden}
+          page={page}
+        />
+      </Suspense>
+    </div>
+  );
+}
+
+async function PedidosContent({
+  search,
+  estado,
+  enTaller,
+  orden,
+  page,
+}: PedidosContentProps) {
   const query = new URLSearchParams();
   query.set("page", String(page));
   query.set("per_page", "20");
@@ -69,14 +104,11 @@ export default async function PedidosPage({ searchParams }: PageProps) {
 
   if (pedidosResult.error || !pedidosResult.envelope) {
     return (
-      <div>
-        <PageHeader enTaller={enTaller} />
-        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
-          <div>
-            <strong>No se pudieron cargar los pedidos.</strong>
-            <div>{pedidosResult.error}</div>
-          </div>
+      <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+        <div>
+          <strong>No se pudieron cargar los pedidos.</strong>
+          <div>{pedidosResult.error}</div>
         </div>
       </div>
     );
@@ -89,9 +121,15 @@ export default async function PedidosPage({ searchParams }: PageProps) {
     | undefined;
 
   return (
-    <div>
-      <PageHeader count={pagination?.count} enTaller={enTaller} />
-      <ViewTabs enTaller={enTaller} search={search} orden={orden} />
+    <>
+      {typeof pagination?.count === "number" ? (
+        <div className="mb-4 flex justify-end">
+          <div className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-muted">
+            <span className="font-bold text-ink">{pagination.count}</span>{" "}
+            {enTaller ? "en taller" : `resultado${pagination.count === 1 ? "" : "s"}`}
+          </div>
+        </div>
+      ) : null}
 
       <PedidosFilters
         estados={estados}
@@ -132,17 +170,11 @@ export default async function PedidosPage({ searchParams }: PageProps) {
           </>
         )}
       </section>
-    </div>
+    </>
   );
 }
 
-function PageHeader({
-  count,
-  enTaller = false,
-}: {
-  count?: number;
-  enTaller?: boolean;
-}) {
+function PageHeader({ enTaller = false }: { enTaller?: boolean }) {
   return (
     <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div>
@@ -157,12 +189,6 @@ function PageHeader({
         </p>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-        {typeof count === "number" ? (
-          <div className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-muted">
-            <span className="font-bold text-ink">{count}</span>{" "}
-            {enTaller ? "en taller" : `resultado${count === 1 ? "" : "s"}`}
-          </div>
-        ) : null}
         <CrearEntregaModal />
         <NuevoPedidoModal />
       </div>

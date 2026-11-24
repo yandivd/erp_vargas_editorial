@@ -1023,6 +1023,7 @@ def lista_entregas(request):
     return render(request, 'pedidos/lista_entregas.html', {
         'entregas': entregas,
         'tab': tab,
+        'frontend_url': settings.FRONTEND_URL.rstrip('/'),
     })
 
 
@@ -1200,6 +1201,7 @@ def detalle_entrega(request, pk):
         'pedidos': pedidos,
         'provincias': PROVINCIAS,
         'municipios_opciones': _municipios_opciones(),
+        'frontend_url': settings.FRONTEND_URL.rstrip('/'),
     })
 
 

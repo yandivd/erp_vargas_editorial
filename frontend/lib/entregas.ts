@@ -38,5 +38,7 @@ export type EntregaDetail = EntregaListItem & {
   cliente_telefono: string;
   cliente_direccion: string;
   notas: string;
+  total_descuento: number;
+  qr_imagen: string | null;
   pedidos: EntregaPedido[];
 };

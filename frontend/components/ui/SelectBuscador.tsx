@@ -14,6 +14,9 @@ export type SelectBuscadorProps = {
   placeholder?: string;
   isClearable?: boolean;
   isDisabled?: boolean;
+  isLoading?: boolean;
+  loadingMessage?: string;
+  noOptionsMessage?: string;
   inputId?: string;
   name?: string;
   className?: string;
@@ -112,6 +115,9 @@ export default function SelectBuscador({
   placeholder = "Selecciona...",
   isClearable = false,
   isDisabled = false,
+  isLoading = false,
+  loadingMessage = "Cargando...",
+  noOptionsMessage: emptyMessage = "Sin resultados",
   inputId,
   name,
   className,
@@ -131,13 +137,15 @@ export default function SelectBuscador({
       placeholder={placeholder}
       isClearable={isClearable}
       isDisabled={isDisabled}
+      isLoading={isLoading}
       isSearchable
       className={`w-full ${className ?? ""}`}
       classNamePrefix="erp-select"
       styles={selectStyles}
       menuPortalTarget={portalTarget}
       menuPosition="fixed"
-      noOptionsMessage={() => "Sin resultados"}
+      loadingMessage={() => loadingMessage}
+      noOptionsMessage={() => emptyMessage}
     />
   );
 }

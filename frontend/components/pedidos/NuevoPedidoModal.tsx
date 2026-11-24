@@ -109,6 +109,8 @@ export default function NuevoPedidoModal() {
   const [codigos, setCodigos] = useState<CodigoDescuento[]>([]);
   const [parametros, setParametros] = useState<ParametrosCosto | null>(null);
   const [catalogosError, setCatalogosError] = useState<string | null>(null);
+  const [cargandoClientes, setCargandoClientes] = useState(false);
+  const [cargandoLibros, setCargandoLibros] = useState(false);
 
   const [modoCliente, setModoCliente] = useState<ModoCliente>("existente");
   const [clienteId, setClienteId] = useState("");
@@ -234,6 +236,8 @@ export default function NuevoPedidoModal() {
 
   const cargarCatalogos = useCallback(async () => {
     void cargarTasaCambio();
+    setCargandoClientes(true);
+    setCargandoLibros(true);
     try {
       const [clientesResult, librosResult, codigosResult, parametrosResult] =
         await Promise.all([
@@ -253,6 +257,9 @@ export default function NuevoPedidoModal() {
       setParametros(parametrosResult.parametros);
     } catch (error) {
       setCatalogosError(mensajeError(error));
+    } finally {
+      setCargandoClientes(false);
+      setCargandoLibros(false);
     }
   }, [cargarTasaCambio]);
 
@@ -312,9 +319,6 @@ export default function NuevoPedidoModal() {
   );
   const saldo = redondear2(Math.max(0, precio - anticipoEnCup));
   const vuelto = redondear2(Math.max(0, anticipoEnCup - precio));
-  const precioEnUsd = esPrecioUsd
-    ? Math.max(0, Number(precioVenta || 0))
-    : tasaValida ? redondear2(precioCupUnitario / (tasaCambio ?? 1)) : 0;
   const costoTotalPedido = costo ? redondear2(costo.costo_total * cantidadNum) : 0;
   const ganancia = redondear2(precio - costoTotalPedido);
 
@@ -473,7 +477,7 @@ export default function NuevoPedidoModal() {
 
     if (libro) {
       const precio = calcularPrecioConAcabados(
-        Number((libro as any).precio_cup ?? libro.precio),
+        Number(libro.precio_cup ?? libro.precio),
         llevaCantosTintados,
         llevaEsquineros || llevaCantosTintados,
       );
@@ -498,7 +502,7 @@ export default function NuevoPedidoModal() {
 
     if (libro) {
       const precio = calcularPrecioConAcabados(
-        Number((libro as any).precio_cup ?? libro.precio),
+        Number(libro.precio_cup ?? libro.precio),
         llevaCantosTintados,
         llevaEsquineros || llevaCantosTintados,
       );
@@ -807,6 +811,7 @@ export default function NuevoPedidoModal() {
       });
 
       limpiarFormulario();
+      void cargarCatalogos();
       setAbierto(false);
       router.refresh();
     } catch (error) {
@@ -929,6 +934,9 @@ export default function NuevoPedidoModal() {
                         }
                         placeholder="Buscar cliente por nombre o teléfono..."
                         isClearable
+                        isLoading={cargandoClientes}
+                        loadingMessage="Cargando..."
+                        noOptionsMessage="Sin clientes registrados"
                       />
                     </div>
                   ) : (
@@ -1087,6 +1095,9 @@ export default function NuevoPedidoModal() {
                         }
                         placeholder="Buscar libro por título o autor..."
                         isClearable
+                        isLoading={cargandoLibros}
+                        loadingMessage="Cargando..."
+                        noOptionsMessage="Sin libros registrados"
                       />
                     </div>
                   ) : (
@@ -1351,7 +1362,7 @@ export default function NuevoPedidoModal() {
                     </div>
                   </div>
 
-                  <DesgloseCostos costo={costo as any} />
+                  <DesgloseCostos costo={costo} />
                 </section>
 
                 <section className="space-y-3">
