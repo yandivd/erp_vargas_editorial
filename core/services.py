@@ -197,6 +197,143 @@ def anticipos_reconocidos(desde=None, hasta=None):
     return qs
 
 
+def _fila_kpi_movimiento(
+    movimiento,
+    fecha=None,
+    categoria_label=None,
+    concepto=None,
+):
+    proveedor = movimiento.proveedor if movimiento.proveedor_id else None
+    return {
+        'id': movimiento.pk,
+        'tipo': movimiento.tipo,
+        'tipo_label': movimiento.get_tipo_display(),
+        'categoria': movimiento.categoria,
+        'categoria_label': categoria_label or movimiento.get_categoria_display(),
+        'monto': float(movimiento.monto),
+        'moneda': movimiento.moneda,
+        'moneda_label': movimiento.get_moneda_display(),
+        'metodo': movimiento.metodo,
+        'metodo_label': movimiento.get_metodo_display(),
+        'concepto': concepto if concepto is not None else movimiento.concepto,
+        'fecha': fecha or movimiento.fecha,
+        'pedido_id': movimiento.pedido_id,
+        'proveedor_id': movimiento.proveedor_id,
+        'proveedor_nombre': proveedor.nombre if proveedor else '',
+    }
+
+
+def movimientos_para_kpi(tipo, desde=None, hasta=None, moneda=None):
+    """Filas que componen exactamente el KPI de ingresos o gastos."""
+    desde = parse_fecha(desde)
+    hasta = parse_fecha(hasta)
+    if desde and hasta and desde > hasta:
+        desde, hasta = hasta, desde
+
+    if tipo not in ('ingresos', 'gastos'):
+        raise ValueError("Tipo de KPI no válido")
+
+    movs = movimientos_financieros(desde, hasta)
+    filas = []
+
+    if tipo == 'ingresos':
+        ingresos = (
+            movs.filter(tipo='INGRESO')
+            .exclude(Q_NO_INGRESO_OPERATIVO | Q_INGRESO_DIFERIDO)
+            .select_related('pedido', 'proveedor', 'cliente')
+        )
+        vueltos = (
+            movs.filter(tipo='EGRESO', categoria=CATEGORIA_VUELTO_CLIENTE)
+            .select_related('pedido', 'proveedor', 'cliente')
+        )
+        anticipos = (
+            anticipos_reconocidos(desde, hasta)
+            .select_related('pedido', 'proveedor', 'cliente', 'pedido__cliente')
+        )
+
+        if moneda in ('CUP', 'USD'):
+            ingresos = ingresos.filter(moneda=moneda)
+            vueltos = vueltos.filter(moneda=moneda)
+            anticipos = anticipos.filter(moneda=moneda)
+
+        for movimiento in ingresos:
+            filas.append(_fila_kpi_movimiento(movimiento))
+        for movimiento in anticipos:
+            filas.append(
+                _fila_kpi_movimiento(
+                    movimiento,
+                    fecha=movimiento.pedido.fecha_entrega_real or movimiento.fecha,
+                    categoria_label='Anticipos reconocidos al entregar',
+                    concepto=(
+                        f'Anticipo reconocido al entregar Pedido #{movimiento.pedido_id}'
+                    ),
+                )
+            )
+        for movimiento in vueltos:
+            filas.append(_fila_kpi_movimiento(movimiento))
+    else:
+        egresos = (
+            movs.filter(tipo='EGRESO')
+            .exclude(Q_NO_GASTO_OPERATIVO)
+            .select_related('pedido', 'proveedor', 'cliente')
+        )
+        if moneda in ('CUP', 'USD'):
+            egresos = egresos.filter(moneda=moneda)
+        for movimiento in egresos:
+            filas.append(_fila_kpi_movimiento(movimiento))
+
+        if moneda != 'USD':
+            consumos = (
+                consumos_inventario(desde, hasta)
+                .values('material__nombre')
+                .annotate(
+                    total=Sum('costo_total'),
+                    fecha=Max('fecha'),
+                )
+                .order_by('-total')
+            )
+            for indice, consumo in enumerate(consumos):
+                total = Decimal(str(consumo['total'] or 0))
+                if total <= 0:
+                    continue
+                filas.append({
+                    'id': -(1000000 + indice),
+                    'tipo': 'EGRESO',
+                    'tipo_label': 'Egreso',
+                    'categoria': 'CONSUMO_MATERIAL',
+                    'categoria_label': 'Consumo de material',
+                    'monto': float(total),
+                    'moneda': 'CUP',
+                    'moneda_label': 'CUP',
+                    'metodo': 'INVENTARIO',
+                    'metodo_label': 'Inventario',
+                    'concepto': f"Consumo de material: {consumo['material__nombre']}",
+                    'fecha': consumo['fecha'],
+                    'pedido_id': None,
+                    'proveedor_id': None,
+                    'proveedor_nombre': '',
+                })
+
+    filas.sort(key=lambda fila: fila['fecha'], reverse=True)
+    return filas
+
+
+def total_para_kpi(tipo, desde=None, hasta=None, moneda=None):
+    """Total del KPI, en equivalente CUP salvo que se pida una moneda."""
+    tasa, _ = tasa_cambio()
+    totales = {'CUP': Decimal('0'), 'USD': Decimal('0')}
+
+    for fila in movimientos_para_kpi(tipo, desde, hasta, moneda):
+        monto = Decimal(str(fila['monto']))
+        if tipo == 'ingresos' and fila['tipo'] == 'EGRESO':
+            monto = -monto
+        totales[fila['moneda']] += monto
+
+    if moneda in ('CUP', 'USD'):
+        return totales[moneda]
+    return totales['CUP'] + convertir_usd_a_cup(totales['USD'], tasa)
+
+
 def pedidos_financieros(desde=None, hasta=None):
     inicio = max(FECHA_CORTE_FINANCIERO, desde) if desde else FECHA_CORTE_FINANCIERO
     qs = Pedido.objects.filter(

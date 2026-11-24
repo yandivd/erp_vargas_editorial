@@ -17,7 +17,9 @@ from core.services import (
     Q_NO_INGRESO_OPERATIVO,
     depreciacion_activos_mensual,
     movimientos_financieros,
+    movimientos_para_kpi,
     parse_fecha,
+    total_para_kpi,
 )
 from .models import MovimientoCaja, GastoOperativo, CierreCaja, LoteDivisa, DetalleVentaDivisa
 from .services import ServicioFinanzas
@@ -97,41 +99,27 @@ def lista_movimientos(request, tipo):
         desde, hasta = hasta, desde
         desde_str, hasta_str = hasta_str, desde_str
 
-    movimientos = movimientos_financieros(desde, hasta)
-    if tipo == 'INGRESO':
-        movimientos = movimientos.filter(
-            (Q(tipo='INGRESO') & ~Q_NO_INGRESO_OPERATIVO)
-            | Q(tipo='EGRESO', categoria=CATEGORIA_VUELTO_CLIENTE)
-        )
-    else:
-        movimientos = movimientos.filter(tipo='EGRESO').exclude(
-            Q_NO_EGRESO_OPERATIVO
-        )
-
+    tipo_kpi = 'ingresos' if tipo == 'INGRESO' else 'gastos'
     moneda = request.GET.get('moneda', '')
-    if moneda in ('CUP', 'USD'):
-        movimientos = movimientos.filter(moneda=moneda)
-    else:
+    if moneda not in ('CUP', 'USD'):
         moneda = ''
 
-    movimientos = movimientos.select_related('pedido', 'proveedor', 'cliente').order_by('-fecha')
-    totales = {}
-    for moneda_codigo, _ in MovimientoCaja.MONEDA_CHOICES:
-        agregados = movimientos.filter(moneda=moneda_codigo).aggregate(
-            ingresos=Sum('monto', filter=Q(tipo='INGRESO')),
-            vueltos=Sum('monto', filter=Q(tipo='EGRESO')),
-        )
-        totales[moneda_codigo] = (
-            (agregados['ingresos'] or 0) - (agregados['vueltos'] or 0)
-        )
-    cantidad = movimientos.count()
+    movimientos = movimientos_para_kpi(tipo_kpi, desde, hasta, moneda)
+    totales = {'CUP': Decimal('0'), 'USD': Decimal('0')}
+    for fila in movimientos:
+        monto = Decimal(str(fila['monto']))
+        if tipo == 'INGRESO' and fila['tipo'] == 'EGRESO':
+            monto = -monto
+        totales[fila['moneda']] += monto
+    total_equiv_cup = total_para_kpi(tipo_kpi, desde, hasta, moneda)
 
     context = {
         'tipo': tipo,
         'tipo_label': 'Ingresos netos' if tipo == 'INGRESO' else 'Gastos',
         'movimientos': movimientos,
         'totales': totales,
-        'cantidad': cantidad,
+        'total_equiv_cup': total_equiv_cup,
+        'cantidad': len(movimientos),
         'desde': desde_str,
         'hasta': hasta_str,
         'moneda_actual': moneda,

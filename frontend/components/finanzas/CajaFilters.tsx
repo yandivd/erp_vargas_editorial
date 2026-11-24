@@ -10,6 +10,7 @@ type CajaFiltersProps = {
   initialHasta: string;
   initialCategoria: string;
   categorias: CategoriaCaja[];
+  kpi?: "ingresos" | "gastos" | "";
 };
 
 const inputClass =
@@ -22,6 +23,7 @@ export default function CajaFilters({
   initialHasta,
   initialCategoria,
   categorias,
+  kpi = "",
 }: CajaFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -37,6 +39,9 @@ export default function CajaFilters({
   ) {
     const params = new URLSearchParams();
 
+    if (kpi) {
+      params.set("kpi", kpi);
+    }
     if (nextDesde) {
       params.set("desde", nextDesde);
     }
@@ -74,7 +79,11 @@ export default function CajaFilters({
       onSubmit={handleSubmit}
       className="mb-5 rounded-xl border border-line bg-white p-4 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.02)]"
     >
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 xl:items-end">
+      <div
+        className={`grid grid-cols-1 gap-3 sm:grid-cols-2 xl:items-end ${
+          kpi ? "xl:grid-cols-3" : "xl:grid-cols-4"
+        }`}
+      >
         <div>
           <label htmlFor="caja-desde" className={labelClass}>
             Desde
@@ -101,30 +110,32 @@ export default function CajaFilters({
           />
         </div>
 
-        <div>
-          <label htmlFor="caja-categoria-filtro" className={labelClass}>
-            Categoría
-          </label>
-          <div className="relative">
-            <Filter
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
-              aria-hidden="true"
-            />
-            <select
-              id="caja-categoria-filtro"
-              value={categoria}
-              onChange={(event) => setCategoria(event.target.value)}
-              className={`${inputClass} appearance-none pl-9 pr-8`}
-            >
-              <option value="">Todas</option>
-              {categorias.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
+        {!kpi ? (
+          <div>
+            <label htmlFor="caja-categoria-filtro" className={labelClass}>
+              Categoría
+            </label>
+            <div className="relative">
+              <Filter
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+                aria-hidden="true"
+              />
+              <select
+                id="caja-categoria-filtro"
+                value={categoria}
+                onChange={(event) => setCategoria(event.target.value)}
+                className={`${inputClass} appearance-none pl-9 pr-8`}
+              >
+                <option value="">Todas</option>
+                {categorias.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="flex gap-2">
           <button
