@@ -684,7 +684,8 @@ El costeador puede recibir `parametros` y `tasa_cambio` precargados; si no, cons
 
 ### Cache y exportación
 - Dashboard API cachea datos por tab/rango/tasa con TTL (~5 min) y versión de cache (`DASHBOARD_CACHE_VERSION = 11`).
-- **Exportación IA (`/exportar-ia/`, API v1):** JSON con `meta`, `dashboard` (resumen, producción, clientes, fidelidad) y `secciones_rentabilidad_ia` (rentabilidad por pedido, márgenes por libro, top clientes, deudores, nómina, servicios externos, flujo por moneda, fidelidad).
+- **Exportación IA (`/exportar-ia/`, API v1):** JSON con `meta`, `dashboard` (resumen, producción, clientes, fidelidad) y `secciones_rentabilidad_ia` (rentabilidad agrupada por mes/estado/plan, márgenes por libro (top 30 + “Otros libros”), top clientes, deudores, nómina, servicios externos, flujo por moneda, fidelidad).
+- **Rentabilidad IA (`/exportar/rentabilidad/`):** pedidos y gastos operativos van agrupados (mes/estado/plan/libro y mes/categoría/tipo/concepto/moneda), sin listados transaccionales.
 
 ## 25. Validaciones y restricciones
 

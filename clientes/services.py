@@ -76,7 +76,7 @@ class ServicioFidelidad:
         return sum(1 for tarjeta in tarjetas if cls._expirar_sellos(tarjeta))
 
     @classmethod
-    def obtener_tarjeta(cls, cliente, crear=True):
+    def obtener_tarjeta(cls, cliente, crear=False):
         if cliente is None:
             return None
 
@@ -169,8 +169,11 @@ class ServicioFidelidad:
             return Decimal('0')
 
         with transaction.atomic():
-            tarjeta, _ = TarjetaFidelidad.objects.select_for_update().get_or_create(
-                cliente=cliente,
+            tarjeta_actual = cls.obtener_tarjeta(cliente)
+            if tarjeta_actual is None:
+                return Decimal('0')
+            tarjeta = TarjetaFidelidad.objects.select_for_update().get(
+                pk=tarjeta_actual.pk,
             )
             descuento = min(monto, tarjeta.bono_saldo)
 

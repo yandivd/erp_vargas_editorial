@@ -1058,7 +1058,7 @@ class EntregaDetailV1Serializer(EntregaListV1Serializer):
     def get_qr_imagen(self, obj):
         from erp.utils.qr import generar_qr_base64
 
-        tarjeta = ServicioFidelidad.obtener_tarjeta(obj.cliente)
+        tarjeta = ServicioFidelidad.obtener_tarjeta(obj.cliente, crear=False)
         return generar_qr_base64(tarjeta.token if tarjeta else None)
 
 

@@ -70,7 +70,9 @@ export default function FidelidadClient({
 
   const clientes = useMemo(() => {
     const factor = sortDir === "asc" ? 1 : -1;
-    return [...initialClientes].sort((a, b) => {
+    return initialClientes
+      .filter((c) => c.fidelidad != null || c.tarjeta_fidelidad != null)
+      .sort((a, b) => {
       const va =
         sortKey === "sellos"
           ? Number(tarjeta(a).sellos ?? 0)
