@@ -5,9 +5,12 @@ export type DashboardTab =
   | "fidelidad"
   | "leads";
 
+export type DashboardPeriodMode = "anual" | "personalizado" | "global";
+
 export type DashboardMeta = {
   desde: string;
   hasta: string;
+  modo?: DashboardPeriodMode;
   corte_financiero?: string;
   referencia_corte?: number;
   tasa_cambio?: number;

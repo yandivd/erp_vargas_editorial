@@ -683,7 +683,7 @@ El costeador puede recibir `parametros` y `tasa_cambio` precargados; si no, cons
 - Tiempo en `Pendiente a impresión`: desde `fecha_pedido` hasta primera entrada en `Impreso` (historial). Otros intervalos: entre eventos de historial; si es el último estado medido, hasta `fecha_entrega_real` cuando aplica.
 
 ### Cache y exportación
-- Dashboard API cachea datos por tab/rango/tasa con TTL (~5 min) y versión de cache (`DASHBOARD_CACHE_VERSION = 15`).
+- Dashboard API cachea datos por tab/rango/modo/tasa con TTL (~5 min) y versión de cache (`DASHBOARD_CACHE_VERSION = 16`).
 - **Exportación IA (`/exportar-ia/`, API v1):** JSON con `meta`, `dashboard` (resumen, producción, clientes, fidelidad) y `secciones_rentabilidad_ia` (rentabilidad agrupada por mes/estado/plan, márgenes por libro (top 30 + “Otros libros”), top clientes, deudores, nómina, servicios externos, flujo por moneda, fidelidad).
 - **Rentabilidad IA (`/exportar/rentabilidad/`):** devuelve `meta`, `resumen_financiero`, `pedidos_activos`, `metricas_produccion`, `rentabilidad_por_plan` (Base/Medio/Premium inferidos por precio) y `clientes_en_riesgo` (>90 días sin pedidos). Los ingresos usan `precio_venta`, nunca solo el anticipo.
 

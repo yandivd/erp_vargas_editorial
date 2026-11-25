@@ -9,10 +9,10 @@ from django.utils import timezone
 
 from clientes.models import Cliente, EventoFidelidad, Lead, TarjetaFidelidad
 from clientes.services import ServicioFidelidad
-from finanzas.models import ActivoFijo, CierreCaja, LoteDivisa, MovimientoCaja
+from finanzas.models import ActivoFijo, CierreCaja, Depreciacion, LoteDivisa, MovimientoCaja
 from inventario.models import Material, MovimientoInventario
 from pedidos.models import Estado, HistorialEstado, Pedido, ServicioExterno
-from pedidos.services import CosteadorPedido, obtener_ganancia_promedio
+from pedidos.services import CosteadorPedido
 
 
 FECHA_CORTE_FINANCIERO = date(2026, 8, 2)
@@ -119,6 +119,26 @@ def rango_fechas(desde_str=None, hasta_str=None):
     return parse_fecha(desde_str), parse_fecha(hasta_str)
 
 
+def rango_anual_actual():
+    hoy = timezone.localdate()
+    return hoy.replace(month=1, day=1), hoy
+
+
+def normalizar_periodo(desde_str='', hasta_str='', modo=''):
+    desde = parse_fecha(desde_str)
+    hasta = parse_fecha(hasta_str)
+    if desde and hasta and desde > hasta:
+        desde, hasta = hasta, desde
+
+    modo = str(modo or '').lower()
+    if modo == 'global':
+        return None, None, 'global'
+    if modo == 'anual' or (not desde and not hasta and modo != 'personalizado'):
+        inicio, fin = rango_anual_actual()
+        return inicio, fin, 'anual'
+    return desde, hasta, 'personalizado'
+
+
 def tasa_cambio():
     """CUP por 1 USD. Parametro editable, con fallback al ultimo lote."""
     from core.models import Parametro
@@ -171,8 +191,11 @@ def movimientos_caja(desde=None, hasta=None, moneda=None):
     return qs
 
 
-def movimientos_financieros(desde=None, hasta=None, moneda=None):
-    inicio = max(FECHA_CORTE_FINANCIERO, desde) if desde else FECHA_CORTE_FINANCIERO
+def movimientos_financieros(desde=None, hasta=None, moneda=None, incluir_historial=False):
+    if desde:
+        inicio = desde if incluir_historial else max(FECHA_CORTE_FINANCIERO, desde)
+    else:
+        inicio = None if incluir_historial else FECHA_CORTE_FINANCIERO
     return movimientos_caja(inicio, hasta, moneda)
 
 
@@ -220,11 +243,17 @@ def _coincide_concepto(fila, termino):
     )
 
 
-def consumos_inventario(desde=None, hasta=None, material_id=None):
+def consumos_inventario(desde=None, hasta=None, material_id=None, incluir_historial=False):
     """Salidas de inventario del período: gasto por consumo, no flujo de caja."""
     qs = MovimientoInventario.objects.filter(tipo='SALIDA')
-    inicio = max(FECHA_CORTE_FINANCIERO, desde) if desde else FECHA_CORTE_FINANCIERO
-    qs = qs.filter(fecha__date__gte=inicio)
+    if desde:
+        inicio = desde if incluir_historial else max(FECHA_CORTE_FINANCIERO, desde)
+    elif not incluir_historial:
+        inicio = FECHA_CORTE_FINANCIERO
+    else:
+        inicio = None
+    if inicio:
+        qs = qs.filter(fecha__date__gte=inicio)
     if hasta:
         qs = qs.filter(fecha__date__lte=hasta)
     material_id = _id_o_none(material_id)
@@ -233,15 +262,21 @@ def consumos_inventario(desde=None, hasta=None, material_id=None):
     return qs
 
 
-def anticipos_reconocidos(desde=None, hasta=None):
+def anticipos_reconocidos(desde=None, hasta=None, incluir_historial=False):
     """Anticipos que pasan a ingreso porque el pedido ya fue entregado."""
-    inicio = max(FECHA_CORTE_FINANCIERO, desde) if desde else FECHA_CORTE_FINANCIERO
     qs = MovimientoCaja.objects.filter(
         tipo='INGRESO',
         categoria=CATEGORIA_ANTICIPO_CLIENTE,
         pedido__isnull=False,
-        pedido__fecha_entrega_real__date__gte=inicio,
     ).exclude(pedido__estado__nombre__in=['Cancelado', 'Borrador'])
+    if desde:
+        inicio = desde if incluir_historial else max(FECHA_CORTE_FINANCIERO, desde)
+    elif not incluir_historial:
+        inicio = FECHA_CORTE_FINANCIERO
+    else:
+        inicio = None
+    if inicio:
+        qs = qs.filter(pedido__fecha_entrega_real__date__gte=inicio)
     if hasta:
         qs = qs.filter(pedido__fecha_entrega_real__date__lte=hasta)
     return qs
@@ -417,12 +452,18 @@ def total_para_kpi(
     return totales['CUP'] + convertir_usd_a_cup(totales['USD'], tasa)
 
 
-def pedidos_financieros(desde=None, hasta=None):
-    inicio = max(FECHA_CORTE_FINANCIERO, desde) if desde else FECHA_CORTE_FINANCIERO
-    qs = Pedido.objects.filter(
-        cliente__isnull=False,
-        fecha_pedido__date__gte=inicio,
-    ).exclude(estado__nombre__in=['Cancelado', 'Borrador'])
+def pedidos_financieros(desde=None, hasta=None, incluir_historial=False):
+    qs = Pedido.objects.filter(cliente__isnull=False).exclude(
+        estado__nombre__in=['Cancelado', 'Borrador']
+    )
+    if desde:
+        inicio = desde if incluir_historial else max(FECHA_CORTE_FINANCIERO, desde)
+    elif not incluir_historial:
+        inicio = FECHA_CORTE_FINANCIERO
+    else:
+        inicio = None
+    if inicio:
+        qs = qs.filter(fecha_pedido__date__gte=inicio)
     if hasta:
         qs = qs.filter(fecha_pedido__date__lte=hasta)
     return qs
@@ -484,6 +525,25 @@ def depreciacion_activos_mensual():
     return total.quantize(Decimal('0.01'))
 
 
+def depreciacion_activos_periodo(desde=None, hasta=None):
+    consulta = Depreciacion.objects.all()
+    if desde:
+        consulta = consulta.filter(mes__gte=desde.replace(day=1))
+    if hasta:
+        consulta = consulta.filter(mes__lte=hasta.replace(day=1))
+    total = consulta.aggregate(t=Sum('monto'))['t'] or Decimal('0')
+    if total:
+        return Decimal(str(total)).quantize(Decimal('0.01'))
+
+    mensual = depreciacion_activos_mensual()
+    if not desde or not mensual:
+        return mensual
+    fin = (hasta or timezone.localdate()).replace(day=1)
+    inicio = desde.replace(day=1)
+    meses = (fin.year - inicio.year) * 12 + fin.month - inicio.month + 1
+    return (mensual * max(meses, 1)).quantize(Decimal('0.01'))
+
+
 def _sumar_vuelto(qs):
     return (
         qs.filter(tipo='EGRESO', categoria=CATEGORIA_VUELTO_CLIENTE)
@@ -498,9 +558,10 @@ def resumen_monedas(
     consumo_cup=Decimal('0'),
     anticipos_diferidos_cup=Decimal('0'),
     anticipos_diferidos_usd=Decimal('0'),
+    incluir_historial=False,
 ):
     tasa, advertencia = tasa_cambio()
-    movs = movimientos_financieros(desde, hasta)
+    movs = movimientos_financieros(desde, hasta, incluir_historial=incluir_historial)
     consumo_cup = Decimal(str(consumo_cup or 0))
     anticipos_diferidos = {
         'CUP': Decimal(str(anticipos_diferidos_cup or 0)),
@@ -578,15 +639,15 @@ def resumen_monedas(
     return datos
 
 
-def dashboard_resumen(desde=None, hasta=None):
+def dashboard_resumen(desde=None, hasta=None, incluir_historial=False):
     hoy = timezone.localdate()
     tasa, advertencia = tasa_cambio()
     parametros = _parametros_para_costeador()
-    consumos = consumos_inventario(desde, hasta)
+    consumos = consumos_inventario(desde, hasta, incluir_historial=incluir_historial)
     costo_consumo_cup = (
         consumos.aggregate(t=Sum('costo_total'))['t'] or Decimal('0')
     )
-    anticipos_dif = anticipos_reconocidos(desde, hasta)
+    anticipos_dif = anticipos_reconocidos(desde, hasta, incluir_historial=incluir_historial)
     anticipos_dif_cup = (
         anticipos_dif.filter(moneda='CUP').aggregate(t=Sum('monto'))['t']
         or Decimal('0')
@@ -601,10 +662,13 @@ def dashboard_resumen(desde=None, hasta=None):
         costo_consumo_cup,
         anticipos_dif_cup,
         anticipos_dif_usd,
+        incluir_historial,
     )
     pasivos = pasivos_operativos()
 
-    pedidos = pedidos_financieros(desde, hasta).select_related('libro')
+    pedidos = pedidos_financieros(
+        desde, hasta, incluir_historial=incluir_historial
+    ).select_related('libro')
     total_pedidos = pedidos.count()
     clientes_unicos = pedidos.values('cliente').distinct().count()
     ventas = pedidos.aggregate(t=Sum('precio_venta'))['t'] or Decimal('0')
@@ -687,11 +751,9 @@ def dashboard_resumen(desde=None, hasta=None):
 
     saldo_operativo_cup = Decimal(str(monedas['equivalente']['saldo_neto_cup']))
     gastos_equiv_cup = Decimal(str(monedas['equivalente']['gastos_cup']))
-    depreciacion_activos_cup = depreciacion_activos_mensual()
+    depreciacion_activos_cup = depreciacion_activos_periodo(desde, hasta)
     saldo_contable_cup = saldo_operativo_cup - depreciacion_activos_cup
-    ganancia_promedio_cup = obtener_ganancia_promedio(
-        parametros=parametros, tasa_cambio=tasa
-    )
+    ganancia_promedio_cup = ganancia_promedio_pedido
     ingresos_equiv = Decimal(str(monedas['equivalente']['ingresos_cup']))
     margen_operativo = (
         saldo_operativo_cup / ingresos_equiv * 100
@@ -722,19 +784,20 @@ def dashboard_resumen(desde=None, hasta=None):
         else Decimal('0')
     )
 
-    inicio_mes = hoy.replace(day=1)
-    caja_mes = {}
+    caja_periodo = {}
     for moneda in ('CUP', 'USD'):
-        movs_mes = movimientos_caja(inicio_mes, hoy, moneda)
-        caja_mes[moneda] = {
-            'ingresos': _sumar(movs_mes, 'INGRESO', Q_NO_INGRESO_OPERATIVO),
-            'egresos': _sumar(movs_mes, 'EGRESO', Q_TRANSFERENCIA),
+        movs_periodo = movimientos_financieros(
+            desde, hasta, moneda, incluir_historial=incluir_historial
+        )
+        caja_periodo[moneda] = {
+            'ingresos': _sumar(movs_periodo, 'INGRESO', Q_NO_INGRESO_OPERATIVO),
+            'egresos': _sumar(movs_periodo, 'EGRESO', Q_TRANSFERENCIA),
         }
-    ingresos_caja_mes = caja_mes['CUP']['ingresos'] + convertir_usd_a_cup(
-        caja_mes['USD']['ingresos'], tasa
+    ingresos_caja_mes = caja_periodo['CUP']['ingresos'] + convertir_usd_a_cup(
+        caja_periodo['USD']['ingresos'], tasa
     )
-    egresos_caja_mes = caja_mes['CUP']['egresos'] + convertir_usd_a_cup(
-        caja_mes['USD']['egresos'], tasa
+    egresos_caja_mes = caja_periodo['CUP']['egresos'] + convertir_usd_a_cup(
+        caja_periodo['USD']['egresos'], tasa
     )
     flujo_caja_neto_mes = ingresos_caja_mes - egresos_caja_mes
 
@@ -1327,15 +1390,25 @@ def dashboard_resumen(desde=None, hasta=None):
         'egresos_caja': float(monedas['equivalente']['flujo_egresos_cup']),
     }
 
+    if incluir_historial:
+        periodo_ganancia = 'todo el historial'
+    elif desde and hasta:
+        periodo_ganancia = f'desde {desde.isoformat()} hasta {hasta.isoformat()}'
+    elif desde:
+        periodo_ganancia = f'desde {desde.isoformat()}'
+    else:
+        periodo_ganancia = 'todo el historial'
+
     return {
         'meta': {
             'desde': desde.isoformat() if desde else '',
             'hasta': hasta.isoformat() if hasta else '',
+            'modo': 'global' if incluir_historial else 'anual',
             'corte_financiero': FECHA_CORTE_FINANCIERO.isoformat(),
             'referencia_corte': REFERENCIA_CORTE_FINANCIERO,
             'tasa_cambio': float(tasa),
             'advertencia_tasa': advertencia,
-            'formula_ganancia': 'sum(precio_venta - costo_total) / pedidos Entregados desde 2026-08-02',
+            'formula_ganancia': f'sum(precio_venta - costo_total) / pedidos Entregados {periodo_ganancia}',
             'formula_punto_equilibrio': '(gastos_operativos + sueldo_dueno) / margen_contribucion',
         },
         'kpis': kpis,
@@ -1680,16 +1753,27 @@ def dashboard_produccion(desde=None, hasta=None):
 
 def dashboard_clientes(desde=None, hasta=None):
     hoy = timezone.localdate()
+    pedidos_cliente = Pedido.objects.filter(cliente=OuterRef('pk')).exclude(
+        estado__nombre='Cancelado'
+    )
+    if desde:
+        pedidos_cliente = pedidos_cliente.filter(fecha_pedido__date__gte=desde)
+    if hasta:
+        pedidos_cliente = pedidos_cliente.filter(fecha_pedido__date__lte=hasta)
+
+    filtro_periodo = Q()
+    if desde:
+        filtro_periodo &= Q(pedidos__fecha_pedido__date__gte=desde)
+    if hasta:
+        filtro_periodo &= Q(pedidos__fecha_pedido__date__lte=hasta)
+    filtro_pedidos = ~Q(pedidos__estado__nombre='Cancelado') & filtro_periodo
+
     ultimo_pedido_subquery = (
-        Pedido.objects.filter(cliente=OuterRef('pk'))
-        .order_by('-fecha_pedido')
-        .values('fecha_pedido')[:1]
+        pedidos_cliente.order_by('-fecha_pedido').values('fecha_pedido')[:1]
     )
     clientes_qs = Cliente.objects.annotate(
-        total_pedidos_db=Count('pedidos', filter=~Q(pedidos__estado__nombre='Cancelado')),
-        total_gastado_db=Sum(
-            'pedidos__precio_venta', filter=~Q(pedidos__estado__nombre='Cancelado')
-        ),
+        total_pedidos_db=Count('pedidos', filter=filtro_pedidos),
+        total_gastado_db=Sum('pedidos__precio_venta', filter=filtro_pedidos),
         fecha_ultimo_db=Subquery(ultimo_pedido_subquery),
     )
 
@@ -2315,10 +2399,11 @@ def _limitar_top_ia(filas, clave, etiqueta='Otros'):
     return filas[:LIMITE_TOP_IA] + [otros]
 
 
-def exportar_rentabilidad_para_ia(desde=None, hasta=None):
+def exportar_rentabilidad_para_ia(desde=None, hasta=None, incluir_historial=False):
     parametros = _parametros_para_costeador()
     tasa, _ = tasa_cambio()
-    desde = desde or FECHA_CORTE_FINANCIERO
+    if not incluir_historial:
+        desde = desde or FECHA_CORTE_FINANCIERO
 
     pedidos_qs = (
         Pedido.objects.filter(
@@ -2385,7 +2470,9 @@ def exportar_rentabilidad_para_ia(desde=None, hasta=None):
         else Decimal('0')
     )
 
-    movimientos = movimientos_financieros(desde, hasta, None)
+    movimientos = movimientos_financieros(
+        desde, hasta, None, incluir_historial=incluir_historial
+    )
     gastos_qs = (
         movimientos.filter(tipo='EGRESO')
         .exclude(
@@ -2407,7 +2494,9 @@ def exportar_rentabilidad_para_ia(desde=None, hasta=None):
             continue
         total_gastos_operativos += _monto_en_cup(movimiento, tasa)
 
-    dashboard_kpis = dashboard_resumen(desde, hasta)['kpis']
+    dashboard_kpis = dashboard_resumen(
+        desde, hasta, incluir_historial=incluir_historial
+    )['kpis']
     saldo_caja_cup = Decimal(str(dashboard_kpis.get('saldo_caja_cup', 0) or 0))
     saldo_caja_usd = Decimal(str(dashboard_kpis.get('saldo_caja_usd', 0) or 0))
     saldo_caja_usd_equiv_cup = convertir_usd_a_cup(saldo_caja_usd, tasa)

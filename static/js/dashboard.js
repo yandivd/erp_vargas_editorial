@@ -31,9 +31,11 @@
     function filtros() {
         const form = byId('formFiltrosDashboard');
         if (!form) return {};
+        const modo = form.querySelector('[name=modo]');
         return {
             desde: form.querySelector('[name=desde]').value,
             hasta: form.querySelector('[name=hasta]').value,
+            modo: modo ? modo.value : 'anual',
         };
     }
 
@@ -41,10 +43,17 @@
         const f = filtros();
         const desde = fechaBonita((meta && meta.desde) || f.desde);
         const hasta = fechaBonita((meta && meta.hasta) || f.hasta);
+        const modo = (meta && meta.modo) || f.modo || 'anual';
         let texto = 'Todo el historial';
-        if (desde && hasta) texto = 'Del ' + desde + ' al ' + hasta;
-        else if (desde) texto = 'Desde ' + desde;
-        else if (hasta) texto = 'Hasta ' + hasta;
+        if (modo === 'anual' && desde && hasta) {
+            texto = 'Año ' + String(meta && meta.desde ? meta.desde : f.desde).slice(0, 4) + ' hasta ' + hasta;
+        } else if (desde && hasta) {
+            texto = 'Del ' + desde + ' al ' + hasta;
+        } else if (desde) {
+            texto = 'Desde ' + desde;
+        } else if (hasta) {
+            texto = 'Hasta ' + hasta;
+        }
         setText('dashPeriodo', texto);
 
         const exportar = byId('btnExportarIA');

@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -9,12 +10,16 @@ from rest_framework.test import APIClient
 
 from clientes.models import Cliente, EventoFidelidad, TarjetaFidelidad
 from clientes.services import ServicioFidelidad
+from core.api import obtener_dashboard_data
 from core.models import Parametro
 from core.services import (
+    dashboard_clientes,
     dashboard_fidelidad,
     dashboard_produccion,
     dashboard_resumen,
     exportar_rentabilidad_para_ia,
+    movimientos_financieros,
+    normalizar_periodo,
     secciones_rentabilidad_ia,
     tasa_cambio,
 )
@@ -575,3 +580,107 @@ class DashboardResumenLiquidezTests(TestCase):
 
         self.assertEqual(fila['entradas'], 700.0)
         self.assertEqual(fila['salidas'], 150.0)
+
+
+class DashboardPeriodoTests(TestCase):
+    def test_periodo_por_defecto_es_anio_actual(self):
+        hoy = timezone.localdate()
+        desde, hasta, modo = normalizar_periodo()
+
+        self.assertEqual(desde, hoy.replace(month=1, day=1))
+        self.assertEqual(hasta, hoy)
+        self.assertEqual(modo, 'anual')
+
+    def test_global_no_tiene_fechas_y_rompe_corte(self):
+        self.assertEqual(normalizar_periodo(modo='global'), (None, None, 'global'))
+        movimiento = MovimientoCaja.objects.create(
+            tipo='INGRESO',
+            categoria='VENTA_DIRECTA',
+            monto=Decimal('1000'),
+            moneda='CUP',
+            concepto='Venta anterior al corte',
+        )
+        MovimientoCaja.objects.filter(pk=movimiento.pk).update(
+            fecha=timezone.make_aware(
+                datetime(2026, 3, 10, 10, 0),
+                timezone.get_default_timezone(),
+            )
+        )
+
+        desde = date(2026, 1, 1)
+        hasta = date(2026, 12, 31)
+        self.assertEqual(
+            movimientos_financieros(desde, hasta).count(), 0
+        )
+        self.assertEqual(
+            movimientos_financieros(
+                desde, hasta, incluir_historial=True
+            ).count(),
+            1,
+        )
+
+    def test_anual_maquina_cambia_solo_con_la_fecha(self):
+        with patch(
+            'core.services.timezone.localdate',
+            return_value=date(2027, 1, 5),
+        ):
+            desde, hasta, modo = normalizar_periodo()
+
+        self.assertEqual(desde, date(2027, 1, 1))
+        self.assertEqual(hasta, date(2027, 1, 5))
+        self.assertEqual(modo, 'anual')
+
+    def test_meta_api_anual_por_defecto(self):
+        hoy = timezone.localdate()
+        meta = obtener_dashboard_data('resumen')['meta']
+
+        self.assertEqual(meta['desde'], hoy.replace(month=1, day=1).isoformat())
+        self.assertEqual(meta['hasta'], hoy.isoformat())
+        self.assertEqual(meta['modo'], 'anual')
+
+
+class DashboardClientesPeriodoTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.estado = Estado.objects.create(nombre='Entregado', es_final=True)
+        cls.libro = Book.objects.create(
+            titulo='Libro de periodo',
+            paginas=100,
+            precio=Decimal('1000'),
+        )
+        cls.cliente_anterior = Cliente.objects.create(nombre='Cliente anterior')
+        cls.cliente_actual = Cliente.objects.create(nombre='Cliente actual')
+
+        anterior = Pedido.objects.create(
+            cliente=cls.cliente_anterior,
+            libro=cls.libro,
+            estado=cls.estado,
+            cantidad=1,
+            precio_venta=Decimal('1000'),
+        )
+        actual = Pedido.objects.create(
+            cliente=cls.cliente_actual,
+            libro=cls.libro,
+            estado=cls.estado,
+            cantidad=1,
+            precio_venta=Decimal('2000'),
+        )
+        Pedido.objects.filter(pk=anterior.pk).update(
+            fecha_pedido=timezone.make_aware(
+                datetime(2025, 5, 10, 10, 0),
+                timezone.get_default_timezone(),
+            )
+        )
+        Pedido.objects.filter(pk=actual.pk).update(
+            fecha_pedido=timezone.make_aware(
+                datetime(2026, 5, 10, 10, 0),
+                timezone.get_default_timezone(),
+            )
+        )
+
+    def test_clientes_respeta_el_periodo_anual(self):
+        kpis = dashboard_clientes(date(2026, 1, 1), date(2026, 12, 31))['kpis']
+
+        self.assertEqual(kpis['clientes_unicos_total'], 2)
+        self.assertEqual(kpis['clientes_nuevos'], 1)
+        self.assertEqual(kpis['clientes_recurrentes'], 0)

@@ -330,17 +330,23 @@ export default function NuevoPedidoModal() {
     return String(redondear2(montoCup));
   }
 
-  function ajustarPrecioPorTasa(precioCup: number): number {
-    const tasaRef = 930;
-    const tasaActual = tasaCambio && tasaCambio > 0 ? tasaCambio : tasaRef;
-    return Math.round(((precioCup / tasaRef) * tasaActual) / 50) * 50;
+  function precioUsdRecomendado(calculo: CostoCalculado): number {
+    return (
+      calculo.precio_sugerido_usd ??
+      Math.round((calculo.precio_sugerido / 930) * 10) / 10
+    );
   }
 
-  function aplicarPrecioSugerido(precioCup: number, forzar = false) {
+  function aplicarPrecioSugerido(
+    precioCup: number,
+    forzar = false,
+    precioUsd?: number,
+  ) {
     if (forzar || !precioEditadoManualmente) {
       if (esPrecioUsd) {
-        const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
-        setPrecioVenta(String(Math.round(precioCup / tasa)));
+        setPrecioVenta(
+          String(precioUsd ?? Math.round((precioCup / 930) * 10) / 10),
+        );
       } else {
         setPrecioVenta(String(redondear2(precioCup)));
       }
@@ -526,7 +532,11 @@ export default function NuevoPedidoModal() {
       llevaEsquineros || llevaCantosTintados,
     );
     if (calculo) {
-      aplicarPrecioSugerido(ajustarPrecioPorTasa(calculo.precio_sugerido));
+      aplicarPrecioSugerido(
+        calculo.precio_sugerido,
+        false,
+        precioUsdRecomendado(calculo),
+      );
     }
   }
 
@@ -541,7 +551,11 @@ export default function NuevoPedidoModal() {
       llevaEsquineros || llevaCantosTintados,
     );
     if (calculo) {
-      aplicarPrecioSugerido(ajustarPrecioPorTasa(calculo.precio_sugerido));
+      aplicarPrecioSugerido(
+        calculo.precio_sugerido,
+        false,
+        precioUsdRecomendado(calculo),
+      );
     }
   }
 
@@ -556,7 +570,11 @@ export default function NuevoPedidoModal() {
         esquineros,
       );
       if (calculo) {
-        aplicarPrecioSugerido(ajustarPrecioPorTasa(calculo.precio_sugerido));
+        aplicarPrecioSugerido(
+          calculo.precio_sugerido,
+          false,
+          precioUsdRecomendado(calculo),
+        );
       }
       return;
     }
@@ -793,6 +811,10 @@ export default function NuevoPedidoModal() {
           libro_autor: modoLibro === "nuevo" ? nuevoLibroAutor.trim() : "",
           libro_paginas:
             modoLibro === "nuevo" ? Number(libroPaginas) : null,
+          libro_precio_usd:
+            modoLibro === "nuevo" && esPrecioUsd
+              ? Number(precioVenta || 0)
+              : null,
           cantidad: cantidadNum,
           lleva_cantos_tintados: llevaCantosTintados,
           lleva_esquineros: llevaEsquineros || llevaCantosTintados,
@@ -1326,7 +1348,7 @@ export default function NuevoPedidoModal() {
                       <span className="font-semibold text-ink">
                         Precio sugerido por unidad:
                       </span>{" "}
-                      {costo ? (() => { const pa = ajustarPrecioPorTasa(costo.precio_sugerido); return <>{money(pa, "CUP")} <span className="text-muted">({money(Math.round((pa / 930) * 10) / 10, "USD")})</span></>; })() : "—"}
+                      {costo ? <>{money(costo.precio_sugerido, "CUP")} <span className="text-muted">({money(precioUsdRecomendado(costo), "USD")})</span></> : "—"}
                     </div>
                     <div>
                       <span className="font-semibold text-ink">
@@ -1346,7 +1368,7 @@ export default function NuevoPedidoModal() {
                       <span className="font-semibold text-ink">
                         Anticipo sugerido (CUP):
                       </span>{" "}
-                      {costo ? money(ajustarPrecioPorTasa(costo.precio_sugerido) / 2) : "—"}
+                      {costo ? money(costo.precio_sugerido / 2) : "—"}
                     </div>
                     <div>
                       <span className="font-semibold text-ink">
