@@ -11,6 +11,7 @@ import {
 import type { DashboardResumen } from "@/lib/dashboard";
 import { formatDateTime, integer, money, number } from "@/lib/format";
 import {
+  FlujoDineroRealChart,
   IncomeBreakdownChart,
   MonthlyFinanceChart,
   TrendProjectionChart,
@@ -338,6 +339,15 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
           </div>
         </SectionCard>
       </div>
+
+      <SectionCard
+        title="Flujo de Dinero Real (entradas vs salidas)"
+        icon={<Wallet className="h-5 w-5 text-emerald-600" aria-hidden="true" />}
+      >
+        <div className="h-[220px] w-full md:h-[280px]">
+          <FlujoDineroRealChart data={data.flujo_dinero_real} />
+        </div>
+      </SectionCard>
 
       <SectionCard
         title="Ingresos vs Gastos por Semana"

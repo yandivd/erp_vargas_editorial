@@ -24,6 +24,7 @@ import type {
   ComposicionIngresos,
   DesgloseIngreso,
   DistribucionSellos,
+  FlujoDineroMes,
   FrecuenciaData,
   IngresoGastoMes,
   MapaCalorDia,
@@ -65,6 +66,48 @@ function EmptyChart({ message = "Sin datos" }: { message?: string }) {
 
 function tooltipMoney(value: unknown) {
   return money(Number(value ?? 0));
+}
+
+type OrderBehaviorTooltipProps = {
+  active?: boolean;
+  label?: string;
+  payload?: {
+    dataKey?: string | number;
+    name?: string;
+    value?: number;
+    payload?: ComportamientoPedidoMes;
+  }[];
+};
+
+function OrderBehaviorTooltip({
+  active,
+  label,
+  payload,
+}: OrderBehaviorTooltipProps) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg">
+      <p className="mb-1 font-semibold text-ink">{label}</p>
+      {payload.map((item) => {
+        const fila = item.payload;
+        if (!fila) {
+          return null;
+        }
+        const esEntregado = item.dataKey === "entregados";
+        const monto = esEntregado
+          ? fila.ingreso_entregados
+          : fila.ingreso_total;
+        return (
+          <p key={String(item.dataKey)} className="text-slate-600">
+            {item.name}: {Number(item.value ?? 0)} pedidos | {money(monto)} CUP
+          </p>
+        );
+      })}
+    </div>
+  );
 }
 
 export function IncomeBreakdownChart({
@@ -215,6 +258,26 @@ export function MonthlyFinanceChart({ data }: { data: IngresoGastoMes[] }) {
   );
 }
 
+export function FlujoDineroRealChart({ data }: { data: FlujoDineroMes[] }) {
+  if (!data.length) {
+    return <EmptyChart />;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+        <XAxis dataKey="mes" tick={axisTick} />
+        <YAxis tick={axisTick} width={70} tickFormatter={tooltipMoney} />
+        <Tooltip formatter={tooltipMoney} />
+        <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
+        <Bar dataKey="entradas" name="Entradas" fill="#10b981" radius={[3, 3, 0, 0]} />
+        <Bar dataKey="salidas" name="Salidas reales" fill="#ef4444" radius={[3, 3, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function TrendProjectionChart({ data }: { data: TendenciaMensual[] }) {
   if (!data.length) {
     return <EmptyChart />;
@@ -315,7 +378,7 @@ export function OrderBehaviorChart({
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
         <XAxis dataKey="mes" tick={axisTick} />
         <YAxis tick={axisTick} width={40} allowDecimals={false} />
-        <Tooltip />
+        <Tooltip content={<OrderBehaviorTooltip />} />
         <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12 }} />
         <Bar dataKey="pedidos" name="Pedidos" fill="#3b82f6" radius={[3, 3, 0, 0]} />
         <Bar dataKey="entregados" name="Entregados" fill="#10b981" radius={[3, 3, 0, 0]} />

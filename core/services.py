@@ -928,6 +928,45 @@ def dashboard_resumen(desde=None, hasta=None):
         for t in tendencia_data
     ]
 
+    flujo_dinero_mensual = (
+        movimientos_caja(desde, hasta)
+        .annotate(mes=TruncMonth('fecha'))
+        .values('mes', 'moneda')
+        .annotate(
+            entradas=Sum('monto', filter=Q(tipo='INGRESO')),
+            salidas=Sum(
+                'monto',
+                filter=(
+                    Q(tipo='EGRESO')
+                    & ~Q_NO_EGRESO_OPERATIVO
+                    & ~Q(categoria='AJUSTE_FALTANTE')
+                ),
+            ),
+        )
+        .order_by('mes')
+    )
+    flujo_dinero_por_mes = {}
+    for fila in flujo_dinero_mensual:
+        if not fila['mes']:
+            continue
+        factor = float(tasa) if fila['moneda'] == 'USD' else 1.0
+        item = flujo_dinero_por_mes.setdefault(
+            fila['mes'],
+            {'mes': fila['mes'], 'entradas': 0.0, 'salidas': 0.0},
+        )
+        item['entradas'] += round(float(fila['entradas'] or 0) * factor, 2)
+        item['salidas'] += round(float(fila['salidas'] or 0) * factor, 2)
+    flujo_dinero_real_data = [
+        {
+            'mes': item['mes'].strftime('%b %Y'),
+            'entradas': item['entradas'],
+            'salidas': item['salidas'],
+        }
+        for item in sorted(
+            flujo_dinero_por_mes.values(), key=lambda x: x['mes']
+        )
+    ]
+
     real_por_mes = {t['mes']: t for t in tendencia_data}
     proyeccion_por_mes = {p['mes']: p for p in proyeccion}
     tendencia_mensual_data = []
@@ -1307,6 +1346,7 @@ def dashboard_resumen(desde=None, hasta=None):
         'costo_unitario': costo_unitario,
         'tendencia': tendencia_data,
         'ingresos_vs_gastos': ingresos_vs_gastos_data,
+        'flujo_dinero_real': flujo_dinero_real_data,
         'tendencia_mensual': tendencia_mensual_data,
         'proyeccion': proyeccion,
         'semanal': semanal_data,
@@ -1391,12 +1431,13 @@ def dashboard_produccion(desde=None, hasta=None):
     comportamiento_pedidos = {
         fila['mes']: {
             'pedidos': fila['total_pedidos'],
-            'ventas': float(fila['ventas'] or 0),
+            'ventas': float(fila['ingreso_total'] or 0),
+            'ingreso_total': float(fila['ingreso_total'] or 0),
         }
         for fila in (
             pedidos.annotate(mes=TruncMonth('fecha_pedido'))
             .values('mes')
-            .annotate(total_pedidos=Count('id'), ventas=Sum('precio_venta'))
+            .annotate(total_pedidos=Count('id'), ingreso_total=Sum('precio_venta'))
         )
     }
     entregas = Pedido.objects.filter(
@@ -1410,19 +1451,26 @@ def dashboard_produccion(desde=None, hasta=None):
     if hasta:
         entregas = entregas.filter(fecha_entrega_real__date__lte=hasta)
     entregas_por_mes = {
-        fila['mes']: fila['entregados']
+        fila['mes']: fila
         for fila in (
             entregas.annotate(mes=TruncMonth('fecha_entrega_real'))
             .values('mes')
-            .annotate(entregados=Count('id'))
+            .annotate(
+                entregados=Count('id'),
+                ingreso_entregados=Sum('precio_venta'),
+            )
         )
     }
     comportamiento_data = [
         {
             'mes': mes.strftime('%b %Y'),
             'pedidos': comportamiento_pedidos.get(mes, {}).get('pedidos', 0),
-            'entregados': entregas_por_mes.get(mes, 0),
+            'entregados': entregas_por_mes.get(mes, {}).get('entregados', 0),
             'ventas': comportamiento_pedidos.get(mes, {}).get('ventas', 0.0),
+            'ingreso_total': comportamiento_pedidos.get(mes, {}).get('ingreso_total', 0.0),
+            'ingreso_entregados': float(
+                entregas_por_mes.get(mes, {}).get('ingreso_entregados') or 0
+            ),
         }
         for mes in sorted(set(comportamiento_pedidos) | set(entregas_por_mes))
         if mes
