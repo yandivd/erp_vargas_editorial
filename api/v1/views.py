@@ -2756,6 +2756,14 @@ def _caja_moneda_param(request):
     return moneda if moneda in ('CUP', 'USD') else None
 
 
+def _material_param(request):
+    valor = (request.query_params.get('material') or '').strip()
+    try:
+        return int(valor) if valor else None
+    except ValueError:
+        return None
+
+
 def _caja_queryset(request):
     queryset = MovimientoCaja.objects.select_related(
         'pedido',
@@ -2807,6 +2815,7 @@ def _paginacion_caja(paginator, page_obj):
 @permission_classes([IsAuthenticated])
 def finanzas_caja(request):
     kpi = _kpi_param(request)
+    material = _material_param(request)
     if kpi:
         desde = parse_fecha(request.query_params.get('desde'))
         hasta = parse_fecha(request.query_params.get('hasta'))
@@ -2817,6 +2826,7 @@ def finanzas_caja(request):
             desde,
             hasta,
             _caja_moneda_param(request),
+            material if kpi == 'gastos' else None,
         )
     else:
         movimientos_qs = _caja_queryset(request)
@@ -2836,6 +2846,10 @@ def finanzas_caja(request):
             {'value': value, 'label': label}
             for value, label in MovimientoCaja.CATEGORIA_CHOICES
         ],
+        'materiales': [
+            {'value': material_obj.pk, 'label': material_obj.nombre}
+            for material_obj in Material.objects.filter(activo=True).order_by('nombre')
+        ],
     }
     if kpi:
         meta.update({
@@ -2845,6 +2859,7 @@ def finanzas_caja(request):
                 desde,
                 hasta,
                 _caja_moneda_param(request),
+                material if kpi == 'gastos' else None,
             )),
         })
 
@@ -2882,6 +2897,7 @@ def finanzas_caja_resumen(request):
     }
 
     kpi = _kpi_param(request)
+    material = _material_param(request)
     if kpi:
         desde = parse_fecha(request.query_params.get('desde'))
         hasta = parse_fecha(request.query_params.get('hasta'))
@@ -2892,6 +2908,7 @@ def finanzas_caja_resumen(request):
             desde,
             hasta,
             _caja_moneda_param(request),
+            material if kpi == 'gastos' else None,
         ))
         data['kpi_total'] = total_kpi
         if kpi == 'ingresos':

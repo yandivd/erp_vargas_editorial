@@ -20,6 +20,13 @@ export type MovimientoCaja = {
   pedido_id: number | null;
   proveedor_id: number | null;
   proveedor_nombre: string;
+  material_id?: number | null;
+  material_nombre?: string;
+};
+
+export type MaterialCaja = {
+  value: number;
+  label: string;
 };
 
 export type CategoriaCaja = {

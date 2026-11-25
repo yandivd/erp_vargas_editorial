@@ -23,6 +23,7 @@ import {
   type CajaData,
   type CajaResumen,
   type CategoriaCaja,
+  type MaterialCaja,
 } from "@/lib/finanzas";
 
 export const dynamic = "force-dynamic";
@@ -34,12 +35,14 @@ type PageProps = {
     categoria?: string;
     tipo?: string;
     kpi?: string;
+    material?: string;
     page?: string;
   }>;
 };
 
 type CajaMeta = {
   categorias?: CategoriaCaja[];
+  materiales?: MaterialCaja[];
 };
 
 export default async function CajaPage({ searchParams }: PageProps) {
@@ -52,6 +55,7 @@ export default async function CajaPage({ searchParams }: PageProps) {
   const kpiRaw = (params.kpi ?? "").trim().toLowerCase();
   const kpi: "ingresos" | "gastos" | "" =
     kpiRaw === "ingresos" || kpiRaw === "gastos" ? kpiRaw : "";
+  const material = (params.material ?? "").trim();
   const parsedPage = Number(params.page ?? "1");
   const page =
     Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -64,6 +68,7 @@ export default async function CajaPage({ searchParams }: PageProps) {
   if (categoria) movimientosQuery.set("categoria", categoria);
   if (tipo === "INGRESO" || tipo === "EGRESO") movimientosQuery.set("tipo", tipo);
   if (kpi) movimientosQuery.set("kpi", kpi);
+  if (kpi === "gastos" && material) movimientosQuery.set("material", material);
 
   const resumenQuery = new URLSearchParams();
   if (desde) resumenQuery.set("desde", desde);
@@ -71,6 +76,7 @@ export default async function CajaPage({ searchParams }: PageProps) {
   if (categoria) resumenQuery.set("categoria", categoria);
   if (tipo === "INGRESO" || tipo === "EGRESO") resumenQuery.set("tipo", tipo);
   if (kpi) resumenQuery.set("kpi", kpi);
+  if (kpi === "gastos" && material) resumenQuery.set("material", material);
   const resumenPath = resumenQuery.toString()
     ? `finanzas/caja/resumen?${resumenQuery.toString()}`
     : "finanzas/caja/resumen";
@@ -205,7 +211,9 @@ export default async function CajaPage({ searchParams }: PageProps) {
         initialDesde={desde}
         initialHasta={hasta}
         initialCategoria={categoria}
+        initialMaterial={material}
         categorias={meta?.categorias ?? []}
+        materiales={meta?.materiales ?? []}
         kpi={kpi}
       />
 
@@ -245,6 +253,7 @@ export default async function CajaPage({ searchParams }: PageProps) {
                   desde={desde}
                   hasta={hasta}
                   categoria={categoria}
+                  material={material}
                   kpi={kpi}
                 />
               ) : null}

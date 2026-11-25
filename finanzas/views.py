@@ -21,6 +21,7 @@ from core.services import (
     parse_fecha,
     total_para_kpi,
 )
+from inventario.models import Material
 from .models import MovimientoCaja, GastoOperativo, CierreCaja, LoteDivisa, DetalleVentaDivisa
 from .services import ServicioFinanzas
 
@@ -104,14 +105,25 @@ def lista_movimientos(request, tipo):
     if moneda not in ('CUP', 'USD'):
         moneda = ''
 
-    movimientos = movimientos_para_kpi(tipo_kpi, desde, hasta, moneda)
+    material_id = None
+    if tipo == 'EGRESO':
+        try:
+            material_id = int(request.GET.get('material') or 0) or None
+        except (TypeError, ValueError):
+            material_id = None
+
+    movimientos = movimientos_para_kpi(
+        tipo_kpi, desde, hasta, moneda, material_id
+    )
     totales = {'CUP': Decimal('0'), 'USD': Decimal('0')}
     for fila in movimientos:
         monto = Decimal(str(fila['monto']))
         if tipo == 'INGRESO' and fila['tipo'] == 'EGRESO':
             monto = -monto
         totales[fila['moneda']] += monto
-    total_equiv_cup = total_para_kpi(tipo_kpi, desde, hasta, moneda)
+    total_equiv_cup = total_para_kpi(
+        tipo_kpi, desde, hasta, moneda, material_id
+    )
 
     context = {
         'tipo': tipo,
@@ -123,6 +135,8 @@ def lista_movimientos(request, tipo):
         'desde': desde_str,
         'hasta': hasta_str,
         'moneda_actual': moneda,
+        'material_actual': material_id,
+        'materiales': Material.objects.filter(activo=True).order_by('nombre'),
         'fecha_corte': FECHA_CORTE_FINANCIERO,
         'monedas': MovimientoCaja.MONEDA_CHOICES,
     }

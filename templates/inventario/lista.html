@@ -7,7 +7,7 @@
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
     <div>
         <h2 class="mb-0"><i class="bi bi-box-seam text-primary"></i> Almacén e Inventario</h2>
-        <p class="text-muted mb-0">Control de materiales y lotes de producción</p>
+        <p class="text-muted mb-0">Control de materiales de producción</p>
     </div>
     <button type="button" class="btn btn-success w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#modalCompra">
         <i class="bi bi-cart-plus"></i> Registrar Compra
@@ -16,7 +16,7 @@
 
 <!-- TARJETAS DE RESUMEN (KPIs) -->
 <div class="row g-3 mb-4">
-    <div class="col-12 col-sm-4">
+    <div class="col-12 col-sm-6">
         <div class="card card-kpi p-3 border-start border-primary border-4 h-100">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
@@ -29,20 +29,7 @@
             </div>
         </div>
     </div>
-    <div class="col-12 col-sm-4">
-        <div class="card card-kpi p-3 border-start border-success border-4 h-100">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Lotes Listos</small>
-                    <h3 class="mb-0 text-success fw-bold">{{ lotes|length }}</h3>
-                </div>
-                <div class="bg-success bg-opacity-10 p-3 rounded-circle text-success">
-                    <i class="bi bi-box fs-3"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-12 col-sm-4">
+    <div class="col-12 col-sm-6">
         <div class="card card-kpi p-3 border-start border-danger border-4 h-100">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
@@ -59,24 +46,11 @@
     </div>
 </div>
 
-<!-- PESTAÑAS DE CONTENIDO -->
-<ul class="nav nav-pills mb-3 bg-white p-2 rounded shadow-sm flex-nowrap overflow-auto" id="tabsInventario" role="tablist">
-    <li class="nav-item" role="presentation">
-        <button class="nav-link active fw-bold text-nowrap" id="tab-materiales-btn" data-bs-toggle="pill" data-bs-target="#tab-materiales" type="button" role="tab">
-            <i class="bi bi-stack"></i> Materiales
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link fw-bold text-nowrap" id="tab-lotes-btn" data-bs-toggle="pill" data-bs-target="#tab-lotes" type="button" role="tab">
-            <i class="bi bi-box-open"></i> Lotes Listos
-        </button>
-    </li>
-</ul>
-
-<div class="tab-content" id="tabsInventarioContent">
+<!-- CONTENIDO -->
+<div id="tabsInventarioContent">
     
-    <!-- PESTAÑA 1: MATERIALES -->
-    <div class="tab-pane fade show active" id="tab-materiales" role="tabpanel">
+    <!-- MATERIALES -->
+    <div id="tab-materiales">
         <div class="card card-kpi">
             <div class="table-responsive">
                 <table class="table table-hover mb-0 align-middle datatable" id="tabla-materiales">
@@ -142,65 +116,6 @@
                 </table>
             </div>
         </div>
-    </div>
-
-    <!-- PESTAÑA 2: LOTES AGRUPADOS POR MATERIAL -->
-    <div class="tab-pane fade" id="tab-lotes" role="tabpanel">
-        
-        <div class="accordion" id="accordionLotes">
-            {% regroup lotes by material as lotes_por_material %}
-            
-            {% for grupo in lotes_por_material %}
-            <div class="accordion-item border-0 mb-3 shadow-sm rounded">
-                <h2 class="accordion-header" id="heading-{{ forloop.counter }}">
-                    <button class="accordion-button collapsed bg-white fw-bold text-dark rounded" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ forloop.counter }}" aria-expanded="false">
-                        <i class="bi bi-box-seam text-primary me-2 fs-5"></i> 
-                        {{ grupo.grouper.nombre }} 
-                        <span class="badge bg-primary rounded-pill ms-2 ms-md-3">{{ grupo.list|length }}</span>
-                    </button>
-                </h2>
-                <div id="collapse-{{ forloop.counter }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ forloop.counter }}" data-bs-parent="#accordionLotes">
-                    <div class="accordion-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0 align-middle datatable">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Código</th>
-                                        <th class="d-none d-sm-table-cell">Estado</th>
-                                        <th>Costo</th>
-                                        <th class="text-end">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for lote in grupo.list %}
-                                    <tr>
-                                        <td><span class="badge bg-dark rounded-pill">{{ lote.codigo }}</span></td>
-                                        <td class="d-none d-sm-table-cell"><span class="badge bg-secondary">{{ lote.get_estado_display }}</span></td>
-                                        <td class="text-primary fw-bold">${{ lote.costo_total|floatformat:2 }}</td>
-                                        <td class="text-end">
-                                            <form method="post" action="{% url 'inventario:abrir_lote' lote.id %}" id="formAbrirLote_{{ lote.id }}" style="display:inline;">
-                                                {% csrf_token %}
-                                                <button type="submit" class="btn btn-sm btn-warning" data-confirm="¿Abrir este lote y registrar el gasto en caja?">
-                                                    <i class="bi bi-box-open"></i> <span class="d-none d-sm-inline">Abrir</span>
-                                                </button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="card card-kpi p-5 text-center text-muted">
-                <i class="bi bi-box fs-1 d-block mb-2 text-secondary"></i>
-                No hay lotes cerrados en el almacén.
-            </div>
-            {% endfor %}
-        </div>
-
     </div>
 
 </div>

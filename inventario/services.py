@@ -1,5 +1,4 @@
-from decimal import Decimal
-from .models import Material, MovimientoInventario, LoteConsumo
+from .models import Material, MovimientoInventario
 
 
 class ServicioInventario:
@@ -18,28 +17,6 @@ class ServicioInventario:
             usuario=usuario,
         )
         
-        # Si tiene fraccionamiento, creamos los lotes
-        if material.cantidad_por_unidad and material.cantidad_por_unidad > 1:
-            total_lotes = int(cantidad * material.cantidad_por_unidad)
-            costo_total_compra = cantidad * costo_unitario
-            costo_por_lote = costo_total_compra / total_lotes
-            
-            for i in range(total_lotes):
-                ultimo_lote = LoteConsumo.objects.filter(material=material).count()
-                codigo = f"{material.nombre[:4].upper()}-{ultimo_lote + 1:03d}"
-                
-                LoteConsumo.objects.create(
-                    material=material,
-                    codigo=codigo,
-                    cantidad_inicial=1,
-                    cantidad_actual=1,
-                    costo_total=costo_por_lote,
-                    estado='CERRADO'
-                )
-            
-            material.stock_consumo += total_lotes
-            material.save()
-            
         return mov
 
     @staticmethod
