@@ -1208,7 +1208,7 @@ def detalle_entrega(request, pk):
 def imprimir_entrega(request, pk):
     entrega = get_object_or_404(Entrega, pk=pk)
     pedidos = entrega.pedidos.select_related('libro', 'cliente').all()
-    tarjeta = ServicioFidelidad.obtener_tarjeta(entrega.cliente)
+    tarjeta = ServicioFidelidad.obtener_tarjeta(entrega.cliente, crear=False)
     qr_imagen = generar_qr_base64(tarjeta.token if tarjeta else None)
 
     return render(request, 'pedidos/imprimir_entrega.html', {
@@ -1248,7 +1248,7 @@ def imprimir_entrega_carta(request, pk):
 
     total_descuento = sum(p.descuento_aplicado for p in pedidos)
 
-    tarjeta = ServicioFidelidad.obtener_tarjeta(entrega.cliente)
+    tarjeta = ServicioFidelidad.obtener_tarjeta(entrega.cliente, crear=False)
     qr_imagen = generar_qr_base64(tarjeta.token if tarjeta else None)
 
     return render(request, 'pedidos/imprimir_entrega_carta.html', {

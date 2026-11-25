@@ -2,6 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -9,7 +10,8 @@ from rest_framework.test import APIClient
 from clientes.models import Cliente, EventoFidelidad, TarjetaFidelidad
 from clientes.services import ServicioFidelidad
 from core.models import Parametro
-from core.services import dashboard_fidelidad
+from core.services import dashboard_fidelidad, exportar_rentabilidad_para_ia, secciones_rentabilidad_ia
+from finanzas.models import MovimientoCaja
 from pedidos.models import Book, Estado, Pedido
 
 
@@ -272,4 +274,80 @@ class EventoFidelidadTests(TestCase):
         self.assertEqual(kpis['monto_bono_canjeado'], 40.0)
         self.assertEqual(kpis['tasa_canje'], 40.0)
         self.assertEqual(kpis['eventos_expiracion'], 1)
-        self.assertEqual(kpis['sellos_expirados'], 5)
+
+    def test_consultar_fidelidad_no_crea_tarjeta(self):
+        cliente = Cliente.objects.create(nombre='Sin tarjeta')
+
+        self.assertIsNone(ServicioFidelidad.obtener_tarjeta(cliente))
+        self.assertIsNone(ServicioFidelidad.estado(cliente))
+        self.assertFalse(TarjetaFidelidad.objects.filter(cliente=cliente).exists())
+
+    def test_registrar_compra_crea_tarjeta(self):
+        cliente = Cliente.objects.create(nombre='Con pedido')
+        pedido = self._pedido(cliente)
+
+        self.assertFalse(TarjetaFidelidad.objects.filter(cliente=cliente).exists())
+
+        ServicioFidelidad.registrar_compra(pedido)
+
+        tarjeta = TarjetaFidelidad.objects.get(cliente=cliente)
+        self.assertEqual(tarjeta.sellos, 1)
+        self.assertEqual(tarjeta.bono_saldo, Decimal('0'))
+
+    def test_limpiar_tarjetas_vacias(self):
+        cliente_vacio = Cliente.objects.create(nombre='Vacia')
+        TarjetaFidelidad.objects.create(cliente=cliente_vacio)
+        cliente_activo = Cliente.objects.create(nombre='Activa')
+        tarjeta_activa = TarjetaFidelidad.objects.create(
+            cliente=cliente_activo,
+            sellos=1,
+            fecha_ultima_compra=timezone.now(),
+        )
+
+        call_command('limpiar_tarjetas_vacias')
+
+        self.assertFalse(TarjetaFidelidad.objects.filter(cliente=cliente_vacio).exists())
+        self.assertTrue(TarjetaFidelidad.objects.filter(pk=tarjeta_activa.pk).exists())
+
+
+class ExportarIAAgrupadoTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.estado = Estado.objects.create(nombre='Entregado', es_final=True)
+        cls.libro = Book.objects.create(
+            titulo='Libro de prueba',
+            paginas=100,
+            precio=Decimal('1000'),
+        )
+        cls.cliente = Cliente.objects.create(nombre='Cliente')
+        Pedido.objects.create(
+            cliente=cls.cliente,
+            libro=cls.libro,
+            estado=cls.estado,
+            cantidad=2,
+            precio_venta=Decimal('1000'),
+            descuento_aplicado=Decimal('100'),
+        )
+        MovimientoCaja.objects.create(
+            tipo='EGRESO',
+            categoria='GASTO_OPERATIVO',
+            monto=Decimal('500'),
+            concepto='Luz',
+        )
+
+    def test_export_rentabilidad_esta_agrupado(self):
+        data = exportar_rentabilidad_para_ia()
+
+        self.assertNotIn('pedidos', data)
+        self.assertIn('pedidos_agrupados', data)
+        self.assertEqual(data['pedidos_agrupados']['total_pedidos'], 1)
+        self.assertTrue(data['pedidos_agrupados']['por_mes'])
+        self.assertIsInstance(data['gastos_operativos'], dict)
+        self.assertEqual(data['gastos_operativos']['total_movimientos'], 1)
+        self.assertTrue(data['gastos_operativos']['por_concepto'])
+
+    def test_secciones_estan_agrupadas(self):
+        data = secciones_rentabilidad_ia()
+
+        self.assertNotIn('rentabilidad_por_pedido', data)
+        self.assertEqual(data['rentabilidad_agrupada']['total_pedidos'], 1)

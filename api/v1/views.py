@@ -1417,7 +1417,6 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                     provincia=data.get('cliente_provincia') or '',
                     municipio=data.get('cliente_municipio') or '',
                 )
-                ServicioFidelidad.obtener_tarjeta(cliente)
                 try:
                     ServicioLeads.convertir_por_telefono(cliente)
                     if cliente_creado_en_pedido and not Lead.objects.filter(cliente=cliente).exists():
@@ -1469,7 +1468,7 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                 str(data.get('bono_fidelidad_aplicado') or 0)
             )
             if bono_solicitado > 0:
-                tarjeta = ServicioFidelidad.obtener_tarjeta(cliente)
+                tarjeta = ServicioFidelidad.obtener_tarjeta(cliente, crear=False)
                 if tarjeta is None or bono_solicitado > tarjeta.bono_saldo:
                     return Response(
                         {
@@ -2008,7 +2007,6 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
         serializer = ClienteCreateV1Serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         cliente = serializer.save()
-        ServicioFidelidad.obtener_tarjeta(cliente)
         try:
             ServicioLeads.convertir_por_telefono(cliente)
             if not Lead.objects.filter(cliente=cliente).exists():

@@ -19,6 +19,7 @@ FECHA_CORTE_FINANCIERO = date(2026, 8, 2)
 REFERENCIA_CORTE_FINANCIERO = 487
 DIAS_ESTANCAMIENTO = 5
 DIAS_CAPACIDAD_TALLER = 30
+LIMITE_TOP_IA = 30
 CONCEPTOS_PRODUCCION_GASTO = (
     'guillotinado',
     'encuadernacion',
@@ -2100,6 +2101,93 @@ def _monto_en_cup(movimiento, tasa):
     return monto * tasa
 
 
+def _grupo_rentabilidad_ia():
+    return {
+        'pedidos': 0,
+        'unidades': 0,
+        'ingreso_total': Decimal('0'),
+        'descuento_total': Decimal('0'),
+        'costo_total': Decimal('0'),
+        'ganancia_total': Decimal('0'),
+    }
+
+
+def _sumar_grupo_rentabilidad_ia(grupo, cantidad, ingreso, descuento, costo, ganancia):
+    grupo['pedidos'] += 1
+    grupo['unidades'] += int(cantidad or 0)
+    grupo['ingreso_total'] += ingreso
+    grupo['descuento_total'] += descuento
+    grupo['costo_total'] += costo
+    grupo['ganancia_total'] += ganancia
+
+
+def _serializar_grupos_rentabilidad_ia(grupos, clave, por_ganancia=False):
+    filas = []
+    for nombre, grupo in grupos.items():
+        filas.append({
+            clave: nombre,
+            'pedidos': grupo['pedidos'],
+            'unidades': grupo['unidades'],
+            'ingreso_total': float(grupo['ingreso_total']),
+            'descuento_total': float(grupo['descuento_total']),
+            'costo_total': float(grupo['costo_total']),
+            'ganancia_total': float(grupo['ganancia_total']),
+            'margen_%': (
+                round(float(grupo['ganancia_total'] / grupo['ingreso_total'] * 100), 2)
+                if grupo['ingreso_total']
+                else 0.0
+            ),
+        })
+    if por_ganancia:
+        filas.sort(key=lambda fila: fila['ganancia_total'], reverse=True)
+    else:
+        filas.sort(key=lambda fila: fila[clave])
+    return filas
+
+
+def _serializar_grupos_gastos_ia(grupos, clave):
+    filas = [
+        {
+            clave: nombre,
+            'movimientos': grupo['movimientos'],
+            'monto_cup': float(grupo['monto_cup']),
+        }
+        for nombre, grupo in grupos.items()
+    ]
+    filas.sort(key=lambda fila: fila['monto_cup'], reverse=True)
+    return filas
+
+
+def _limitar_top_ia(filas, clave, etiqueta='Otros'):
+    if len(filas) <= LIMITE_TOP_IA:
+        return filas
+    campos = [
+        campo
+        for campo in (
+            'pedidos',
+            'unidades',
+            'ingreso_total',
+            'descuento_total',
+            'costo_total',
+            'ganancia_total',
+        )
+        if campo in filas[0]
+    ]
+    otros = {clave: etiqueta}
+    otros.update({campo: 0 for campo in campos})
+    for fila in filas[LIMITE_TOP_IA:]:
+        for campo in campos:
+            otros[campo] += fila[campo]
+    if otros.get('ingreso_total'):
+        otros['margen_%'] = round(
+            otros['ganancia_total'] / otros['ingreso_total'] * 100,
+            2,
+        )
+    elif 'margen_%' in filas[0]:
+        otros['margen_%'] = 0.0
+    return filas[:LIMITE_TOP_IA] + [otros]
+
+
 def exportar_rentabilidad_para_ia(desde=None, hasta=None):
     parametros = _parametros_para_costeador()
     tasa, advertencia_tasa = tasa_cambio()
@@ -2120,18 +2208,18 @@ def exportar_rentabilidad_para_ia(desde=None, hasta=None):
         pedidos_qs = pedidos_qs.filter(fecha_pedido__date__lte=hasta)
     pedidos = list(pedidos_qs)
 
-    ultimo_evento = {}
-    for evento in HistorialEstado.objects.filter(
-        pedido_id__in=[pedido.id for pedido in pedidos]
-    ).order_by('pedido_id', '-fecha'):
-        ultimo_evento.setdefault(evento.pedido_id, evento.fecha)
-
-    pedidos_json = []
+    grupos_pedidos = {
+        'por_mes': {},
+        'por_estado': {},
+        'por_plan': {},
+        'por_libro': {},
+    }
     ingresos_pedidos = Decimal('0')
     costos_produccion = Decimal('0')
     contribucion = Decimal('0')
     for pedido in pedidos:
         ingreso = Decimal(str(pedido.precio_venta or 0))
+        descuento = Decimal(str(pedido.descuento_aplicado or 0))
         costo = Decimal(
             str(
                 CosteadorPedido(
@@ -2145,25 +2233,47 @@ def exportar_rentabilidad_para_ia(desde=None, hasta=None):
             if pedido.libro_id
             else Decimal('0')
         )
-        fecha_estado = ultimo_evento.get(pedido.id) or pedido.fecha_pedido
-        dias_en_estado = max(0, (ahora - fecha_estado).days) if fecha_estado else 0
-
-        pedidos_json.append({
-            'pedido_id': pedido.id,
-            'cliente': pedido.cliente.nombre if pedido.cliente_id else '',
-            'fecha_pedido': pedido.fecha_pedido.date().isoformat() if pedido.fecha_pedido else '',
-            'estado_actual': pedido.estado.nombre if pedido.estado_id else '',
-            'dias_en_estado_actual': dias_en_estado,
-            'plan_elegido': _plan_por_precio_cup(precio_libro),
-            'precio_libro_referencia_cup': float(precio_libro),
-            'ingreso_total': float(ingreso),
-            'descuento_aplicado': float(pedido.descuento_aplicado or 0),
-            'costo_total': float(costo),
-            'ganancia_real': float(ganancia),
-        })
+        mes = (
+            pedido.fecha_pedido.strftime('%Y-%m')
+            if pedido.fecha_pedido
+            else 'sin_fecha'
+        )
+        estado = pedido.estado.nombre if pedido.estado_id else 'Sin estado'
+        plan = _plan_por_precio_cup(precio_libro)
+        libro = pedido.libro.titulo if pedido.libro_id else 'Sin libro'
+        for clave, nombre in (
+            ('por_mes', mes),
+            ('por_estado', estado),
+            ('por_plan', plan),
+            ('por_libro', libro),
+        ):
+            grupo = grupos_pedidos[clave].setdefault(nombre, _grupo_rentabilidad_ia())
+            _sumar_grupo_rentabilidad_ia(
+                grupo, pedido.cantidad, ingreso, descuento, costo, ganancia
+            )
         ingresos_pedidos += ingreso
         costos_produccion += costo
         contribucion += ganancia
+
+    pedidos_agrupados = {
+        'total_pedidos': len(pedidos),
+        'por_mes': _serializar_grupos_rentabilidad_ia(
+            grupos_pedidos['por_mes'], 'mes'
+        ),
+        'por_estado': _serializar_grupos_rentabilidad_ia(
+            grupos_pedidos['por_estado'], 'estado', por_ganancia=True
+        ),
+        'por_plan': _serializar_grupos_rentabilidad_ia(
+            grupos_pedidos['por_plan'], 'plan', por_ganancia=True
+        ),
+        'por_libro': _limitar_top_ia(
+            _serializar_grupos_rentabilidad_ia(
+                grupos_pedidos['por_libro'], 'libro', por_ganancia=True
+            ),
+            'libro',
+            'Otros libros',
+        ),
+    }
 
     margen_contribucion = (
         contribucion / ingresos_pedidos if ingresos_pedidos > 0 else Decimal('0')
@@ -2196,30 +2306,70 @@ def exportar_rentabilidad_para_ia(desde=None, hasta=None):
         .select_related('cliente', 'proveedor', 'pedido')
         .order_by('-fecha')
     )
-    gastos_json = []
+    grupos_gastos = {
+        'por_mes': {},
+        'por_categoria': {},
+        'por_tipo_gasto': {},
+        'por_concepto': {},
+        'por_moneda': {},
+    }
     total_gastos = Decimal('0')
     total_gastos_fijos = Decimal('0')
+    total_movimientos = 0
     for movimiento in gastos_qs:
         if _es_concepto_produccion(f'{movimiento.categoria} {movimiento.concepto}'):
             continue
         monto_cup = _monto_en_cup(movimiento, tasa)
         tipo_gasto = _tipo_gasto(movimiento)
-        gastos_json.append({
-            'fecha': movimiento.fecha.date().isoformat() if movimiento.fecha else '',
-            'categoria': (
-                movimiento.get_categoria_display()
-                if hasattr(movimiento, 'get_categoria_display')
-                else movimiento.categoria
-            ),
-            'concepto': movimiento.concepto,
-            'monto': float(movimiento.monto),
-            'moneda': movimiento.moneda,
-            'monto_cup': float(monto_cup),
-            'tipo_gasto': tipo_gasto,
-        })
+        categoria = (
+            movimiento.get_categoria_display()
+            if hasattr(movimiento, 'get_categoria_display')
+            else movimiento.categoria
+        )
+        mes = (
+            movimiento.fecha.strftime('%Y-%m')
+            if movimiento.fecha
+            else 'sin_fecha'
+        )
+        concepto = movimiento.concepto or '(sin concepto)'
+        moneda = movimiento.moneda or 'CUP'
+        for clave, nombre in (
+            ('por_mes', mes),
+            ('por_categoria', categoria),
+            ('por_tipo_gasto', tipo_gasto),
+            ('por_concepto', concepto),
+            ('por_moneda', moneda),
+        ):
+            grupo = grupos_gastos[clave].setdefault(
+                nombre,
+                {'movimientos': 0, 'monto_cup': Decimal('0')},
+            )
+            grupo['movimientos'] += 1
+            grupo['monto_cup'] += monto_cup
+        total_movimientos += 1
         total_gastos += monto_cup
         if tipo_gasto == 'Fijo':
             total_gastos_fijos += monto_cup
+
+    gastos_agrupados = {
+        'total_movimientos': total_movimientos,
+        'total_cup': float(total_gastos),
+        'por_mes': _serializar_grupos_gastos_ia(
+            grupos_gastos['por_mes'], 'mes'
+        ),
+        'por_categoria': _serializar_grupos_gastos_ia(
+            grupos_gastos['por_categoria'], 'categoria'
+        ),
+        'por_tipo_gasto': _serializar_grupos_gastos_ia(
+            grupos_gastos['por_tipo_gasto'], 'tipo_gasto'
+        ),
+        'por_concepto': _serializar_grupos_gastos_ia(
+            grupos_gastos['por_concepto'], 'concepto'
+        ),
+        'por_moneda': _serializar_grupos_gastos_ia(
+            grupos_gastos['por_moneda'], 'moneda'
+        ),
+    }
 
     try:
         sueldo_dueno = Decimal(
@@ -2339,7 +2489,7 @@ def exportar_rentabilidad_para_ia(desde=None, hasta=None):
             'tasa_cambio': float(tasa),
             'advertencia_tasa': advertencia_tasa,
             'generado_en': ahora.isoformat(),
-            'formato': 'json-para_ia-v2',
+            'formato': 'json-para_ia-v3-agrupado',
         },
         'resumen_financiero': {
             'total_ingresos': float(ingresos_caja),
@@ -2354,7 +2504,7 @@ def exportar_rentabilidad_para_ia(desde=None, hasta=None):
             'punto_equilibrio': float(punto_equilibrio),
             'margen_contribucion': float(margen_contribucion * 100),
         },
-        'pedidos': pedidos_json,
+        'pedidos_agrupados': pedidos_agrupados,
         'metricas_produccion': metricas_produccion,
         'clientes': {
             'ltv': float(ltv),
@@ -2363,7 +2513,7 @@ def exportar_rentabilidad_para_ia(desde=None, hasta=None):
             'detalle': detalle_clientes,
         },
         'leads': leads,
-        'gastos_operativos': gastos_json,
+        'gastos_operativos': gastos_agrupados,
     }
 
 
@@ -2392,11 +2542,16 @@ def secciones_rentabilidad_ia(desde=None, hasta=None):
         pedidos_qs = pedidos_qs.filter(fecha_pedido__date__lte=hasta)
 
     por_libro = {}
-    rentabilidad_pedidos = []
+    grupos_rentabilidad = {
+        'por_mes': {},
+        'por_estado': {},
+        'por_plan': {},
+    }
+    estados = dict(Estado.objects.values_list('id', 'nombre'))
+    total_pedidos = 0
     for pedido in pedidos_qs.order_by('fecha_pedido'):
-        ingreso = Decimal(str(pedido.precio_venta or 0)) - Decimal(
-            str(pedido.descuento_aplicado or 0)
-        )
+        descuento = Decimal(str(pedido.descuento_aplicado or 0))
+        ingreso = Decimal(str(pedido.precio_venta or 0)) - descuento
         costo = Decimal(
             str(
                 CosteadorPedido(
@@ -2405,19 +2560,31 @@ def secciones_rentabilidad_ia(desde=None, hasta=None):
             )
         )
         ganancia = ingreso - costo
-        margen = (ganancia / ingreso * 100) if ingreso else Decimal('0')
         titulo = pedido.libro.titulo if pedido.libro else 'Sin libro'
-
-        rentabilidad_pedidos.append({
-            'pedido_id': pedido.id,
-            'cliente': pedido.cliente.nombre if pedido.cliente else '',
-            'libro': titulo,
-            'fecha': pedido.fecha_pedido.date().isoformat() if pedido.fecha_pedido else '',
-            'ingreso': float(ingreso),
-            'costo': float(costo),
-            'ganancia': float(ganancia),
-            'margen_%': round(float(margen), 2),
-        })
+        mes = (
+            pedido.fecha_pedido.strftime('%Y-%m')
+            if pedido.fecha_pedido
+            else 'sin_fecha'
+        )
+        estado = estados.get(pedido.estado_id, 'Sin estado')
+        precio_libro = (
+            Decimal(str(pedido.libro.precio_cup_referencia or 0))
+            if pedido.libro_id
+            else Decimal('0')
+        )
+        plan = _plan_por_precio_cup(precio_libro)
+        for clave, nombre in (
+            ('por_mes', mes),
+            ('por_estado', estado),
+            ('por_plan', plan),
+        ):
+            grupo = grupos_rentabilidad[clave].setdefault(
+                nombre, _grupo_rentabilidad_ia()
+            )
+            _sumar_grupo_rentabilidad_ia(
+                grupo, pedido.cantidad, ingreso, descuento, costo, ganancia
+            )
+        total_pedidos += 1
 
         libro_data = por_libro.setdefault(
             titulo,
@@ -2444,6 +2611,20 @@ def secciones_rentabilidad_ia(desde=None, hasta=None):
         )
         margenes_libro.append(data)
     margenes_libro.sort(key=lambda item: item['ganancia_total'], reverse=True)
+    margenes_libro = _limitar_top_ia(margenes_libro, 'libro', 'Otros libros')
+
+    rentabilidad_agrupada = {
+        'total_pedidos': total_pedidos,
+        'por_mes': _serializar_grupos_rentabilidad_ia(
+            grupos_rentabilidad['por_mes'], 'mes'
+        ),
+        'por_estado': _serializar_grupos_rentabilidad_ia(
+            grupos_rentabilidad['por_estado'], 'estado', por_ganancia=True
+        ),
+        'por_plan': _serializar_grupos_rentabilidad_ia(
+            grupos_rentabilidad['por_plan'], 'plan', por_ganancia=True
+        ),
+    }
 
     top_clientes = [
         {
@@ -2536,7 +2717,7 @@ def secciones_rentabilidad_ia(desde=None, hasta=None):
     fidelidad = dashboard_fidelidad(desde, hasta)['kpis']
 
     return {
-        'rentabilidad_por_pedido': rentabilidad_pedidos,
+        'rentabilidad_agrupada': rentabilidad_agrupada,
         'margenes_por_libro': margenes_libro,
         'top_clientes': top_clientes,
         'deudores': deudores,
