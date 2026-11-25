@@ -13,8 +13,10 @@ from core.models import Parametro
 from core.services import (
     dashboard_fidelidad,
     dashboard_produccion,
+    dashboard_resumen,
     exportar_rentabilidad_para_ia,
     secciones_rentabilidad_ia,
+    tasa_cambio,
 )
 from finanzas.models import MovimientoCaja
 from pedidos.models import Book, Estado, Pedido
@@ -319,6 +321,7 @@ class ExportarIAAgrupadoTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.estado = Estado.objects.create(nombre='Entregado', es_final=True)
+        cls.estado_activo = Estado.objects.create(nombre='Pegado', es_final=False)
         cls.libro = Book.objects.create(
             titulo='Libro de prueba',
             paginas=100,
@@ -333,6 +336,14 @@ class ExportarIAAgrupadoTests(TestCase):
             precio_venta=Decimal('1000'),
             descuento_aplicado=Decimal('100'),
         )
+        Pedido.objects.create(
+            cliente=cls.cliente,
+            libro=cls.libro,
+            estado=cls.estado_activo,
+            cantidad=1,
+            precio_venta=Decimal('6000'),
+            anticipo_recibido=Decimal('2000'),
+        )
         MovimientoCaja.objects.create(
             tipo='EGRESO',
             categoria='GASTO_OPERATIVO',
@@ -340,22 +351,67 @@ class ExportarIAAgrupadoTests(TestCase):
             concepto='Luz',
         )
 
-    def test_export_rentabilidad_esta_agrupado(self):
+    def test_export_rentabilidad_usa_estructura_exacta(self):
         data = exportar_rentabilidad_para_ia()
 
-        self.assertNotIn('pedidos', data)
-        self.assertIn('pedidos_agrupados', data)
-        self.assertEqual(data['pedidos_agrupados']['total_pedidos'], 1)
-        self.assertTrue(data['pedidos_agrupados']['por_mes'])
-        self.assertIsInstance(data['gastos_operativos'], dict)
-        self.assertEqual(data['gastos_operativos']['total_movimientos'], 1)
-        self.assertTrue(data['gastos_operativos']['por_concepto'])
+        self.assertEqual(
+            set(data),
+            {
+                'meta',
+                'resumen_financiero',
+                'pedidos_activos',
+                'metricas_produccion',
+                'rentabilidad_por_plan',
+                'clientes_en_riesgo',
+            },
+        )
+        self.assertEqual(
+            set(data['meta']),
+            {'fecha_corte', 'tasa_cambio_usd_cup', 'moneda_base'},
+        )
+        self.assertEqual(
+            set(data['resumen_financiero']),
+            {
+                'ingresos_devengados',
+                'gastos_operativos',
+                'utilidad_neta',
+                'margen_por_pedido_entregado',
+                'flujo_caja_neto',
+                'saldo_caja_cup',
+                'saldo_caja_usd',
+                'saldo_caja_usd_equiv_cup',
+                'total_disponible_cup',
+                'reserva_divisa_porcentaje',
+                'anticipos_pasivos',
+                'deuda_clientes',
+                'dinero_proyectado',
+            },
+        )
+        self.assertEqual(data['resumen_financiero']['ingresos_devengados'], 1000.0)
+        self.assertEqual(data['resumen_financiero']['gastos_operativos'], 500.0)
+        self.assertEqual(
+            [fila['plan'] for fila in data['rentabilidad_por_plan']],
+            ['Base', 'Medio', 'Premium'],
+        )
+        self.assertEqual(
+            set(data['pedidos_activos'][0]),
+            {
+                'pedido_id',
+                'cliente',
+                'estado_actual',
+                'dias_en_estado',
+                'anticipo_pagado',
+                'costo_produccion',
+                'saldo_pendiente',
+                'riesgo_anticipo',
+            },
+        )
 
     def test_secciones_estan_agrupadas(self):
         data = secciones_rentabilidad_ia()
 
         self.assertNotIn('rentabilidad_por_pedido', data)
-        self.assertEqual(data['rentabilidad_agrupada']['total_pedidos'], 1)
+        self.assertEqual(data['rentabilidad_agrupada']['total_pedidos'], 2)
 
 
 class DashboardProduccionEntregasTests(TestCase):
@@ -392,3 +448,49 @@ class DashboardProduccionEntregasTests(TestCase):
 
         self.assertEqual([fila['pedidos'] for fila in filas], [1, 0])
         self.assertEqual([fila['entregados'] for fila in filas], [0, 1])
+
+
+class DashboardResumenLiquidezTests(TestCase):
+    def test_liquidez_y_flujo_usan_caja_real(self):
+        tasa, _ = tasa_cambio()
+        MovimientoCaja.objects.create(
+            tipo='INGRESO',
+            categoria='INGRESO_MANUAL',
+            monto=Decimal('1000'),
+            moneda='CUP',
+            concepto='Venta',
+        )
+        MovimientoCaja.objects.create(
+            tipo='INGRESO',
+            categoria='INGRESO_MANUAL',
+            monto=Decimal('100'),
+            moneda='USD',
+            concepto='Venta USD',
+        )
+        MovimientoCaja.objects.create(
+            tipo='EGRESO',
+            categoria='GASTO_OPERATIVO',
+            monto=Decimal('200'),
+            moneda='CUP',
+            concepto='Luz',
+        )
+
+        kpis = dashboard_resumen()['kpis']
+        equivalente_usd = Decimal('100') * tasa
+
+        self.assertEqual(kpis['saldo_caja_cup'], 800.0)
+        self.assertEqual(kpis['saldo_caja_usd'], 100.0)
+        self.assertIn('margen_por_pedido_entregado', kpis)
+        self.assertAlmostEqual(
+            kpis['saldo_caja_usd_equiv_cup'], float(equivalente_usd), places=2
+        )
+        self.assertAlmostEqual(
+            kpis['total_disponible_cup'],
+            float(Decimal('800') + equivalente_usd),
+            places=2,
+        )
+        self.assertAlmostEqual(
+            kpis['flujo_caja_neto'],
+            float(Decimal('1000') + equivalente_usd - Decimal('200')),
+            places=2,
+        )
