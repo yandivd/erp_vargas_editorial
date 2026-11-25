@@ -9,7 +9,7 @@ import {
   Wallet,
 } from "lucide-react";
 import type { DashboardResumen } from "@/lib/dashboard";
-import { integer, money, number } from "@/lib/format";
+import { formatDateTime, integer, money, number } from "@/lib/format";
 import {
   IncomeBreakdownChart,
   MonthlyFinanceChart,
@@ -200,6 +200,43 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
             <div className="mt-1 text-[0.7rem] text-muted">
               Reserva en divisa:{" "}
               {Number(kpis.reserva_divisa_porcentaje ?? 0).toFixed(1)}%
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 border-t border-line pt-4">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h5 className="text-sm font-bold text-ink">Último arqueo</h5>
+            <span className="text-[0.7rem] text-muted">
+              {kpis.fecha_ultimo_arqueo
+                ? formatDateTime(kpis.fecha_ultimo_arqueo)
+                : "Sin arqueos registrados"}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-line bg-app p-3">
+              <div className="text-[0.7rem] font-bold uppercase tracking-wide text-muted">
+                Efectivo
+              </div>
+              <div className="mt-2 text-lg font-extrabold text-ink">
+                {money(kpis.efectivo_ultimo_arqueo_cup ?? 0)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-line bg-app p-3">
+              <div className="text-[0.7rem] font-bold uppercase tracking-wide text-muted">
+                Tarjeta / transferencia
+              </div>
+              <div className="mt-2 text-lg font-extrabold text-ink">
+                {money(kpis.tarjeta_ultimo_arqueo_cup ?? 0)}
+              </div>
+            </div>
+            <div className="rounded-lg border border-line bg-app p-3">
+              <div className="text-[0.7rem] font-bold uppercase tracking-wide text-muted">
+                Total contado
+              </div>
+              <div className="mt-2 text-lg font-extrabold text-emerald-600">
+                {money(kpis.total_ultimo_arqueo_cup ?? 0)}
+              </div>
             </div>
           </div>
         </div>

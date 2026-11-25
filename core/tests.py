@@ -18,7 +18,7 @@ from core.services import (
     secciones_rentabilidad_ia,
     tasa_cambio,
 )
-from finanzas.models import MovimientoCaja
+from finanzas.models import CierreCaja, MovimientoCaja
 from pedidos.models import Book, Estado, Pedido
 
 
@@ -494,3 +494,36 @@ class DashboardResumenLiquidezTests(TestCase):
             float(Decimal('1000') + equivalente_usd - Decimal('200')),
             places=2,
         )
+
+    def test_efectivo_y_tarjeta_usan_ultimo_arqueo(self):
+        anterior = CierreCaja.objects.create(
+            saldo_sistema=Decimal('1000'),
+            efectivo_real=Decimal('1000'),
+            diferencia=Decimal('0'),
+            transferencia=Decimal('100'),
+        )
+        reciente = CierreCaja.objects.create(
+            saldo_sistema=Decimal('5000'),
+            efectivo_real=Decimal('5000'),
+            diferencia=Decimal('0'),
+            transferencia=Decimal('700'),
+        )
+        CierreCaja.objects.filter(pk=anterior.pk).update(
+            fecha=timezone.make_aware(
+                datetime(2026, 11, 20, 10, 0),
+                timezone.get_default_timezone(),
+            )
+        )
+        CierreCaja.objects.filter(pk=reciente.pk).update(
+            fecha=timezone.make_aware(
+                datetime(2026, 11, 24, 17, 0),
+                timezone.get_default_timezone(),
+            )
+        )
+
+        kpis = dashboard_resumen()['kpis']
+
+        self.assertEqual(kpis['efectivo_ultimo_arqueo_cup'], 4300.0)
+        self.assertEqual(kpis['tarjeta_ultimo_arqueo_cup'], 700.0)
+        self.assertEqual(kpis['total_ultimo_arqueo_cup'], 5000.0)
+        self.assertIsNotNone(kpis['fecha_ultimo_arqueo'])
