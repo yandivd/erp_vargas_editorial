@@ -448,6 +448,10 @@ class DashboardProduccionEntregasTests(TestCase):
 
         self.assertEqual([fila['pedidos'] for fila in filas], [1, 0])
         self.assertEqual([fila['entregados'] for fila in filas], [0, 1])
+        self.assertEqual([fila['ingreso_total'] for fila in filas], [1000.0, 0.0])
+        self.assertEqual(
+            [fila['ingreso_entregados'] for fila in filas], [0.0, 1000.0]
+        )
 
 
 class DashboardResumenLiquidezTests(TestCase):
@@ -527,3 +531,47 @@ class DashboardResumenLiquidezTests(TestCase):
         self.assertEqual(kpis['tarjeta_ultimo_arqueo_cup'], 700.0)
         self.assertEqual(kpis['total_ultimo_arqueo_cup'], 5000.0)
         self.assertIsNotNone(kpis['fecha_ultimo_arqueo'])
+
+    def test_flujo_dinero_real_incluye_todas_entradas_y_solo_gastos_reales(self):
+        MovimientoCaja.objects.create(
+            tipo='INGRESO',
+            categoria='VENTA_DIVISA',
+            monto=Decimal('500'),
+            moneda='CUP',
+            concepto='Venta de divisa',
+        )
+        MovimientoCaja.objects.create(
+            tipo='INGRESO',
+            categoria='ANTICIPO_CLIENTE',
+            monto=Decimal('200'),
+            moneda='CUP',
+            concepto='Anticipo',
+        )
+        MovimientoCaja.objects.create(
+            tipo='EGRESO',
+            categoria='PAGO_PROVEEDOR',
+            monto=Decimal('100'),
+            moneda='CUP',
+            concepto='Proveedor',
+        )
+        MovimientoCaja.objects.create(
+            tipo='EGRESO',
+            categoria='COMPRA_MATERIAL',
+            monto=Decimal('50'),
+            moneda='CUP',
+            concepto='Material',
+        )
+        for categoria in ['TRANSFERENCIA', 'COMPRA_DIVISA', 'AJUSTE_FALTANTE']:
+            MovimientoCaja.objects.create(
+                tipo='EGRESO',
+                categoria=categoria,
+                monto=Decimal('999'),
+                moneda='CUP',
+                concepto='No es gasto real',
+            )
+
+        serie = dashboard_resumen()['flujo_dinero_real']
+        fila = serie[-1]
+
+        self.assertEqual(fila['entradas'], 700.0)
+        self.assertEqual(fila['salidas'], 150.0)

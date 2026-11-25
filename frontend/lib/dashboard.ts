@@ -113,6 +113,12 @@ export type IngresoGastoMes = {
   gastos: number;
 };
 
+export type FlujoDineroMes = {
+  mes: string;
+  entradas: number;
+  salidas: number;
+};
+
 export type TendenciaMensual = IngresoGastoMes & {
   tipo: "real" | "proyeccion" | "sin_datos";
 };
@@ -181,6 +187,7 @@ export type DashboardResumen = {
   costo_unitario: CostoUnitario[];
   tendencia: TendenciaMes[];
   ingresos_vs_gastos: IngresoGastoMes[];
+  flujo_dinero_real: FlujoDineroMes[];
   tendencia_mensual: TendenciaMensual[];
   proyeccion: ProyeccionMes[];
   semanal: SemanaMovimiento[];
@@ -237,6 +244,8 @@ export type ComportamientoPedidoMes = {
   pedidos: number;
   entregados: number;
   ventas: number;
+  ingreso_total: number;
+  ingreso_entregados: number;
 };
 
 export type TiempoEstado = {
