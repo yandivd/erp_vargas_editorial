@@ -1328,25 +1328,44 @@ def dashboard_produccion(desde=None, hasta=None):
         for l in recientes
     ]
 
-    comportamiento = (
-        pedidos.annotate(mes=TruncMonth('fecha_pedido'))
-        .values('mes')
-        .annotate(
-            total_pedidos=Count('id'),
-            entregados=Count('id', filter=Q(estado__nombre='Entregado')),
-            ventas=Sum('precio_venta'),
+    comportamiento_pedidos = {
+        fila['mes']: {
+            'pedidos': fila['total_pedidos'],
+            'ventas': float(fila['ventas'] or 0),
+        }
+        for fila in (
+            pedidos.annotate(mes=TruncMonth('fecha_pedido'))
+            .values('mes')
+            .annotate(total_pedidos=Count('id'), ventas=Sum('precio_venta'))
         )
-        .order_by('mes')
+    }
+    entregas = Pedido.objects.filter(
+        cliente__isnull=False,
+        es_historico=False,
+        estado__nombre='Entregado',
+        fecha_entrega_real__isnull=False,
     )
+    if desde:
+        entregas = entregas.filter(fecha_entrega_real__date__gte=desde)
+    if hasta:
+        entregas = entregas.filter(fecha_entrega_real__date__lte=hasta)
+    entregas_por_mes = {
+        fila['mes']: fila['entregados']
+        for fila in (
+            entregas.annotate(mes=TruncMonth('fecha_entrega_real'))
+            .values('mes')
+            .annotate(entregados=Count('id'))
+        )
+    }
     comportamiento_data = [
         {
-            'mes': c['mes'].strftime('%b %Y'),
-            'pedidos': c['total_pedidos'],
-            'entregados': c['entregados'],
-            'ventas': float(c['ventas'] or 0),
+            'mes': mes.strftime('%b %Y'),
+            'pedidos': comportamiento_pedidos.get(mes, {}).get('pedidos', 0),
+            'entregados': entregas_por_mes.get(mes, 0),
+            'ventas': comportamiento_pedidos.get(mes, {}).get('ventas', 0.0),
         }
-        for c in comportamiento
-        if c['mes']
+        for mes in sorted(set(comportamiento_pedidos) | set(entregas_por_mes))
+        if mes
     ]
 
     fechas_pedido = dict(pedidos.values_list('id', 'fecha_pedido'))

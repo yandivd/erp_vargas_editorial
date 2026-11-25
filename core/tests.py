@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -10,7 +10,12 @@ from rest_framework.test import APIClient
 from clientes.models import Cliente, EventoFidelidad, TarjetaFidelidad
 from clientes.services import ServicioFidelidad
 from core.models import Parametro
-from core.services import dashboard_fidelidad, exportar_rentabilidad_para_ia, secciones_rentabilidad_ia
+from core.services import (
+    dashboard_fidelidad,
+    dashboard_produccion,
+    exportar_rentabilidad_para_ia,
+    secciones_rentabilidad_ia,
+)
 from finanzas.models import MovimientoCaja
 from pedidos.models import Book, Estado, Pedido
 
@@ -351,3 +356,39 @@ class ExportarIAAgrupadoTests(TestCase):
 
         self.assertNotIn('rentabilidad_por_pedido', data)
         self.assertEqual(data['rentabilidad_agrupada']['total_pedidos'], 1)
+
+
+class DashboardProduccionEntregasTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.estado = Estado.objects.create(nombre='Entregado', es_final=True)
+        cls.libro = Book.objects.create(
+            titulo='Libro de prueba',
+            paginas=100,
+            precio=Decimal('1000'),
+        )
+        cls.cliente = Cliente.objects.create(nombre='Cliente')
+        pedido = Pedido.objects.create(
+            cliente=cls.cliente,
+            libro=cls.libro,
+            estado=cls.estado,
+            cantidad=1,
+            precio_venta=Decimal('1000'),
+        )
+        Pedido.objects.filter(pk=pedido.pk).update(
+            fecha_pedido=timezone.make_aware(
+                datetime(2026, 10, 5, 10, 0),
+                timezone.get_default_timezone(),
+            ),
+            fecha_entrega_real=timezone.make_aware(
+                datetime(2026, 11, 24, 17, 32),
+                timezone.get_default_timezone(),
+            ),
+        )
+
+    def test_entregados_se_agrupan_por_fecha_entrega_real(self):
+        data = dashboard_produccion(date(2026, 10, 1), date(2026, 11, 30))
+        filas = data['comportamiento_pedidos_mes']
+
+        self.assertEqual([fila['pedidos'] for fila in filas], [1, 0])
+        self.assertEqual([fila['entregados'] for fila in filas], [0, 1])
