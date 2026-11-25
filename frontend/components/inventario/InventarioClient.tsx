@@ -31,7 +31,7 @@ export default function InventarioClient({ initialMateriales }: { initialMateria
               <tr key={m.id} className={tableRowClass}>
                 <td className={tdClass}>{m.nombre}</td><td className={tdClass}>{m.unidad_medida}</td><td className={`${tdClass} text-right`}>{number(m.stock_actual)}</td><td className={`${tdClass} text-right`}>{number(m.stock_minimo)}</td>
                 <td className={tdClass}><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${bajo ? "border-red-200 bg-red-50 text-red-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>{bajo ? "Stock bajo" : "OK"}</span></td>
-                <td className={`${tdClass} text-right`}><div className="flex flex-wrap justify-end gap-2"><AjusteStockModal material={m} /><SalidaRapidaModal material={m} /><HistorialModal material={m} /></div></td>
+                <td className={`${tdClass} text-right`}><div className="flex flex-wrap justify-end gap-2"><AjusteStockModal material={m} /><SalidaRapidaModal material={m} /><HistorialModal material={m} materiales={initialMateriales} /></div></td>
               </tr>); })}</tbody></table></div>
         )}
       </section>

@@ -5,9 +5,7 @@ from django.db.models import F
 from decimal import Decimal
 from finanzas.models import MovimientoCaja
 from pedidos.models import Pedido
-from .models import LoteConsumo, Material, MovimientoInventario
-from django.utils import timezone
-from .models import Material, MovimientoInventario, LoteConsumo
+from .models import Material, MovimientoInventario
 from .services import ServicioInventario
 from django.db import transaction
 from django.http import HttpResponse
@@ -22,42 +20,10 @@ from django.conf import settings
 def lista_inventario(request):
     # Forzamos a consultar la base de datos de nuevo
     materiales = Material.objects.filter(activo=True).order_by('nombre')
-    lotes = LoteConsumo.objects.filter(estado='CERRADO').select_related('material').order_by('material__nombre', 'codigo')
     
     return render(request, 'inventario/lista.html', {
         'materiales': materiales,
-        'lotes': lotes
     })
-
-def abrir_lote(request, lote_id):
-    lote = get_object_or_404(LoteConsumo, id=lote_id)
-    
-    if lote.estado == 'CERRADO':
-        with transaction.atomic():
-            # 1. Cambiamos el estado del lote
-            lote.estado = 'EN_USO'
-            lote.fecha_apertura = timezone.now()
-            lote.save()
-            
-            # 2. Registramos el consumo: gasto sin nueva salida de caja
-            #    (la compra ya descontó el efectivo al entrar al inventario).
-            material = lote.material
-
-            material.stock_consumo -= lote.cantidad_inicial
-            material.save()
-
-            cantidad_a_restar = Decimal(str(lote.cantidad_inicial)) / Decimal(
-                str(material.cantidad_por_unidad)
-            )
-            movimiento = ServicioInventario.registrar_consumo(
-                material,
-                cantidad_a_restar,
-                motivo=f'Apertura de {lote.codigo} ({material.nombre})',
-            )
-
-            messages.success(request, f'Lote {lote.codigo} ejecutado. Gasto registrado: ${movimiento.costo_total}. Stock restante: {material.stock_actual}')
-        
-    return redirect('inventario:lista')
 
 def registrar_compra_modal(request):
     if request.method != 'POST':
@@ -97,45 +63,6 @@ def registrar_compra_modal(request):
                 metodo='EFECTIVO'
             )
             
-            # 3. CREAR LOS LOTES DE CONSUMO (Usando bulk_create para velocidad)
-            if material.unidad_consumo:
-                total_lotes = int(cantidad * material.cantidad_por_unidad)
-                costo_por_lote = costo_total / total_lotes
-                
-                ultimo_lote = LoteConsumo.objects.filter(material=material).order_by('-id').first()
-                
-                if ultimo_lote and '-' in ultimo_lote.codigo:
-                    try:
-                        contador = int(ultimo_lote.codigo.split('-')[1]) + 1
-                    except ValueError:
-                        contador = 1
-                else:
-                    contador = 1
-                
-                lotes_a_crear = []
-                prefijo = material.nombre[:4].upper().replace(" ", "")
-                
-                for i in range(total_lotes):
-                    codigo = f"{prefijo}-{contador:03d}"
-                    lotes_a_crear.append(
-                        LoteConsumo(
-                            material=material,
-                            codigo=codigo,
-                            cantidad_inicial=1,
-                            cantidad_actual=1,
-                            costo_total=costo_por_lote,
-                            estado='CERRADO'
-                        )
-                    )
-                    contador += 1
-                
-                # Guardamos todos los lotes en 1 sola consulta
-                LoteConsumo.objects.bulk_create(lotes_a_crear)
-                
-                # Actualizamos el material
-                material.stock_consumo += total_lotes
-                material.save()
-        
         return JsonResponse({'ok': True})
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)})

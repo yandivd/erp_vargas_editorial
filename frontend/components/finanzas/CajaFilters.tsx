@@ -3,13 +3,15 @@
 import { Filter, Search, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
-import type { CategoriaCaja } from "@/lib/finanzas";
+import type { CategoriaCaja, MaterialCaja } from "@/lib/finanzas";
 
 type CajaFiltersProps = {
   initialDesde: string;
   initialHasta: string;
   initialCategoria: string;
+  initialMaterial: string;
   categorias: CategoriaCaja[];
+  materiales: MaterialCaja[];
   kpi?: "ingresos" | "gastos" | "";
 };
 
@@ -22,7 +24,9 @@ export default function CajaFilters({
   initialDesde,
   initialHasta,
   initialCategoria,
+  initialMaterial,
   categorias,
+  materiales,
   kpi = "",
 }: CajaFiltersProps) {
   const router = useRouter();
@@ -30,12 +34,14 @@ export default function CajaFilters({
   const [desde, setDesde] = useState(initialDesde);
   const [hasta, setHasta] = useState(initialHasta);
   const [categoria, setCategoria] = useState(initialCategoria);
+  const [material, setMaterial] = useState(initialMaterial);
   const [isPending, startTransition] = useTransition();
 
   function applyFilters(
     nextDesde: string,
     nextHasta: string,
     nextCategoria: string,
+    nextMaterial: string,
   ) {
     const params = new URLSearchParams();
 
@@ -51,6 +57,9 @@ export default function CajaFilters({
     if (nextCategoria) {
       params.set("categoria", nextCategoria);
     }
+    if (kpi === "gastos" && nextMaterial) {
+      params.set("material", nextMaterial);
+    }
 
     const query = params.toString();
     startTransition(() => {
@@ -60,18 +69,19 @@ export default function CajaFilters({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    applyFilters(desde, hasta, categoria);
+    applyFilters(desde, hasta, categoria, material);
   }
 
   function handleClear() {
     setDesde("");
     setHasta("");
     setCategoria("");
-    applyFilters("", "", "");
+    setMaterial("");
+    applyFilters("", "", "", "");
   }
 
   const hasFilters = Boolean(
-    initialDesde || initialHasta || initialCategoria,
+    initialDesde || initialHasta || initialCategoria || initialMaterial,
   );
 
   return (
@@ -81,7 +91,11 @@ export default function CajaFilters({
     >
       <div
         className={`grid grid-cols-1 gap-3 sm:grid-cols-2 xl:items-end ${
-          kpi ? "xl:grid-cols-3" : "xl:grid-cols-4"
+          kpi === "gastos"
+            ? "xl:grid-cols-4"
+            : kpi
+              ? "xl:grid-cols-3"
+              : "xl:grid-cols-4"
         }`}
       >
         <div>
@@ -137,6 +151,33 @@ export default function CajaFilters({
           </div>
         ) : null}
 
+        {kpi === "gastos" ? (
+          <div>
+            <label htmlFor="caja-material-filtro" className={labelClass}>
+              Material
+            </label>
+            <div className="relative">
+              <Filter
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+                aria-hidden="true"
+              />
+              <select
+                id="caja-material-filtro"
+                value={material}
+                onChange={(event) => setMaterial(event.target.value)}
+                className={`${inputClass} appearance-none pl-9 pr-8`}
+              >
+                <option value="">Todos</option>
+                {materiales.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex gap-2">
           <button
             type="submit"
@@ -146,7 +187,7 @@ export default function CajaFilters({
             <Search className="h-4 w-4" aria-hidden="true" />
             {isPending ? "Filtrando..." : "Filtrar"}
           </button>
-          {hasFilters || desde || hasta || categoria ? (
+          {hasFilters || desde || hasta || categoria || material ? (
             <button
               type="button"
               onClick={handleClear}

@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 from decimal import Decimal
 from .models import OrdenCompra, DetalleCompra
-from inventario.models import Material, MovimientoInventario, LoteConsumo
+from inventario.models import Material, MovimientoInventario
 from finanzas.models import MovimientoCaja
 from proveedores.models import Proveedor
 
@@ -81,41 +81,14 @@ def recibir_compra(request, pk):
             
             # 2. Meter al inventario los materiales
             for detalle in orden.detalles.all():
-                material = detalle.material
-                
                 MovimientoInventario.objects.create(
-                    material=material,
+                    material=detalle.material,
                     tipo='ENTRADA',
                     cantidad=detalle.cantidad,
                     costo_unitario=detalle.costo_unitario,
                     costo_total=detalle.subtotal,
                     motivo=f'Recepción OC-{orden.id:05d}'
                 )
-                
-                # Crear Lotes
-                if material.unidad_consumo:
-                    total_lotes = int(detalle.cantidad * material.cantidad_por_unidad)
-                    costo_por_lote = detalle.subtotal / total_lotes if total_lotes > 0 else 0
-                    
-                    ultimo_lote = LoteConsumo.objects.filter(material=material).order_by('-id').first()
-                    contador = 1
-                    if ultimo_lote and '-' in ultimo_lote.codigo:
-                        try:
-                            contador = int(ultimo_lote.codigo.split('-')[1]) + 1
-                        except: pass
-                    
-                    lotes_a_crear = []
-                    prefijo = material.nombre[:4].upper().replace(" ", "")
-                    for _ in range(total_lotes):
-                        lotes_a_crear.append(LoteConsumo(
-                            material=material, codigo=f"{prefijo}-{contador:03d}",
-                            cantidad_inicial=1, cantidad_actual=1,
-                            costo_total=costo_por_lote, estado='CERRADO'
-                        ))
-                        contador += 1
-                    LoteConsumo.objects.bulk_create(lotes_a_crear)
-                    material.stock_consumo += total_lotes
-                    material.save()
             
             # 3. Restar el dinero de la caja
             MovimientoCaja.objects.create(

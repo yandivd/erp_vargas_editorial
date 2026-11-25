@@ -173,13 +173,25 @@ def movimientos_financieros(desde=None, hasta=None, moneda=None):
     return movimientos_caja(inicio, hasta, moneda)
 
 
-def consumos_inventario(desde=None, hasta=None):
+def _id_o_none(valor):
+    if valor in (None, ''):
+        return None
+    try:
+        return int(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+def consumos_inventario(desde=None, hasta=None, material_id=None):
     """Salidas de inventario del período: gasto por consumo, no flujo de caja."""
     qs = MovimientoInventario.objects.filter(tipo='SALIDA')
     inicio = max(FECHA_CORTE_FINANCIERO, desde) if desde else FECHA_CORTE_FINANCIERO
     qs = qs.filter(fecha__date__gte=inicio)
     if hasta:
         qs = qs.filter(fecha__date__lte=hasta)
+    material_id = _id_o_none(material_id)
+    if material_id:
+        qs = qs.filter(material_id=material_id)
     return qs
 
 
@@ -202,6 +214,8 @@ def _fila_kpi_movimiento(
     fecha=None,
     categoria_label=None,
     concepto=None,
+    material_id=None,
+    material_nombre='',
 ):
     proveedor = movimiento.proveedor if movimiento.proveedor_id else None
     return {
@@ -220,15 +234,20 @@ def _fila_kpi_movimiento(
         'pedido_id': movimiento.pedido_id,
         'proveedor_id': movimiento.proveedor_id,
         'proveedor_nombre': proveedor.nombre if proveedor else '',
+        'material_id': material_id,
+        'material_nombre': material_nombre,
     }
 
 
-def movimientos_para_kpi(tipo, desde=None, hasta=None, moneda=None):
+def movimientos_para_kpi(
+    tipo, desde=None, hasta=None, moneda=None, material_id=None
+):
     """Filas que componen exactamente el KPI de ingresos o gastos."""
     desde = parse_fecha(desde)
     hasta = parse_fecha(hasta)
     if desde and hasta and desde > hasta:
         desde, hasta = hasta, desde
+    material_id = _id_o_none(material_id)
 
     if tipo not in ('ingresos', 'gastos'):
         raise ValueError("Tipo de KPI no válido")
@@ -272,32 +291,37 @@ def movimientos_para_kpi(tipo, desde=None, hasta=None, moneda=None):
         for movimiento in vueltos:
             filas.append(_fila_kpi_movimiento(movimiento))
     else:
-        egresos = (
-            movs.filter(tipo='EGRESO')
-            .exclude(Q_NO_GASTO_OPERATIVO)
-            .select_related('pedido', 'proveedor', 'cliente')
-        )
-        if moneda in ('CUP', 'USD'):
-            egresos = egresos.filter(moneda=moneda)
-        for movimiento in egresos:
-            filas.append(_fila_kpi_movimiento(movimiento))
+        if not material_id:
+            egresos = (
+                movs.filter(tipo='EGRESO')
+                .exclude(Q_NO_GASTO_OPERATIVO)
+                .select_related('pedido', 'proveedor', 'cliente')
+            )
+            if moneda in ('CUP', 'USD'):
+                egresos = egresos.filter(moneda=moneda)
+            for movimiento in egresos:
+                filas.append(_fila_kpi_movimiento(movimiento))
 
         if moneda != 'USD':
             consumos = (
-                consumos_inventario(desde, hasta)
-                .values('material__nombre')
-                .annotate(
-                    total=Sum('costo_total'),
-                    fecha=Max('fecha'),
-                )
-                .order_by('-total')
+                consumos_inventario(desde, hasta, material_id)
+                .select_related('material', 'pedido')
+                .order_by('-fecha', '-id')
             )
-            for indice, consumo in enumerate(consumos):
-                total = Decimal(str(consumo['total'] or 0))
+            for consumo in consumos:
+                total = Decimal(str(consumo.costo_total or 0))
                 if total <= 0:
                     continue
+                material = consumo.material
+                concepto = (
+                    f"Consumo de material: {material.nombre} "
+                    f"({consumo.cantidad} {material.unidad_medida} "
+                    f"× ${consumo.costo_unitario})"
+                )
+                if consumo.motivo:
+                    concepto = f"{concepto} · {consumo.motivo}"
                 filas.append({
-                    'id': -(1000000 + indice),
+                    'id': -(1000000 + consumo.pk),
                     'tipo': 'EGRESO',
                     'tipo_label': 'Egreso',
                     'categoria': 'CONSUMO_MATERIAL',
@@ -307,23 +331,27 @@ def movimientos_para_kpi(tipo, desde=None, hasta=None, moneda=None):
                     'moneda_label': 'CUP',
                     'metodo': 'INVENTARIO',
                     'metodo_label': 'Inventario',
-                    'concepto': f"Consumo de material: {consumo['material__nombre']}",
-                    'fecha': consumo['fecha'],
-                    'pedido_id': None,
+                    'concepto': concepto,
+                    'fecha': consumo.fecha,
+                    'pedido_id': consumo.pedido_id,
                     'proveedor_id': None,
                     'proveedor_nombre': '',
+                    'material_id': material.pk,
+                    'material_nombre': material.nombre,
                 })
 
     filas.sort(key=lambda fila: fila['fecha'], reverse=True)
     return filas
 
 
-def total_para_kpi(tipo, desde=None, hasta=None, moneda=None):
+def total_para_kpi(tipo, desde=None, hasta=None, moneda=None, material_id=None):
     """Total del KPI, en equivalente CUP salvo que se pida una moneda."""
     tasa, _ = tasa_cambio()
     totales = {'CUP': Decimal('0'), 'USD': Decimal('0')}
 
-    for fila in movimientos_para_kpi(tipo, desde, hasta, moneda):
+    for fila in movimientos_para_kpi(
+        tipo, desde, hasta, moneda, material_id
+    ):
         monto = Decimal(str(fila['monto']))
         if tipo == 'ingresos' and fila['tipo'] == 'EGRESO':
             monto = -monto

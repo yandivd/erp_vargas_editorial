@@ -18,6 +18,7 @@ import type {
 
 type HistorialModalProps = {
   material: InventarioMaterial;
+  materiales: InventarioMaterial[];
 };
 
 function referenciaPedido(
@@ -32,8 +33,13 @@ function referenciaPedido(
     : `#${pedido.id}`;
 }
 
-export default function HistorialModal({ material }: HistorialModalProps) {
+export default function HistorialModal({
+  material,
+  materiales,
+}: HistorialModalProps) {
   const [abierto, setAbierto] = useState(false);
+  const [materialId, setMaterialId] = useState(material.id);
+  const [tipoFiltro, setTipoFiltro] = useState("");
   const [historial, setHistorial] = useState<InventarioHistorialData | null>(
     null,
   );
@@ -53,7 +59,7 @@ export default function HistorialModal({ material }: HistorialModalProps) {
 
       try {
         const response = await apiFetch<InventarioHistorialData>(
-          `inventario/${material.id}/historial`,
+          `inventario/${materialId}/historial`,
         );
 
         if (!cancelado) {
@@ -80,7 +86,7 @@ export default function HistorialModal({ material }: HistorialModalProps) {
     return () => {
       cancelado = true;
     };
-  }, [abierto, material.id]);
+  }, [abierto, materialId]);
 
   useEffect(() => {
     if (!abierto) {
@@ -98,6 +104,8 @@ export default function HistorialModal({ material }: HistorialModalProps) {
   }, [abierto]);
 
   function abrir() {
+    setMaterialId(material.id);
+    setTipoFiltro("");
     setHistorial(null);
     setError(null);
     setAbierto(true);
@@ -111,7 +119,10 @@ export default function HistorialModal({ material }: HistorialModalProps) {
     );
   }
 
-  const movimientos = historial?.movimientos ?? [];
+  const materialActual = historial?.material;
+  const movimientos = (historial?.movimientos ?? []).filter(
+    (movimiento) => !tipoFiltro || movimiento.tipo === tipoFiltro,
+  );
 
   return (
     <>
@@ -149,10 +160,10 @@ export default function HistorialModal({ material }: HistorialModalProps) {
                   Historial de movimientos
                 </h2>
                 <p className="mt-1 text-sm text-muted">
-                  {material.nombre} · Stock actual:{" "}
+                  {materialActual?.nombre ?? material.nombre} · Stock actual:{" "}
                   <span className="font-semibold text-ink">
-                    {number(historial?.material.stock_actual ?? material.stock_actual)}{" "}
-                    {material.unidad_medida}
+                    {number(materialActual?.stock_actual ?? material.stock_actual)}{" "}
+                    {materialActual?.unidad_medida ?? material.unidad_medida}
                   </span>
                 </p>
               </div>
@@ -179,6 +190,51 @@ export default function HistorialModal({ material }: HistorialModalProps) {
               </div>
             ) : null}
 
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="historial-material"
+                  className="mb-1.5 block text-[0.7rem] font-bold uppercase tracking-wide text-muted"
+                >
+                  Material
+                </label>
+                <select
+                  id="historial-material"
+                  value={materialId}
+                  onChange={(event) => {
+                    setMaterialId(Number(event.target.value));
+                    setHistorial(null);
+                  }}
+                  disabled={cargando}
+                  className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
+                >
+                  {materiales.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor="historial-tipo"
+                  className="mb-1.5 block text-[0.7rem] font-bold uppercase tracking-wide text-muted"
+                >
+                  Tipo
+                </label>
+                <select
+                  id="historial-tipo"
+                  value={tipoFiltro}
+                  onChange={(event) => setTipoFiltro(event.target.value)}
+                  className="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                >
+                  <option value="">Todos</option>
+                  <option value="ENTRADA">Entradas</option>
+                  <option value="SALIDA">Salidas</option>
+                </select>
+              </div>
+            </div>
+
             <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-line">
               {cargando ? (
                 <div className="flex items-center justify-center gap-2 px-4 py-12 text-sm text-muted">
@@ -187,7 +243,9 @@ export default function HistorialModal({ material }: HistorialModalProps) {
                 </div>
               ) : movimientos.length === 0 ? (
                 <div className="px-4 py-12 text-center text-sm text-muted">
-                  Este material todavía no tiene movimientos registrados.
+                  {tipoFiltro
+                    ? "No hay movimientos de este tipo para el material seleccionado."
+                    : "Este material todavía no tiene movimientos registrados."}
                 </div>
               ) : (
                 <table className="min-w-full text-sm">
@@ -237,7 +295,8 @@ export default function HistorialModal({ material }: HistorialModalProps) {
                           </span>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-ink">
-                          {number(movimiento.cantidad)} {material.unidad_medida}
+                          {number(movimiento.cantidad)}{" "}
+                          {materialActual?.unidad_medida ?? material.unidad_medida}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right text-muted">
                           ${number(movimiento.costo_total)}
