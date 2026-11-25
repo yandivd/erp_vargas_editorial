@@ -22,6 +22,7 @@ from core.ubicaciones import PROVINCIAS
 from pedidos.services import (
     CosteadorPedido,
     costo_mensajeria_para_cliente,
+    precio_usd_recomendado,
     provincia_para_municipio,
     ubicacion_para_cliente,
 )
@@ -457,14 +458,13 @@ class LibroListV1Serializer(serializers.ModelSerializer):
         precio_usd = attrs.get('precio_usd')
         precio = attrs.get('precio')
         tasa_actual = ServicioFinanzas.obtener_tasa_usd_cup()
-        TASA_USD_FIJA = Decimal('930')
 
         if self.instance is None:
             attrs['disponible'] = True
 
         # Si viene precio CUP (legacy/cálculo interno), derivar USD con tasa fija 930
         if precio not in (None, '') and precio_usd in (None, ''):
-            attrs['precio_usd'] = (Decimal(str(precio)) / TASA_USD_FIJA).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+            attrs['precio_usd'] = precio_usd_recomendado(precio)
 
         if attrs.get('precio_usd') not in (None, ''):
             attrs['precio_usd'] = Decimal(str(attrs['precio_usd'])).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)

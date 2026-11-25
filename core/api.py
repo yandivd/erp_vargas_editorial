@@ -12,35 +12,44 @@ from .services import (
     dashboard_leads,
     dashboard_produccion,
     dashboard_resumen,
-    parse_fecha,
+    normalizar_periodo,
     tasa_cambio,
 )
 
 
-DASHBOARD_CACHE_VERSION = 15
+DASHBOARD_CACHE_VERSION = 16
 DASHBOARD_CACHE_TTL = 300
 
 
 def dashboard_page(request):
+    desde_str = request.GET.get('desde', '')
+    hasta_str = request.GET.get('hasta', '')
+    desde, hasta, modo = normalizar_periodo(
+        desde_str, hasta_str, request.GET.get('modo', '')
+    )
     return render(request, 'dashboard.html', {
-        'desde': request.GET.get('desde', ''),
-        'hasta': request.GET.get('hasta', ''),
+        'desde': desde.isoformat() if desde else '',
+        'hasta': hasta.isoformat() if hasta else '',
+        'modo': modo,
     })
 
 
-def _cache_key(tab, desde, hasta):
+def _cache_key(tab, desde, hasta, modo):
     tasa, _ = tasa_cambio()
     desde_txt = desde.isoformat() if desde else 'todo'
     hasta_txt = hasta.isoformat() if hasta else 'todo'
     return (
         f'dashboard_api_v{DASHBOARD_CACHE_VERSION}_{tab}_'
-        f'{desde_txt}_{hasta_txt}_{tasa}'
+        f'{desde_txt}_{hasta_txt}_{modo}_{tasa}'
     )
 
 
-def _calcular_dashboard_data(tab, desde, hasta, desde_str, hasta_str):
+def _calcular_dashboard_data(tab, desde, hasta, modo):
+    incluir_historial = modo == 'global'
     if tab == 'resumen':
-        data = dashboard_resumen(desde, hasta)
+        data = dashboard_resumen(
+            desde, hasta, incluir_historial=incluir_historial
+        )
     elif tab == 'produccion':
         data = dashboard_produccion(desde, hasta)
     elif tab == 'fidelidad':
@@ -52,24 +61,22 @@ def _calcular_dashboard_data(tab, desde, hasta, desde_str, hasta_str):
 
     data.setdefault('meta', {})
     data['meta'].update({
-        'desde': desde_str,
-        'hasta': hasta_str,
+        'desde': desde.isoformat() if desde else '',
+        'hasta': hasta.isoformat() if hasta else '',
+        'modo': modo,
         'corte_financiero': FECHA_CORTE_FINANCIERO.isoformat(),
         'referencia_corte': REFERENCIA_CORTE_FINANCIERO,
     })
     return data
 
 
-def obtener_dashboard_data(tab, desde_str='', hasta_str=''):
+def obtener_dashboard_data(tab, desde_str='', hasta_str='', modo=''):
     if tab not in ('resumen', 'produccion', 'clientes', 'fidelidad', 'leads'):
         raise ValueError('Tab no válida')
 
-    desde = parse_fecha(desde_str)
-    hasta = parse_fecha(hasta_str)
-    if desde and hasta and desde > hasta:
-        desde, hasta = hasta, desde
+    desde, hasta, modo = normalizar_periodo(desde_str, hasta_str, modo)
 
-    key = _cache_key(tab, desde, hasta)
+    key = _cache_key(tab, desde, hasta, modo)
     data = cache.get(key)
     if data is not None:
         return data
@@ -77,9 +84,7 @@ def obtener_dashboard_data(tab, desde_str='', hasta_str=''):
     lock_key = f'{key}:lock'
     if cache.add(lock_key, 1, 15):
         try:
-            data = _calcular_dashboard_data(
-                tab, desde, hasta, desde_str, hasta_str
-            )
+            data = _calcular_dashboard_data(tab, desde, hasta, modo)
             cache.set(key, data, DASHBOARD_CACHE_TTL)
         finally:
             cache.delete(lock_key)
@@ -91,7 +96,7 @@ def obtener_dashboard_data(tab, desde_str='', hasta_str=''):
         if data is not None:
             return data
 
-    data = _calcular_dashboard_data(tab, desde, hasta, desde_str, hasta_str)
+    data = _calcular_dashboard_data(tab, desde, hasta, modo)
     cache.set(key, data, DASHBOARD_CACHE_TTL)
     return data
 
@@ -103,6 +108,7 @@ def dashboard_api(request):
             tab,
             request.GET.get('desde', ''),
             request.GET.get('hasta', ''),
+            request.GET.get('modo', ''),
         )
     except ValueError as error:
         return JsonResponse({'ok': False, 'error': str(error)}, status=400)

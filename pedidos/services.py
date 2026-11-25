@@ -14,6 +14,7 @@ from django.utils import timezone
 
 
 FECHA_CORTE_GANANCIA_PROMEDIO = date(2026, 8, 2)
+TASA_USD_RECOMENDADA = Decimal('930')
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +228,15 @@ def _incremento_por_precio_base(precio_base, incrementos):
 def redondear_cup_50(valor):
     valor = Decimal(str(valor or 0))
     return int((valor / Decimal('50')).quantize(Decimal('1'), rounding=ROUND_HALF_UP) * 50)
+
+
+def precio_usd_recomendado(precio_cup):
+    valor = Decimal(str(precio_cup or 0))
+    if valor <= 0:
+        return Decimal('0.0')
+    return (valor / TASA_USD_RECOMENDADA).quantize(
+        Decimal('0.1'), rounding=ROUND_HALF_UP
+    )
 
 
 class CosteadorPedido:

@@ -17,6 +17,7 @@ import {
   type DashboardFidelidad,
   type DashboardLeads,
   type DashboardMeta,
+  type DashboardPeriodMode,
   type DashboardProduccion,
   type DashboardResumen,
   type DashboardTab,
@@ -27,6 +28,7 @@ type DashboardTabsClientProps = {
   tab: DashboardTab;
   desde: string;
   hasta: string;
+  modo: DashboardPeriodMode;
   meta: DashboardMeta;
 };
 
@@ -39,18 +41,31 @@ const PREFETCH_TABS = DASHBOARD_TABS.map((item) => item.id).filter(
   (id) => id !== "leads",
 );
 
-function cacheKey(tab: DashboardTab, desde: string, hasta: string): string {
-  return `${tab}|${desde}|${hasta}`;
+function cacheKey(
+  tab: DashboardTab,
+  desde: string,
+  hasta: string,
+  modo: DashboardPeriodMode,
+): string {
+  return `${tab}|${desde}|${hasta}|${modo}`;
 }
 
-function tabHref(tab: DashboardTab, desde: string, hasta: string): string {
+function tabHref(
+  tab: DashboardTab,
+  desde: string,
+  hasta: string,
+  modo: DashboardPeriodMode,
+): string {
   const params = new URLSearchParams();
   params.set("tab", tab);
-  if (desde) {
-    params.set("desde", desde);
-  }
-  if (hasta) {
-    params.set("hasta", hasta);
+  params.set("modo", modo);
+  if (modo === "personalizado") {
+    if (desde) {
+      params.set("desde", desde);
+    }
+    if (hasta) {
+      params.set("hasta", hasta);
+    }
   }
   return `/?${params.toString()}`;
 }
@@ -72,29 +87,38 @@ export default function DashboardTabsClient({
   tab,
   desde,
   hasta,
+  modo,
   meta,
 }: DashboardTabsClientProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>(tab);
-  const [filters] = useState({ desde, hasta });
+  const [filters, setFilters] = useState({ desde, hasta, modo });
   const [dataByKey, setDataByKey] = useState<Record<string, DashboardData>>({});
   const [currentMeta, setCurrentMeta] = useState<DashboardMeta>(meta);
   const [error, setError] = useState<string | null>(null);
   const inFlight = useRef(new Map<string, Promise<DashboardData>>());
 
   const loadTab = useCallback(
-    async (target: DashboardTab, targetDesde: string, targetHasta: string) => {
-      const key = cacheKey(target, targetDesde, targetHasta);
+    async (
+      target: DashboardTab,
+      targetDesde: string,
+      targetHasta: string,
+      targetModo: DashboardPeriodMode,
+    ) => {
+      const key = cacheKey(target, targetDesde, targetHasta, targetModo);
       const pending = inFlight.current.get(key);
       if (pending) {
         return pending;
       }
 
       const query = new URLSearchParams();
-      if (targetDesde) {
-        query.set("desde", targetDesde);
-      }
-      if (targetHasta) {
-        query.set("hasta", targetHasta);
+      query.set("modo", targetModo);
+      if (targetModo === "personalizado") {
+        if (targetDesde) {
+          query.set("desde", targetDesde);
+        }
+        if (targetHasta) {
+          query.set("hasta", targetHasta);
+        }
       }
       const queryString = query.toString();
 
@@ -119,22 +143,29 @@ export default function DashboardTabsClient({
   useEffect(() => {
     let cancelled = false;
 
-    loadTab(tab, desde, hasta).catch((requestError) => {
-      if (!cancelled) {
-        setError(errorMessage(requestError));
-      }
-    });
+    loadTab(tab, filters.desde, filters.hasta, filters.modo).catch(
+      (requestError) => {
+        if (!cancelled) {
+          setError(errorMessage(requestError));
+        }
+      },
+    );
 
     return () => {
       cancelled = true;
     };
-  }, [tab, desde, hasta, loadTab]);
+  }, [tab, filters.desde, filters.hasta, filters.modo, loadTab]);
 
   useEffect(() => {
     const targets = PREFETCH_TABS.filter((id) => id !== activeTab);
     const prefetch = () => {
       targets.forEach((id) => {
-        void loadTab(id, filters.desde, filters.hasta).catch(() => undefined);
+        void loadTab(
+          id,
+          filters.desde,
+          filters.hasta,
+          filters.modo,
+        ).catch(() => undefined);
       });
     };
 
@@ -146,7 +177,7 @@ export default function DashboardTabsClient({
 
     const handle = window.setTimeout(prefetch, 300);
     return () => window.clearTimeout(handle);
-  }, [activeTab, filters.desde, filters.hasta, loadTab]);
+  }, [activeTab, filters.desde, filters.hasta, filters.modo, loadTab]);
 
   const handleTabSelect = (
     target: string,
@@ -162,16 +193,21 @@ export default function DashboardTabsClient({
     window.history.replaceState(
       null,
       "",
-      tabHref(target, filters.desde, filters.hasta),
+      tabHref(target, filters.desde, filters.hasta, filters.modo),
     );
 
-    void loadTab(target, filters.desde, filters.hasta).catch((requestError) => {
+    void loadTab(
+      target,
+      filters.desde,
+      filters.hasta,
+      filters.modo,
+    ).catch((requestError) => {
       setError(errorMessage(requestError));
     });
   };
 
   const currentData = dataByKey[
-    cacheKey(activeTab, filters.desde, filters.hasta)
+    cacheKey(activeTab, filters.desde, filters.hasta, filters.modo)
   ];
   const isLoading = !currentData && !error;
 
@@ -181,8 +217,12 @@ export default function DashboardTabsClient({
         tab={activeTab}
         desde={filters.desde}
         hasta={filters.hasta}
+        modo={filters.modo}
         meta={currentMeta}
         onTabSelect={handleTabSelect}
+        onPeriodoChange={(nuevoModo) =>
+          setFilters((previous) => ({ ...previous, modo: nuevoModo }))
+        }
       />
 
       {error ? (

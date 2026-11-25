@@ -1,8 +1,11 @@
+"use client";
+
 import Link from "next/link";
-import type { MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
 import {
   BookOpen,
   Bot,
+  CalendarRange,
   Filter,
   Gift,
   LayoutGrid,
@@ -10,13 +13,13 @@ import {
   Target,
   TrendingUp,
   Users,
-  XCircle,
   type LucideIcon,
 } from "lucide-react";
 import DashboardThemeSelector from "./DashboardThemeSelector";
 import {
   DASHBOARD_TABS,
   type DashboardMeta,
+  type DashboardPeriodMode,
   type DashboardTab,
 } from "@/lib/dashboard";
 import { formatDate, periodLabel } from "@/lib/format";
@@ -29,40 +32,58 @@ const tabIcons: Record<DashboardTab, LucideIcon> = {
   leads: Target,
 };
 
-function buildFilterQuery(desde: string, hasta: string): string {
+function buildFilterQuery(
+  desde: string,
+  hasta: string,
+  modo: DashboardPeriodMode,
+): string {
   const params = new URLSearchParams();
-  if (desde) {
-    params.set("desde", desde);
-  }
-  if (hasta) {
-    params.set("hasta", hasta);
+  params.set("modo", modo);
+  if (modo === "personalizado") {
+    if (desde) {
+      params.set("desde", desde);
+    }
+    if (hasta) {
+      params.set("hasta", hasta);
+    }
   }
   return params.toString();
 }
 
-function tabHref(tab: DashboardTab, desde: string, hasta: string): string {
-  const filter = buildFilterQuery(desde, hasta);
-  return `/?tab=${tab}${filter ? `&${filter}` : ""}`;
+function tabHref(
+  tab: DashboardTab,
+  desde: string,
+  hasta: string,
+  modo: DashboardPeriodMode,
+): string {
+  const filter = buildFilterQuery(desde, hasta, modo);
+  return `/?tab=${tab}&${filter}`;
 }
 
 export default function DashboardHeader({
   tab,
   desde,
   hasta,
+  modo,
   meta,
   onTabSelect,
+  onPeriodoChange,
 }: {
   tab: DashboardTab;
   desde: string;
   hasta: string;
+  modo: DashboardPeriodMode;
   meta?: DashboardMeta;
   onTabSelect?: (
     tab: DashboardTab,
     event: MouseEvent<HTMLAnchorElement>,
   ) => void;
+  onPeriodoChange?: (modo: DashboardPeriodMode) => void;
 }) {
-  const filterQuery = buildFilterQuery(desde, hasta);
-  const exportHref = `/api/bff/exportar-ia${filterQuery ? `?${filterQuery}` : ""}`;
+  const [modoSeleccionado, setModoSeleccionado] =
+    useState<DashboardPeriodMode>(modo);
+  const filterQuery = buildFilterQuery(desde, hasta, modoSeleccionado);
+  const exportHref = `/api/bff/exportar-ia?${filterQuery}`;
 
   return (
     <>
@@ -83,6 +104,29 @@ export default function DashboardHeader({
             <input type="hidden" name="tab" value={tab} />
             <div>
               <label
+                htmlFor="modo"
+                className="mb-0 block text-sm text-muted"
+              >
+                Período
+              </label>
+              <select
+                id="modo"
+                name="modo"
+                value={modoSeleccionado}
+                onChange={(event) => {
+                  const nuevoModo = event.target.value as DashboardPeriodMode;
+                  setModoSeleccionado(nuevoModo);
+                  onPeriodoChange?.(nuevoModo);
+                }}
+                className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+              >
+                <option value="anual">Año actual</option>
+                <option value="personalizado">Personalizado</option>
+                <option value="global">Global</option>
+              </select>
+            </div>
+            <div>
+              <label
                 htmlFor="desde"
                 className="mb-0 block text-sm text-muted"
               >
@@ -93,7 +137,8 @@ export default function DashboardHeader({
                 type="date"
                 name="desde"
                 defaultValue={desde}
-                className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                disabled={modoSeleccionado !== "personalizado"}
+                className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-100 disabled:text-slate-400"
               />
             </div>
             <div>
@@ -108,7 +153,8 @@ export default function DashboardHeader({
                 type="date"
                 name="hasta"
                 defaultValue={hasta}
-                className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+                disabled={modoSeleccionado !== "personalizado"}
+                className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:bg-slate-100 disabled:text-slate-400"
               />
             </div>
             <button
@@ -142,11 +188,11 @@ export default function DashboardHeader({
           </a>
 
           <Link
-            href={`/?tab=${tab}`}
+            href={tabHref(tab, desde, hasta, "anual")}
             className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
-            <XCircle className="h-4 w-4" aria-hidden="true" />
-            Ver Todo
+            <CalendarRange className="h-4 w-4" aria-hidden="true" />
+            Año actual
           </Link>
         </div>
       </div>
@@ -166,7 +212,11 @@ export default function DashboardHeader({
           {meta?.referencia_corte ? ` (referencia ${meta.referencia_corte})` : ""}.
         </span>
         <span className="text-muted">
-          Producción y clientes conservan el historial completo.
+          {modoSeleccionado === "global"
+            ? "Global incluye el historial anterior al corte."
+            : modoSeleccionado === "anual"
+              ? "El filtro anual aplica a todos los KPIs."
+              : "El rango elegido aplica a todos los KPIs."}
         </span>
       </div>
 
@@ -178,7 +228,7 @@ export default function DashboardHeader({
           return (
             <Link
               key={item.id}
-              href={tabHref(item.id, desde, hasta)}
+              href={tabHref(item.id, desde, hasta, modoSeleccionado)}
               onClick={
                 onTabSelect ? (event) => onTabSelect(item.id, event) : undefined
               }

@@ -24,6 +24,7 @@ from .services import (
     dashboard_resumen,
     depreciacion_activos_mensual,
     exportar_rentabilidad_para_ia,
+    normalizar_periodo,
     parse_fecha,
     secciones_rentabilidad_ia,
     tasa_cambio,
@@ -411,21 +412,29 @@ def dashboard(request):
 def exportar_datos_ia(request):
     desde_str = request.GET.get('desde', '')
     hasta_str = request.GET.get('hasta', '')
-    desde = parse_fecha(desde_str)
-    hasta = parse_fecha(hasta_str)
+    desde, hasta, modo = normalizar_periodo(
+        desde_str, hasta_str, request.GET.get('modo', '')
+    )
+    incluir_historial = modo == 'global'
 
     tasa_valor, advertencia_tasa = tasa_cambio()
     data = {
         "meta": {
-            "periodo": {
-                "desde": desde_str or None,
-                "hasta": hasta_str or None,
-                "descripcion": (
-                    f"{desde_str} al {hasta_str}"
-                    if desde_str and hasta_str
-                    else "Historial completo"
-                ),
-            },
+                "periodo": {
+                    "desde": desde.isoformat() if desde else None,
+                    "hasta": hasta.isoformat() if hasta else None,
+                    "modo": modo,
+                    "descripcion": (
+                        "Historial completo"
+                        if modo == 'global'
+                        else (
+                            f"{desde} al {hasta}"
+                            if desde and hasta
+                            else "Historial completo"
+                        )
+                    ),
+                },
+
             "corte_financiero": FECHA_CORTE_FINANCIERO.isoformat(),
             "referencia_corte": REFERENCIA_CORTE_FINANCIERO,
             "tasa_cambio": float(tasa_valor),
@@ -433,7 +442,9 @@ def exportar_datos_ia(request):
             "generado_en": timezone.now().isoformat(),
         },
         "dashboard": {
-            "resumen": dashboard_resumen(desde, hasta),
+            "resumen": dashboard_resumen(
+                desde, hasta, incluir_historial=incluir_historial
+            ),
             "produccion": dashboard_produccion(desde, hasta),
             "clientes": dashboard_clientes(desde, hasta),
             "fidelidad": dashboard_fidelidad(desde, hasta),
@@ -442,15 +453,24 @@ def exportar_datos_ia(request):
     data.update(secciones_rentabilidad_ia(desde, hasta))
 
     response = JsonResponse(data, json_dumps_params={'indent': 2, 'ensure_ascii': False})
-    filename = f'data_ia_{desde_str}_{hasta_str}.json' if desde_str and hasta_str else 'data_ia_completo.json'
+    filename = (
+        f'data_ia_{desde}_{hasta}.json'
+        if desde and hasta
+        else 'data_ia_completo.json'
+    )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
 
 
 def exportar_rentabilidad_ia(request):
-    desde = parse_fecha(request.GET.get('desde', ''))
-    hasta = parse_fecha(request.GET.get('hasta', ''))
-    data = exportar_rentabilidad_para_ia(desde, hasta)
+    desde, hasta, modo = normalizar_periodo(
+        request.GET.get('desde', ''),
+        request.GET.get('hasta', ''),
+        request.GET.get('modo', ''),
+    )
+    data = exportar_rentabilidad_para_ia(
+        desde, hasta, incluir_historial=modo == 'global'
+    )
     response = JsonResponse(data, json_dumps_params={'indent': 2, 'ensure_ascii': False})
     response['Content-Disposition'] = 'attachment; filename="rentabilidad_para_ia.json"'
     return response

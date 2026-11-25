@@ -62,6 +62,7 @@ from pedidos.services import (
     ServicioPedido,
     costo_mensajeria_para_cliente,
     costo_mensajeria_para_municipio,
+    precio_usd_recomendado,
     provincia_para_municipio,
     redondear_cup_50,
     ubicacion_para_cliente,
@@ -200,6 +201,7 @@ def _calcular_costo_paginas(paginas, lleva_cantos_tintados=False, lleva_esquiner
     precio_sugerido = costeador.calcular_precio_sugerido()
     resultado['paginas'] = paginas
     resultado['precio_sugerido'] = float(precio_sugerido)
+    resultado['precio_sugerido_usd'] = float(precio_usd_recomendado(precio_sugerido))
     resultado['anticipo_sugerido'] = float(round(precio_sugerido / 2, 2))
     return resultado
 
@@ -324,6 +326,7 @@ def dashboard(request, tab='resumen'):
             tab,
             request.GET.get('desde', ''),
             request.GET.get('hasta', ''),
+            request.GET.get('modo', ''),
         )
     except ValueError as error:
         return Response(
@@ -1436,10 +1439,17 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
             if data.get('libro_id'):
                 libro = Book.objects.get(pk=data['libro_id'])
             else:
-                precio_cup = Decimal(str(data.get('precio_venta') or 0))
-                precio_usd_libro = (precio_cup / Decimal('930')).quantize(
-                    Decimal('0.1'), rounding=ROUND_HALF_UP
-                )
+                precio_usd_enviado = data.get('libro_precio_usd')
+                if precio_usd_enviado not in (None, '', 0, '0'):
+                    precio_usd_libro = Decimal(str(precio_usd_enviado)).quantize(
+                        Decimal('0.1'), rounding=ROUND_HALF_UP
+                    )
+                    precio_cup = precio_usd_libro * Decimal('930')
+                else:
+                    precio_cup = Decimal(str(data.get('precio_venta') or 0))
+                    precio_usd_libro = (precio_cup / Decimal('930')).quantize(
+                        Decimal('0.1'), rounding=ROUND_HALF_UP
+                    )
                 libro = Book.objects.create(
                     titulo=data.get('libro_titulo') or '',
                     autor=data.get('libro_autor') or '',

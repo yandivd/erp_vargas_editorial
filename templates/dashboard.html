@@ -109,6 +109,14 @@
     <div class="d-flex flex-column flex-sm-row gap-2 align-items-sm-end">
         <form method="get" class="d-flex flex-column flex-sm-row gap-2 align-items-sm-end" id="formFiltrosDashboard">
             <div>
+                <label class="form-label small text-muted mb-0">Período</label>
+                <select name="modo" id="modoFiltroDashboard" class="form-select form-select-sm">
+                    <option value="anual" {% if modo == 'anual' %}selected{% endif %}>Año actual</option>
+                    <option value="personalizado" {% if modo == 'personalizado' %}selected{% endif %}>Personalizado</option>
+                    <option value="global" {% if modo == 'global' %}selected{% endif %}>Global</option>
+                </select>
+            </div>
+            <div>
                 <label class="form-label small text-muted mb-0">Desde</label>
                 <input type="date" name="desde" class="form-control form-control-sm" value="{{ desde }}">
             </div>
@@ -118,10 +126,10 @@
             </div>
             <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-filter"></i> Filtrar</button>
         </form>
-        <a href="{% url 'exportar_rentabilidad_ia' %}?desde={{ desde }}&hasta={{ hasta }}" id="btnExportarIA" class="btn btn-dark btn-sm" title="Descargar JSON para IA">
+        <a href="{% url 'exportar_rentabilidad_ia' %}?modo={{ modo }}&desde={{ desde }}&hasta={{ hasta }}" id="btnExportarIA" class="btn btn-dark btn-sm" title="Descargar JSON para IA">
             <i class="bi bi-robot"></i> Exportar para IA
         </a>
-        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-x-circle"></i> Ver Todo</a>
+        <a href="{% url 'dashboard' %}?modo=anual" class="btn btn-outline-secondary btn-sm"><i class="bi bi-calendar-range"></i> Año actual</a>
     </div>
 </div>
 

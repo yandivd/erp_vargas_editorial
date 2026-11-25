@@ -55,6 +55,14 @@ export function periodLabel(meta?: DashboardMeta): string {
   const desde = formatDate(meta?.desde);
   const hasta = formatDate(meta?.hasta);
 
+  if (meta?.modo === "global") {
+    return "Todo el historial";
+  }
+
+  if (meta?.modo === "anual" && meta.desde && hasta) {
+    return `Año ${meta.desde.slice(0, 4)} hasta ${hasta}`;
+  }
+
   if (desde && hasta) {
     return `Del ${desde} al ${hasta}`;
   }
