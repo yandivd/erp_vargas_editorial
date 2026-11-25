@@ -41,10 +41,13 @@ export type ResumenKpis = {
   saldo_neto_equiv_usd: number;
   saldo_caja_cup: number;
   saldo_caja_usd: number;
+  saldo_caja_usd_equiv_cup: number;
+  total_disponible_cup: number;
+  reserva_divisa_porcentaje: number;
   saldo_caja_equiv_cup: number;
   saldo_caja_equiv_usd: number;
   margen: number;
-  margen_operativo: number;
+  margen_por_pedido_entregado: number;
   total_ingresos: number;
   total_gastos_operativos: number;
   utilidades: number;
@@ -68,6 +71,9 @@ export type ResumenKpis = {
   flujo_caja_neto_mes: number;
   ingresos_caja_mes: number;
   egresos_caja_mes: number;
+  flujo_caja_neto: number;
+  ingresos_caja: number;
+  egresos_caja: number;
 };
 
 export type DesgloseIngreso = {

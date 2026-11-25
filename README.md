@@ -685,7 +685,7 @@ El costeador puede recibir `parametros` y `tasa_cambio` precargados; si no, cons
 ### Cache y exportación
 - Dashboard API cachea datos por tab/rango/tasa con TTL (~5 min) y versión de cache (`DASHBOARD_CACHE_VERSION = 11`).
 - **Exportación IA (`/exportar-ia/`, API v1):** JSON con `meta`, `dashboard` (resumen, producción, clientes, fidelidad) y `secciones_rentabilidad_ia` (rentabilidad agrupada por mes/estado/plan, márgenes por libro (top 30 + “Otros libros”), top clientes, deudores, nómina, servicios externos, flujo por moneda, fidelidad).
-- **Rentabilidad IA (`/exportar/rentabilidad/`):** pedidos y gastos operativos van agrupados (mes/estado/plan/libro y mes/categoría/tipo/concepto/moneda), sin listados transaccionales.
+- **Rentabilidad IA (`/exportar/rentabilidad/`):** devuelve `meta`, `resumen_financiero`, `pedidos_activos`, `metricas_produccion`, `rentabilidad_por_plan` (Base/Medio/Premium inferidos por precio) y `clientes_en_riesgo` (>90 días sin pedidos). Los ingresos usan `precio_venta`, nunca solo el anticipo.
 
 ## 25. Validaciones y restricciones
 
@@ -714,7 +714,7 @@ El costeador puede recibir `parametros` y `tasa_cambio` precargados; si no, cons
 
 ## 27. Casos borde
 
-- **Tienda:** se alimenta de `Pedido` con estado `En Stock` y `cliente = null`; no es inventario de `Book` directamente.
+- **Tienda:** se alimenta de `Pedido` con estado `En Stock` y `cliente = null`; no es inventar  io de `Book` directamente.
 - **Pedidos sin ubicación identificable:** costo de mensajería sugerido 0 si no se puede inferir municipio.
 - **Acabados:** cantos tintados implican esquineros en costeo/consumo según reglas implementadas.
 - **Bono de fidelidad aplicado en pedido:** no se otorgan sellos por esa compra.

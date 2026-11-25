@@ -6,6 +6,7 @@ import {
   List,
   PieChart,
   TrendingUp,
+  Wallet,
 } from "lucide-react";
 import type { DashboardResumen } from "@/lib/dashboard";
 import { integer, money, number } from "@/lib/format";
@@ -70,10 +71,21 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
           valueClassName="text-brand"
         />
         <KpiCard
-          label="Margen operativo"
-          value={`${Number(kpis.margen_operativo ?? 0).toFixed(1)}%`}
-          sub={`Margen neto: ${Number(kpis.margen ?? 0).toFixed(1)}%`}
-          tone="amber"
+          label="Margen por Pedido Entregado"
+          value={`${Number(kpis.margen_por_pedido_entregado ?? 0).toFixed(2)}%`}
+          sub="Ingresos - costo de producción, solo entregados"
+          tone="emerald"
+        />
+        <KpiCard
+          label="Flujo de Caja Neto"
+          value={money(kpis.flujo_caja_neto ?? 0)}
+          sub={`Ingresos ${money(kpis.ingresos_caja ?? 0)} · Egresos ${money(kpis.egresos_caja ?? 0)}`}
+          tone={(kpis.flujo_caja_neto ?? 0) >= 0 ? "emerald" : "red"}
+          valueClassName={
+            (kpis.flujo_caja_neto ?? 0) >= 0
+              ? "text-emerald-600"
+              : "text-red-500"
+          }
         />
         <KpiCard
           label="Total recaudado por ventas"
@@ -131,15 +143,10 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
           tone="amber"
         />
         <KpiCard
-          label="Flujo caja neto (mes)"
-          value={money(kpis.flujo_caja_neto_mes ?? 0)}
-          sub={`Ingresos ${money(kpis.ingresos_caja_mes ?? 0)} · Egresos ${money(kpis.egresos_caja_mes ?? 0)}`}
-          tone={(kpis.flujo_caja_neto_mes ?? 0) >= 0 ? "emerald" : "red"}
-          valueClassName={
-            (kpis.flujo_caja_neto_mes ?? 0) >= 0
-              ? "text-emerald-600"
-              : "text-red-500"
-          }
+          label="Reserva en Divisa"
+          value={`${Number(kpis.reserva_divisa_porcentaje ?? 0).toFixed(1)}%`}
+          sub="Del total disponible en USD"
+          tone="cyan"
         />
         <div className="col-span-2 md:col-span-3 xl:col-span-4">
           <KpiCard
@@ -150,6 +157,53 @@ export default function ResumenTab({ data }: { data: DashboardResumen }) {
           />
         </div>
       </div>
+
+      <SectionCard
+        title="Liquidez Real"
+        icon={<Wallet className="h-5 w-5 text-brand" aria-hidden="true" />}
+      >
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="rounded-lg border border-line bg-app p-3">
+            <div className="text-[0.7rem] font-bold uppercase tracking-wide text-muted">
+              Saldo en CUP
+            </div>
+            <div className="mt-2 text-lg font-extrabold text-ink">
+              {money(kpis.saldo_caja_cup ?? 0)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-line bg-app p-3">
+            <div className="text-[0.7rem] font-bold uppercase tracking-wide text-muted">
+              Saldo en USD
+            </div>
+            <div className="mt-2 text-lg font-extrabold text-ink">
+              {money(kpis.saldo_caja_usd ?? 0, "USD")}
+            </div>
+          </div>
+          <div className="rounded-lg border border-line bg-app p-3">
+            <div className="text-[0.7rem] font-bold uppercase tracking-wide text-muted">
+              Equivalente USD en CUP
+            </div>
+            <div className="mt-2 text-lg font-extrabold text-ink">
+              {money(kpis.saldo_caja_usd_equiv_cup ?? 0)}
+            </div>
+            <div className="mt-1 text-[0.7rem] text-muted">
+              Tasa: {number(meta?.tasa_cambio ?? 0)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-line bg-app p-3">
+            <div className="text-[0.7rem] font-bold uppercase tracking-wide text-muted">
+              Total disponible
+            </div>
+            <div className="mt-2 text-lg font-extrabold text-emerald-600">
+              {money(kpis.total_disponible_cup ?? 0)}
+            </div>
+            <div className="mt-1 text-[0.7rem] text-muted">
+              Reserva en divisa:{" "}
+              {Number(kpis.reserva_divisa_porcentaje ?? 0).toFixed(1)}%
+            </div>
+          </div>
+        </div>
+      </SectionCard>
 
       <div className="mb-4 grid gap-3 md:grid-cols-2">
         <SectionCard
