@@ -7,13 +7,14 @@ type CajaPaginationProps = {
   desde: string;
   hasta: string;
   categoria: string;
+  concepto: string;
   material: string;
   kpi?: "ingresos" | "gastos" | "";
 };
 
 type Filters = Pick<
   CajaPaginationProps,
-  "desde" | "hasta" | "categoria" | "material" | "kpi"
+  "desde" | "hasta" | "categoria" | "concepto" | "material" | "kpi"
 >;
 
 function hrefForPage(page: number, filters: Filters): string {
@@ -30,6 +31,9 @@ function hrefForPage(page: number, filters: Filters): string {
   }
   if (filters.categoria) {
     params.set("categoria", filters.categoria);
+  }
+  if (filters.concepto) {
+    params.set("concepto", filters.concepto);
   }
   if (filters.kpi === "gastos" && filters.material) {
     params.set("material", filters.material);
@@ -54,6 +58,7 @@ export default function CajaPagination({
   desde,
   hasta,
   categoria,
+  concepto,
   material,
   kpi = "",
 }: CajaPaginationProps) {
@@ -65,7 +70,7 @@ export default function CajaPagination({
     );
   }
 
-  const filters: Filters = { desde, hasta, categoria, material, kpi };
+  const filters: Filters = { desde, hasta, categoria, concepto, material, kpi };
   const pages = visiblePages(pagination.page, pagination.num_pages);
   const linkClass =
     "inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-line px-2 text-sm font-semibold text-muted transition hover:border-brand hover:bg-blue-50 hover:text-brand";

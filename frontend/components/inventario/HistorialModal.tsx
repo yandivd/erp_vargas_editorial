@@ -2,8 +2,10 @@
 
 import {
   AlertCircle,
+  Check,
   History,
   Loader2,
+  Pencil,
   Printer,
   X,
 } from "lucide-react";
@@ -11,6 +13,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { formatDateTime, number } from "@/lib/format";
 import type {
+  InventarioCostoCorregidoResponse,
   InventarioHistorialData,
   InventarioHistorialMovimiento,
   InventarioMaterial,
@@ -45,6 +48,10 @@ export default function HistorialModal({
   );
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const [costoInput, setCostoInput] = useState("");
+  const [guardandoCosto, setGuardandoCosto] = useState(false);
+  const [accionMensaje, setAccionMensaje] = useState<string | null>(null);
 
   useEffect(() => {
     if (!abierto) {
@@ -108,6 +115,8 @@ export default function HistorialModal({
     setTipoFiltro("");
     setHistorial(null);
     setError(null);
+    setAccionMensaje(null);
+    setEditandoId(null);
     setAbierto(true);
   }
 
@@ -119,9 +128,79 @@ export default function HistorialModal({
     );
   }
 
+  function empezarCorreccion(movimiento: InventarioHistorialMovimiento) {
+    setAccionMensaje(null);
+    setEditandoId(movimiento.id);
+    setCostoInput(String(movimiento.costo_unitario));
+  }
+
+  function cancelarCorreccion() {
+    setEditandoId(null);
+    setCostoInput("");
+  }
+
+  async function guardarCorreccion(
+    movimiento: InventarioHistorialMovimiento,
+  ) {
+    const valor = Number(costoInput);
+
+    if (!Number.isFinite(valor) || valor < 0) {
+      setAccionMensaje("Indica un costo unitario válido (0 o mayor).");
+      return;
+    }
+
+    setGuardandoCosto(true);
+    setAccionMensaje(null);
+
+    try {
+      const response = await apiFetch<InventarioCostoCorregidoResponse>(
+        `inventario/movimiento/${movimiento.id}/costo/`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ costo_unitario: valor }),
+        },
+      );
+
+      setHistorial((actual) =>
+        actual
+          ? {
+              ...actual,
+              material: {
+                ...actual.material,
+                stock_actual: response.data.material.stock_actual,
+                costo_promedio: response.data.material.costo_promedio,
+              },
+              movimientos: actual.movimientos.map((item) =>
+                item.id === movimiento.id
+                  ? {
+                      ...item,
+                      costo_unitario: response.data.movimiento.costo_unitario,
+                      costo_total: response.data.movimiento.costo_total,
+                    }
+                  : item,
+              ),
+            }
+          : actual,
+      );
+      setEditandoId(null);
+      setAccionMensaje("Costo corregido correctamente.");
+    } catch (requestError) {
+      setAccionMensaje(
+        requestError instanceof Error
+          ? requestError.message
+          : "No se pudo corregir el costo.",
+      );
+    } finally {
+      setGuardandoCosto(false);
+    }
+  }
+
   const materialActual = historial?.material;
   const movimientos = (historial?.movimientos ?? []).filter(
     (movimiento) => !tipoFiltro || movimiento.tipo === tipoFiltro,
+  );
+  const movimientoEditando = movimientos.find(
+    (movimiento) => movimiento.id === editandoId,
   );
 
   return (
@@ -165,6 +244,14 @@ export default function HistorialModal({
                     {number(materialActual?.stock_actual ?? material.stock_actual)}{" "}
                     {materialActual?.unidad_medida ?? material.unidad_medida}
                   </span>
+                  {materialActual?.costo_promedio !== undefined ? (
+                    <>
+                      {" · Costo promedio: "}
+                      <span className="font-semibold text-ink">
+                        ${number(materialActual.costo_promedio)}
+                      </span>
+                    </>
+                  ) : null}
                 </p>
               </div>
               <button
@@ -187,6 +274,19 @@ export default function HistorialModal({
                   aria-hidden="true"
                 />
                 <span>{error}</span>
+              </div>
+            ) : null}
+
+            {accionMensaje ? (
+              <div
+                role="status"
+                className={`mb-4 rounded-lg border px-3 py-2 text-sm ${
+                  accionMensaje.includes("correctamente")
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-amber-200 bg-amber-50 text-amber-800"
+                }`}
+              >
+                {accionMensaje}
               </div>
             ) : null}
 
@@ -234,6 +334,12 @@ export default function HistorialModal({
                 </select>
               </div>
             </div>
+
+            {movimientoEditando?.tipo === "ENTRADA" ? (
+              <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Corregir una entrada actualiza el costo promedio del material, pero no modifica el pago registrado en Caja.
+              </div>
+            ) : null}
 
             <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-line">
               {cargando ? (
@@ -299,7 +405,31 @@ export default function HistorialModal({
                           {materialActual?.unidad_medida ?? material.unidad_medida}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right text-muted">
-                          ${number(movimiento.costo_total)}
+                          {editandoId === movimiento.id ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <span>$</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                aria-label="Costo unitario"
+                                value={costoInput}
+                                onChange={(event) =>
+                                  setCostoInput(event.target.value)
+                                }
+                                className="w-24 rounded-lg border border-brand bg-white px-2 py-1 text-right text-sm text-ink outline-none focus:ring-2 focus:ring-brand/20"
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <div>${number(movimiento.costo_total)}</div>
+                              <div className="text-xs text-muted">
+                                ${number(movimiento.costo_unitario)} /{" "}
+                                {materialActual?.unidad_medida ??
+                                  material.unidad_medida}
+                              </div>
+                            </>
+                          )}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-muted">
                           {referenciaPedido(movimiento.pedido)}
@@ -311,18 +441,61 @@ export default function HistorialModal({
                           {movimiento.motivo || "—"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-right">
-                          {movimiento.tipo === "SALIDA" ? (
-                            <button
-                              type="button"
-                              onClick={() => imprimirOrden(movimiento.id)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-brand/30 bg-brand/5 px-2.5 py-1.5 text-xs font-semibold text-brand transition hover:bg-brand/10"
-                            >
-                              <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-                              Orden de trabajo
-                            </button>
-                          ) : (
-                            <span className="text-muted">—</span>
-                          )}
+                          <div className="flex flex-wrap justify-end gap-1.5">
+                            {editandoId === movimiento.id ? (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={guardandoCosto}
+                                  onClick={() => void guardarCorreccion(movimiento)}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60"
+                                >
+                                  {guardandoCosto ? (
+                                    <Loader2
+                                      className="h-3.5 w-3.5 animate-spin"
+                                      aria-hidden="true"
+                                    />
+                                  ) : (
+                                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                                  )}
+                                  Guardar
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={guardandoCosto}
+                                  onClick={cancelarCorreccion}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-muted transition hover:bg-slate-50 disabled:opacity-60"
+                                >
+                                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Cancelar
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => empezarCorreccion(movimiento)}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-muted transition hover:bg-slate-50 hover:text-ink"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Corregir costo
+                                </button>
+                                {movimiento.tipo === "SALIDA" ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => imprimirOrden(movimiento.id)}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-brand/30 bg-brand/5 px-2.5 py-1.5 text-xs font-semibold text-brand transition hover:bg-brand/10"
+                                  >
+                                    <Printer
+                                      className="h-3.5 w-3.5"
+                                      aria-hidden="true"
+                                    />
+                                    Orden de trabajo
+                                  </button>
+                                ) : null}
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

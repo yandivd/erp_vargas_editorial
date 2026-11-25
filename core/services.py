@@ -1,3 +1,5 @@
+import re
+import unicodedata
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -182,6 +184,41 @@ def _id_o_none(valor):
         return None
 
 
+def _texto_sin_acentos(valor):
+    texto = str(valor or '').strip().lower()
+    return ''.join(
+        caracter
+        for caracter in unicodedata.normalize('NFKD', texto)
+        if not unicodedata.combining(caracter)
+    )
+
+
+def _coincide_concepto(fila, termino):
+    termino = _texto_sin_acentos(termino)
+    if not termino:
+        return True
+
+    texto = _texto_sin_acentos(' | '.join(
+        str(fila.get(campo) or '')
+        for campo in (
+            'concepto',
+            'categoria_label',
+            'proveedor_nombre',
+            'material_nombre',
+        )
+    ))
+    palabras_texto = re.findall(r'[a-z0-9]+', texto)
+
+    return all(
+        palabra in texto
+        or (
+            len(palabra) >= 5
+            and any(value.startswith(palabra[:5]) for value in palabras_texto)
+        )
+        for palabra in termino.split()
+    )
+
+
 def consumos_inventario(desde=None, hasta=None, material_id=None):
     """Salidas de inventario del período: gasto por consumo, no flujo de caja."""
     qs = MovimientoInventario.objects.filter(tipo='SALIDA')
@@ -240,7 +277,12 @@ def _fila_kpi_movimiento(
 
 
 def movimientos_para_kpi(
-    tipo, desde=None, hasta=None, moneda=None, material_id=None
+    tipo,
+    desde=None,
+    hasta=None,
+    moneda=None,
+    material_id=None,
+    filtro_concepto=None,
 ):
     """Filas que componen exactamente el KPI de ingresos o gastos."""
     desde = parse_fecha(desde)
@@ -340,17 +382,29 @@ def movimientos_para_kpi(
                     'material_nombre': material.nombre,
                 })
 
+    if filtro_concepto:
+        filas = [
+            fila for fila in filas if _coincide_concepto(fila, filtro_concepto)
+        ]
+
     filas.sort(key=lambda fila: fila['fecha'], reverse=True)
     return filas
 
 
-def total_para_kpi(tipo, desde=None, hasta=None, moneda=None, material_id=None):
+def total_para_kpi(
+    tipo,
+    desde=None,
+    hasta=None,
+    moneda=None,
+    material_id=None,
+    filtro_concepto=None,
+):
     """Total del KPI, en equivalente CUP salvo que se pida una moneda."""
     tasa, _ = tasa_cambio()
     totales = {'CUP': Decimal('0'), 'USD': Decimal('0')}
 
     for fila in movimientos_para_kpi(
-        tipo, desde, hasta, moneda, material_id
+        tipo, desde, hasta, moneda, material_id, filtro_concepto
     ):
         monto = Decimal(str(fila['monto']))
         if tipo == 'ingresos' and fila['tipo'] == 'EGRESO':
