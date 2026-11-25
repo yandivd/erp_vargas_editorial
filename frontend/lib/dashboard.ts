@@ -44,6 +44,10 @@ export type ResumenKpis = {
   saldo_caja_usd_equiv_cup: number;
   total_disponible_cup: number;
   reserva_divisa_porcentaje: number;
+  efectivo_ultimo_arqueo_cup: number;
+  tarjeta_ultimo_arqueo_cup: number;
+  total_ultimo_arqueo_cup: number;
+  fecha_ultimo_arqueo: string | null;
   saldo_caja_equiv_cup: number;
   saldo_caja_equiv_usd: number;
   margen: number;

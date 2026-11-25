@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from clientes.models import Cliente, EventoFidelidad, Lead, TarjetaFidelidad
 from clientes.services import ServicioFidelidad
-from finanzas.models import ActivoFijo, LoteDivisa, MovimientoCaja
+from finanzas.models import ActivoFijo, CierreCaja, LoteDivisa, MovimientoCaja
 from inventario.models import Material, MovimientoInventario
 from pedidos.models import Estado, HistorialEstado, Pedido, ServicioExterno
 from pedidos.services import CosteadorPedido, obtener_ganancia_promedio
@@ -466,6 +466,10 @@ def _saldo_caja(moneda):
     return ServicioFinanzas.saldo_caja(moneda)
 
 
+def ultimo_arqueo():
+    return CierreCaja.objects.order_by('-fecha', '-id').first()
+
+
 def depreciacion_activos_mensual():
     """Gasto contable virtual del mes, sin crear MovimientoCaja."""
     total = Decimal('0')
@@ -742,6 +746,22 @@ def dashboard_resumen(desde=None, hasta=None):
         saldo_caja_usd_equiv_cup / total_disponible_cup * 100
         if total_disponible_cup > 0
         else Decimal('0')
+    )
+
+    arqueo = ultimo_arqueo()
+    transferencia_arqueo = (
+        Decimal(str(arqueo.transferencia or 0)) if arqueo else Decimal('0')
+    )
+    efectivo_arqueo = (
+        max(Decimal('0'), Decimal(str(arqueo.efectivo_real or 0)) - transferencia_arqueo)
+        if arqueo
+        else Decimal('0')
+    )
+    total_arqueo = (
+        Decimal(str(arqueo.efectivo_real or 0)) if arqueo else Decimal('0')
+    )
+    fecha_ultimo_arqueo = (
+        timezone.localtime(arqueo.fecha).isoformat() if arqueo else None
     )
 
     movs = movimientos_financieros(desde, hasta)
@@ -1231,6 +1251,10 @@ def dashboard_resumen(desde=None, hasta=None):
         'saldo_caja_usd_equiv_cup': float(saldo_caja_usd_equiv_cup),
         'total_disponible_cup': float(total_disponible_cup),
         'reserva_divisa_porcentaje': float(reserva_divisa_porcentaje),
+        'efectivo_ultimo_arqueo_cup': float(efectivo_arqueo),
+        'tarjeta_ultimo_arqueo_cup': float(transferencia_arqueo),
+        'total_ultimo_arqueo_cup': float(total_arqueo),
+        'fecha_ultimo_arqueo': fecha_ultimo_arqueo,
         'saldo_caja_equiv_cup': monedas['equivalente']['saldo_caja_cup'],
         'saldo_caja_equiv_usd': monedas['equivalente']['saldo_caja_usd'],
         'margen': float(margen),

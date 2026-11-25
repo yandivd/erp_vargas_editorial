@@ -70,6 +70,11 @@ export default async function ArqueoPdfPage({ params }: PageProps) {
         Number.isFinite(denominacion) && cantidad > 0,
     )
     .sort((a, b) => b.denominacion - a.denominacion);
+  const efectivoContado = Math.max(
+    0,
+    arqueo.saldo_real_cup - arqueo.transferencia,
+  );
+  const totalContado = arqueo.saldo_real_cup;
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-8 print:min-h-0 print:bg-white print:p-0">
@@ -175,12 +180,31 @@ export default async function ArqueoPdfPage({ params }: PageProps) {
           </tbody>
         </table>
 
-        <div className="mt-4 flex items-center justify-between gap-4 rounded-lg border border-line bg-slate-50 px-4 py-3 text-sm">
-          <span className="text-muted">Transferencias / Tarjeta (CUP)</span>
-          <span className="font-bold text-slate-900">
-            {moneyCaja(arqueo.transferencia, "CUP")}
-          </span>
-        </div>
+        <section className="mt-6">
+          <h2 className="border-b border-line pb-2 text-xs font-bold uppercase tracking-wider text-muted">
+            Efectivo y tarjeta
+          </h2>
+          <div className="mt-3 divide-y divide-line rounded-lg border border-line bg-slate-50 px-4 text-sm">
+            <div className="flex items-center justify-between gap-4 py-3">
+              <span className="text-muted">Efectivo contado (CUP)</span>
+              <span className="font-bold text-slate-900">
+                {moneyCaja(efectivoContado, "CUP")}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3">
+              <span className="text-muted">Transferencias / Tarjeta (CUP)</span>
+              <span className="font-bold text-slate-900">
+                {moneyCaja(arqueo.transferencia, "CUP")}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4 py-3">
+              <span className="font-bold text-slate-900">Total contado (CUP)</span>
+              <span className="font-black text-slate-900">
+                {moneyCaja(totalContado, "CUP")}
+              </span>
+            </div>
+          </div>
+        </section>
 
         <section className="mt-6">
           <h2 className="border-b border-line pb-2 text-xs font-bold uppercase tracking-wider text-muted">
@@ -195,6 +219,9 @@ export default async function ArqueoPdfPage({ params }: PageProps) {
                 <th className="border-b border-line px-2 py-2 text-right text-xs font-bold uppercase tracking-wide text-muted">
                   Cantidad
                 </th>
+                <th className="border-b border-line px-2 py-2 text-right text-xs font-bold uppercase tracking-wide text-muted">
+                  Total
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -207,12 +234,15 @@ export default async function ArqueoPdfPage({ params }: PageProps) {
                     <td className="border-b border-line px-2 py-2 text-right text-slate-900">
                       {cantidad}
                     </td>
+                    <td className="border-b border-line px-2 py-2 text-right font-semibold text-slate-900">
+                      {moneyCaja(denominacion * cantidad, "CUP")}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan={2}
+                    colSpan={3}
                     className="border-b border-line px-2 py-2 text-center text-muted"
                   >
                     Sin billetes registrados.
