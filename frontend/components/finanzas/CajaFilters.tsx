@@ -9,6 +9,7 @@ type CajaFiltersProps = {
   initialDesde: string;
   initialHasta: string;
   initialCategoria: string;
+  initialConcepto: string;
   initialMaterial: string;
   categorias: CategoriaCaja[];
   materiales: MaterialCaja[];
@@ -24,6 +25,7 @@ export default function CajaFilters({
   initialDesde,
   initialHasta,
   initialCategoria,
+  initialConcepto,
   initialMaterial,
   categorias,
   materiales,
@@ -34,6 +36,7 @@ export default function CajaFilters({
   const [desde, setDesde] = useState(initialDesde);
   const [hasta, setHasta] = useState(initialHasta);
   const [categoria, setCategoria] = useState(initialCategoria);
+  const [concepto, setConcepto] = useState(initialConcepto);
   const [material, setMaterial] = useState(initialMaterial);
   const [isPending, startTransition] = useTransition();
 
@@ -41,6 +44,7 @@ export default function CajaFilters({
     nextDesde: string,
     nextHasta: string,
     nextCategoria: string,
+    nextConcepto: string,
     nextMaterial: string,
   ) {
     const params = new URLSearchParams();
@@ -57,6 +61,9 @@ export default function CajaFilters({
     if (nextCategoria) {
       params.set("categoria", nextCategoria);
     }
+    if (nextConcepto) {
+      params.set("concepto", nextConcepto);
+    }
     if (kpi === "gastos" && nextMaterial) {
       params.set("material", nextMaterial);
     }
@@ -69,20 +76,37 @@ export default function CajaFilters({
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    applyFilters(desde, hasta, categoria, material);
+    applyFilters(desde, hasta, categoria, concepto, material);
   }
 
   function handleClear() {
     setDesde("");
     setHasta("");
     setCategoria("");
+    setConcepto("");
     setMaterial("");
-    applyFilters("", "", "", "");
+    applyFilters("", "", "", "", "");
+  }
+
+  function aplicarConcepto(termino: string) {
+    setConcepto(termino);
+    applyFilters(desde, hasta, categoria, termino, material);
   }
 
   const hasFilters = Boolean(
-    initialDesde || initialHasta || initialCategoria || initialMaterial,
+    initialDesde ||
+      initialHasta ||
+      initialCategoria ||
+      initialConcepto ||
+      initialMaterial,
   );
+
+  const sugerencias =
+    kpi === "ingresos"
+      ? ["Anticipo", "Saldo", "Propina", "Mensajería"]
+      : kpi === "gastos"
+        ? ["Encuadernado", "Portada", "Guillotinado", "Esquineros"]
+        : ["Encuadernado", "Portada", "Anticipo", "Saldo"];
 
   return (
     <form
@@ -91,11 +115,7 @@ export default function CajaFilters({
     >
       <div
         className={`grid grid-cols-1 gap-3 sm:grid-cols-2 xl:items-end ${
-          kpi === "gastos"
-            ? "xl:grid-cols-4"
-            : kpi
-              ? "xl:grid-cols-3"
-              : "xl:grid-cols-4"
+          kpi === "gastos" || !kpi ? "xl:grid-cols-5" : "xl:grid-cols-4"
         }`}
       >
         <div>
@@ -122,6 +142,26 @@ export default function CajaFilters({
             onChange={(event) => setHasta(event.target.value)}
             className={inputClass}
           />
+        </div>
+
+        <div>
+          <label htmlFor="caja-concepto-filtro" className={labelClass}>
+            Concepto
+          </label>
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+              aria-hidden="true"
+            />
+            <input
+              id="caja-concepto-filtro"
+              type="search"
+              value={concepto}
+              onChange={(event) => setConcepto(event.target.value)}
+              placeholder="Ej: Encuadernado, Portada, Anticipo"
+              className={`${inputClass} pl-9`}
+            />
+          </div>
         </div>
 
         {!kpi ? (
@@ -187,7 +227,7 @@ export default function CajaFilters({
             <Search className="h-4 w-4" aria-hidden="true" />
             {isPending ? "Filtrando..." : "Filtrar"}
           </button>
-          {hasFilters || desde || hasta || categoria || material ? (
+          {hasFilters || desde || hasta || categoria || concepto || material ? (
             <button
               type="button"
               onClick={handleClear}
@@ -199,7 +239,28 @@ export default function CajaFilters({
             </button>
           ) : null}
         </div>
-      </div>
-    </form>
-  );
-}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+          <span className="text-[0.7rem] font-bold uppercase tracking-wide text-muted">
+            Búsquedas rápidas
+          </span>
+          {sugerencias.map((termino) => (
+            <button
+              key={termino}
+              type="button"
+              onClick={() => aplicarConcepto(termino)}
+              disabled={isPending}
+              className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition disabled:opacity-60 ${
+                concepto.toLowerCase() === termino.toLowerCase()
+                  ? "border-brand bg-brand/10 text-brand"
+                  : "border-line bg-white text-muted hover:border-brand hover:text-brand"
+              }`}
+            >
+              {termino}
+            </button>
+          ))}
+        </div>
+      </form>
+    );
+  }

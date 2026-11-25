@@ -104,6 +104,7 @@ def lista_movimientos(request, tipo):
     moneda = request.GET.get('moneda', '')
     if moneda not in ('CUP', 'USD'):
         moneda = ''
+    concepto = (request.GET.get('concepto') or '').strip()
 
     material_id = None
     if tipo == 'EGRESO':
@@ -113,7 +114,7 @@ def lista_movimientos(request, tipo):
             material_id = None
 
     movimientos = movimientos_para_kpi(
-        tipo_kpi, desde, hasta, moneda, material_id
+        tipo_kpi, desde, hasta, moneda, material_id, concepto
     )
     totales = {'CUP': Decimal('0'), 'USD': Decimal('0')}
     for fila in movimientos:
@@ -122,7 +123,7 @@ def lista_movimientos(request, tipo):
             monto = -monto
         totales[fila['moneda']] += monto
     total_equiv_cup = total_para_kpi(
-        tipo_kpi, desde, hasta, moneda, material_id
+        tipo_kpi, desde, hasta, moneda, material_id, concepto
     )
 
     context = {
@@ -135,6 +136,7 @@ def lista_movimientos(request, tipo):
         'desde': desde_str,
         'hasta': hasta_str,
         'moneda_actual': moneda,
+        'concepto_actual': concepto,
         'material_actual': material_id,
         'materiales': Material.objects.filter(activo=True).order_by('nombre'),
         'fecha_corte': FECHA_CORTE_FINANCIERO,

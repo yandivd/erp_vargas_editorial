@@ -2,6 +2,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import (
@@ -791,6 +792,74 @@ def inventario_movimiento(request):
     }, status=status.HTTP_201_CREATED)
 
 
+@api_view(['POST', 'PATCH'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def inventario_movimiento_costo(request, movimiento_id):
+    movimiento = get_object_or_404(
+        MovimientoInventario.objects.select_related('material'),
+        id=movimiento_id,
+    )
+
+    raw_costo = request.data.get('costo_unitario')
+    if raw_costo is None or str(raw_costo).strip() == '':
+        return Response(
+            {'ok': False, 'error': 'Indica el costo unitario a corregir.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        costo_unitario = Decimal(str(raw_costo))
+    except (ValueError, TypeError, InvalidOperation):
+        return Response(
+            {'ok': False, 'error': 'El costo unitario no es válido.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if costo_unitario < 0:
+        return Response(
+            {'ok': False, 'error': 'El costo unitario no puede ser negativo.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    material = movimiento.material
+    costo_anterior = movimiento.costo_unitario
+
+    with transaction.atomic():
+        movimiento.costo_unitario = costo_unitario
+        movimiento.costo_total = movimiento.cantidad * costo_unitario
+        movimiento.save(update_fields=['costo_unitario', 'costo_total'])
+
+        if movimiento.tipo == 'ENTRADA' and material.stock_actual > 0:
+            material.refresh_from_db()
+            delta = (costo_unitario - costo_anterior) * movimiento.cantidad
+            promedio = material.costo_promedio + delta / material.stock_actual
+            material.costo_promedio = max(promedio, Decimal('0'))
+            material.save(update_fields=['costo_promedio'])
+
+        material.refresh_from_db()
+
+    cache.clear()
+
+    return Response({
+        'ok': True,
+        'data': {
+            'movimiento': {
+                'id': movimiento.id,
+                'tipo': movimiento.tipo,
+                'cantidad': float(movimiento.cantidad),
+                'costo_unitario': float(movimiento.costo_unitario),
+                'costo_total': float(movimiento.costo_total),
+            },
+            'material': {
+                'id': material.id,
+                'stock_actual': float(material.stock_actual),
+                'costo_promedio': float(material.costo_promedio),
+            },
+        },
+    })
+
+
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
@@ -842,6 +911,7 @@ def inventario_historial(request, material_id):
                 'stock_actual': float(material.stock_actual),
                 'stock_minimo': float(material.stock_minimo),
                 'stock_bajo': bool(material.stock_bajo),
+                'costo_promedio': float(material.costo_promedio),
             },
             'movimientos': data,
         },
@@ -2764,6 +2834,10 @@ def _material_param(request):
         return None
 
 
+def _texto_param(request, nombre='concepto'):
+    return (request.query_params.get(nombre) or '').strip()
+
+
 def _caja_queryset(request):
     queryset = MovimientoCaja.objects.select_related(
         'pedido',
@@ -2782,6 +2856,13 @@ def _caja_queryset(request):
     categoria = (request.query_params.get('categoria') or '').strip()
     if categoria:
         queryset = queryset.filter(categoria=categoria)
+
+    concepto = _texto_param(request)
+    if concepto:
+        queryset = queryset.filter(
+            Q(concepto__icontains=concepto)
+            | Q(proveedor__nombre__icontains=concepto)
+        )
 
     tipo = (request.query_params.get('tipo') or '').strip().upper()
     if tipo == 'GASTO':
@@ -2816,6 +2897,7 @@ def _paginacion_caja(paginator, page_obj):
 def finanzas_caja(request):
     kpi = _kpi_param(request)
     material = _material_param(request)
+    concepto = _texto_param(request)
     if kpi:
         desde = parse_fecha(request.query_params.get('desde'))
         hasta = parse_fecha(request.query_params.get('hasta'))
@@ -2827,6 +2909,7 @@ def finanzas_caja(request):
             hasta,
             _caja_moneda_param(request),
             material if kpi == 'gastos' else None,
+            concepto,
         )
     else:
         movimientos_qs = _caja_queryset(request)
@@ -2850,6 +2933,7 @@ def finanzas_caja(request):
             {'value': material_obj.pk, 'label': material_obj.nombre}
             for material_obj in Material.objects.filter(activo=True).order_by('nombre')
         ],
+        'concepto': concepto,
     }
     if kpi:
         meta.update({
@@ -2860,6 +2944,7 @@ def finanzas_caja(request):
                 hasta,
                 _caja_moneda_param(request),
                 material if kpi == 'gastos' else None,
+                concepto,
             )),
         })
 
@@ -2898,6 +2983,7 @@ def finanzas_caja_resumen(request):
 
     kpi = _kpi_param(request)
     material = _material_param(request)
+    concepto = _texto_param(request)
     if kpi:
         desde = parse_fecha(request.query_params.get('desde'))
         hasta = parse_fecha(request.query_params.get('hasta'))
@@ -2909,6 +2995,7 @@ def finanzas_caja_resumen(request):
             hasta,
             _caja_moneda_param(request),
             material if kpi == 'gastos' else None,
+            concepto,
         ))
         data['kpi_total'] = total_kpi
         if kpi == 'ingresos':

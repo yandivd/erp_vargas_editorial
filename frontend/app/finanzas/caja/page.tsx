@@ -33,6 +33,7 @@ type PageProps = {
     desde?: string;
     hasta?: string;
     categoria?: string;
+    concepto?: string;
     tipo?: string;
     kpi?: string;
     material?: string;
@@ -50,6 +51,7 @@ export default async function CajaPage({ searchParams }: PageProps) {
   const desde = (params.desde ?? "").trim();
   const hasta = (params.hasta ?? "").trim();
   const categoria = (params.categoria ?? "").trim();
+  const concepto = (params.concepto ?? "").trim();
   const tipoRaw = (params.tipo ?? "").trim().toUpperCase();
   const tipo = tipoRaw === "GASTO" ? "EGRESO" : tipoRaw;
   const kpiRaw = (params.kpi ?? "").trim().toLowerCase();
@@ -66,6 +68,7 @@ export default async function CajaPage({ searchParams }: PageProps) {
   if (desde) movimientosQuery.set("desde", desde);
   if (hasta) movimientosQuery.set("hasta", hasta);
   if (categoria) movimientosQuery.set("categoria", categoria);
+  if (concepto) movimientosQuery.set("concepto", concepto);
   if (tipo === "INGRESO" || tipo === "EGRESO") movimientosQuery.set("tipo", tipo);
   if (kpi) movimientosQuery.set("kpi", kpi);
   if (kpi === "gastos" && material) movimientosQuery.set("material", material);
@@ -74,6 +77,7 @@ export default async function CajaPage({ searchParams }: PageProps) {
   if (desde) resumenQuery.set("desde", desde);
   if (hasta) resumenQuery.set("hasta", hasta);
   if (categoria) resumenQuery.set("categoria", categoria);
+  if (concepto) resumenQuery.set("concepto", concepto);
   if (tipo === "INGRESO" || tipo === "EGRESO") resumenQuery.set("tipo", tipo);
   if (kpi) resumenQuery.set("kpi", kpi);
   if (kpi === "gastos" && material) resumenQuery.set("material", material);
@@ -211,6 +215,7 @@ export default async function CajaPage({ searchParams }: PageProps) {
         initialDesde={desde}
         initialHasta={hasta}
         initialCategoria={categoria}
+        initialConcepto={concepto}
         initialMaterial={material}
         categorias={meta?.categorias ?? []}
         materiales={meta?.materiales ?? []}
@@ -253,6 +258,7 @@ export default async function CajaPage({ searchParams }: PageProps) {
                   desde={desde}
                   hasta={hasta}
                   categoria={categoria}
+                  concepto={concepto}
                   material={material}
                   kpi={kpi}
                 />

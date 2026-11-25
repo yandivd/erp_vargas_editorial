@@ -71,8 +71,27 @@ export type InventarioHistorialData = {
     stock_actual: number;
     stock_minimo: number;
     stock_bajo: boolean;
+    costo_promedio?: number;
   };
   movimientos: InventarioHistorialMovimiento[];
+};
+
+export type InventarioCostoCorregidoResponse = {
+  ok: true;
+  data: {
+    movimiento: {
+      id: number;
+      tipo: string;
+      cantidad: number;
+      costo_unitario: number;
+      costo_total: number;
+    };
+    material: {
+      id: number;
+      stock_actual: number;
+      costo_promedio: number;
+    };
+  };
 };
 
 export type InventarioOrdenTrabajoData = {
