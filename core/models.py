@@ -24,7 +24,7 @@ class Parametro(models.Model):
 
 class Banner(models.Model):
     titulo = models.CharField(max_length=200, blank=True, verbose_name='Título')
-    imagen = models.ImageField(upload_to='banners/', verbose_name='Imagen')
+    imagen_url = models.URLField(blank=True, default='', verbose_name='Imagen (URL)')
     activo = models.BooleanField(default=True, verbose_name='Activo')
     orden = models.PositiveIntegerField(default=0, verbose_name='Orden')
 

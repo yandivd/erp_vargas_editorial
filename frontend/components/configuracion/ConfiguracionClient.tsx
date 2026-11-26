@@ -13,18 +13,15 @@ import {
   guardarParametros,
   guardarTemaCatalogo,
   type BannerAdmin,
+  type BannerInput,
   type ParametroEditable,
   type TemaCatalogo,
 } from "@/lib/configuracion";
+import { normalizarUrlImagen } from "@/lib/libros";
 
 type Seccion = "parametros" | "banners" | "tema";
 
-type BorradorBanner = {
-  titulo: string;
-  activo: boolean;
-  orden: string;
-  imagen: File | null;
-};
+type BorradorBanner = BannerInput;
 
 const PARAMETROS_SUGERIDOS: { clave: string; descripcion: string }[] = [
   { clave: "paginas_por_hoja", descripcion: "Páginas por hoja" },
@@ -69,19 +66,16 @@ function borradorDe(banner: BannerAdmin): BorradorBanner {
     titulo: banner.titulo,
     activo: banner.activo,
     orden: String(banner.orden),
-    imagen: null,
+    imagen_url: banner.imagen_url || banner.imagen || "",
   };
 }
 
-function datosBanner(borrador: BorradorBanner): FormData {
-  const form = new FormData();
-  form.set("titulo", borrador.titulo);
-  form.set("activo", borrador.activo ? "true" : "false");
-  form.set("orden", borrador.orden || "0");
-  if (borrador.imagen) {
-    form.set("imagen", borrador.imagen);
-  }
-  return form;
+function datosBanner(borrador: BorradorBanner): BannerInput {
+  return {
+    ...borrador,
+    imagen_url: borrador.imagen_url.trim(),
+    orden: borrador.orden || "0",
+  };
 }
 
 export default function ConfiguracionClient() {
@@ -94,7 +88,7 @@ export default function ConfiguracionClient() {
     titulo: "",
     activo: true,
     orden: "0",
-    imagen: null,
+    imagen_url: "",
   });
   const [tema, setTema] = useState<TemaCatalogo>("navidad");
   const [cargando, setCargando] = useState(true);
@@ -192,8 +186,8 @@ export default function ConfiguracionClient() {
 
   async function crearBannerActual(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!nuevoBanner.imagen) {
-      setError("Selecciona una imagen para el banner.");
+    if (!nuevoBanner.imagen_url.trim()) {
+      setError("Escribe la URL de la imagen del banner.");
       return;
     }
     setGuardando(true);
@@ -201,7 +195,7 @@ export default function ConfiguracionClient() {
     setMensaje(null);
     try {
       await crearBanner(datosBanner(nuevoBanner));
-      setNuevoBanner({ titulo: "", activo: true, orden: "0", imagen: null });
+      setNuevoBanner({ titulo: "", activo: true, orden: "0", imagen_url: "" });
       setMensaje("Banner creado.");
       await cargar();
       router.refresh();
@@ -348,8 +342,14 @@ export default function ConfiguracionClient() {
               <section key={banner.id} className="rounded-xl border border-line bg-white p-4 shadow-sm md:p-6">
                 <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
                   <div
-                    className="h-32 rounded-lg border border-line bg-cover bg-center"
-                    style={{ backgroundImage: `url(${JSON.stringify(banner.imagen || "/img/catalogo/banner-1.png")})` }}
+                    className="h-32 rounded-lg border border-line bg-contain bg-center bg-no-repeat"
+                    style={{
+                      backgroundImage: `url(${JSON.stringify(
+                        normalizarUrlImagen(
+                          borrador.imagen_url.trim() || banner.imagen || "/img/catalogo/banner-1.png",
+                        ),
+                      )})`,
+                    }}
                     aria-label={`Vista previa de ${banner.titulo || `banner ${banner.id}`}`}
                   />
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -378,14 +378,16 @@ export default function ConfiguracionClient() {
                       />
                       Activo
                     </label>
-                    <label className="text-sm font-semibold text-ink">
-                      Reemplazar imagen
+                    <label className="text-sm font-semibold text-ink sm:col-span-2">
+                      URL de la imagen (970x300)
                       <input
-                        type="file"
-                        accept="image/*"
+                        type="url"
                         className={inputClass}
-                        onChange={(event) => setBorradores((prev) => ({ ...prev, [banner.id]: { ...borrador, imagen: event.target.files?.[0] ?? null } }))}
+                        placeholder="https://ejemplo.com/banner.jpg"
+                        value={borrador.imagen_url}
+                        onChange={(event) => setBorradores((prev) => ({ ...prev, [banner.id]: { ...borrador, imagen_url: event.target.value } }))}
                       />
+                      <span className="mt-1 block text-xs font-normal text-muted">Pega una URL pública. También funciona con enlaces de Google Drive o Dropbox, igual que las imágenes de los libros.</span>
                     </label>
                     <div className="flex flex-wrap gap-2 sm:col-span-2">
                       <button
@@ -439,14 +441,16 @@ export default function ConfiguracionClient() {
                 />
                 Activo
               </label>
-              <label className="text-sm font-semibold text-ink">
-                Imagen
+              <label className="text-sm font-semibold text-ink sm:col-span-2">
+                URL de la imagen (970x300)
                 <input
-                  type="file"
-                  accept="image/*"
+                  type="url"
                   className={inputClass}
-                  onChange={(event) => setNuevoBanner((prev) => ({ ...prev, imagen: event.target.files?.[0] ?? null }))}
+                  placeholder="https://ejemplo.com/banner.jpg"
+                  value={nuevoBanner.imagen_url}
+                  onChange={(event) => setNuevoBanner((prev) => ({ ...prev, imagen_url: event.target.value }))}
                 />
+                <span className="mt-1 block text-xs font-normal text-muted">Usa una URL pública, como hacemos con las imágenes de los libros.</span>
               </label>
             </div>
             <button

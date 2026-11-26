@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { BannerPublico } from "@/lib/banners";
+import { normalizarUrlImagen } from "@/lib/libros";
 
 type CatalogoBannersProps = {
   banners: BannerPublico[];
@@ -37,7 +38,11 @@ export default function CatalogoBanners({ banners }: CatalogoBannersProps) {
         <motion.div
           key={activo.id}
           className="absolute inset-0 bg-contain bg-center bg-no-repeat"
-          style={{ backgroundImage: `url(${JSON.stringify(activo.imagen)})` }}
+          style={{
+            backgroundImage: `url(${JSON.stringify(
+              normalizarUrlImagen(activo.imagen || "/img/catalogo/banner-1.png"),
+            )})`,
+          }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

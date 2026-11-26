@@ -570,14 +570,22 @@ def _config_bool(valor, default=False):
     return default
 
 
+def _banner_imagen_url(banner, request):
+    valor = str(banner.imagen_url or '').strip()
+    if not valor:
+        return ''
+    if valor.startswith('/'):
+        return request.build_absolute_uri(valor)
+    return valor
+
+
 def _banner_data(banner, request):
-    imagen = ''
-    if banner.imagen:
-        imagen = request.build_absolute_uri(banner.imagen.url)
+    imagen = _banner_imagen_url(banner, request)
     return {
         'id': banner.id,
         'titulo': banner.titulo,
         'imagen': imagen,
+        'imagen_url': banner.imagen_url,
         'activo': banner.activo,
         'orden': banner.orden,
     }
@@ -639,9 +647,9 @@ def configuracion_banners(request):
     if request.method == 'POST':
         if not request.user or not request.user.is_authenticated:
             return Response({'ok': False, 'error': 'Autenticación requerida.'}, status=status.HTTP_401_UNAUTHORIZED)
-        imagen = request.FILES.get('imagen')
-        if not imagen:
-            return Response({'ok': False, 'error': 'La imagen es obligatoria.'}, status=status.HTTP_400_BAD_REQUEST)
+        imagen_url = str(request.data.get('imagen_url', '') or '').strip()[:500]
+        if not imagen_url:
+            return Response({'ok': False, 'error': 'La URL de la imagen es obligatoria.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             orden = int(request.data.get('orden', 0) or 0)
         except (ValueError, TypeError):
@@ -650,7 +658,7 @@ def configuracion_banners(request):
             titulo=str(request.data.get('titulo', ''))[:200],
             activo=_config_bool(request.data.get('activo', True), True),
             orden=max(0, orden),
-            imagen=imagen,
+            imagen_url=imagen_url,
         )
         return Response(
             {'ok': True, 'data': {'banner': _banner_data(banner, request)}},
@@ -661,7 +669,7 @@ def configuracion_banners(request):
     banners = Banner.objects.all() if todos else Banner.objects.filter(activo=True)
     data = []
     for banner in banners:
-        if not todos and not banner.imagen:
+        if not todos and not banner.imagen_url:
             continue
         data.append(_banner_data(banner, request))
     return Response({'ok': True, 'data': {'banners': data}})
@@ -687,9 +695,8 @@ def configuracion_banner_detalle(request, pk):
             banner.orden = max(0, int(request.data.get('orden') or 0))
         except (ValueError, TypeError):
             pass
-    imagen = request.FILES.get('imagen')
-    if imagen:
-        banner.imagen = imagen
+    if 'imagen_url' in request.data:
+        banner.imagen_url = str(request.data.get('imagen_url', '') or '').strip()[:500]
     banner.save()
     return Response({'ok': True, 'data': {'banner': _banner_data(banner, request)}})
 

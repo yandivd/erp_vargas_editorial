@@ -2,6 +2,7 @@ export type BannerPublico = {
   id: number;
   titulo: string;
   imagen: string;
+  imagen_url?: string;
 };
 
 export async function fetchBanners(signal?: AbortSignal): Promise<BannerPublico[]> {

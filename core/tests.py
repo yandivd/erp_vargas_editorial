@@ -740,15 +740,21 @@ class ConfiguracionApiTests(TestCase):
         self.assertEqual(Parametro.get('paginas_por_hoja'), Decimal('5'))
 
     def test_banners_admin_lista_inactivos_y_edita(self):
-        banner = Banner.objects.create(titulo='Viejo', activo=False, orden=2)
+        banner = Banner.objects.create(
+            titulo='Viejo',
+            activo=False,
+            orden=2,
+            imagen_url='https://ejemplo.test/banner-viejo.jpg',
+        )
 
         respuesta = self.client.get('/api/v1/configuracion/banners/?todos=1')
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(respuesta.data['data']['banners'][0]['titulo'], 'Viejo')
+        self.assertEqual(respuesta.data['data']['banners'][0]['imagen'], 'https://ejemplo.test/banner-viejo.jpg')
 
         respuesta = self.client.patch(
             f'/api/v1/configuracion/banners/{banner.id}/',
-            {'titulo': 'Nuevo', 'activo': 'true', 'orden': '5'},
+            {'titulo': 'Nuevo', 'imagen_url': 'https://ejemplo.test/banner-nuevo.jpg'},
             format='json',
         )
         self.assertEqual(respuesta.status_code, 401)
@@ -756,7 +762,12 @@ class ConfiguracionApiTests(TestCase):
         self.client.force_authenticate(self.usuario)
         respuesta = self.client.patch(
             f'/api/v1/configuracion/banners/{banner.id}/',
-            {'titulo': 'Nuevo', 'activo': 'true', 'orden': '5'},
+            {
+                'titulo': 'Nuevo',
+                'activo': 'true',
+                'orden': '5',
+                'imagen_url': 'https://ejemplo.test/banner-nuevo.jpg',
+            },
             format='json',
         )
         self.assertEqual(respuesta.status_code, 200)
@@ -764,3 +775,17 @@ class ConfiguracionApiTests(TestCase):
         self.assertEqual(banner.titulo, 'Nuevo')
         self.assertTrue(banner.activo)
         self.assertEqual(banner.orden, 5)
+        self.assertEqual(banner.imagen_url, 'https://ejemplo.test/banner-nuevo.jpg')
+
+        respuesta = self.client.post(
+            '/api/v1/configuracion/banners/',
+            {
+                'titulo': 'Con URL',
+                'activo': 'true',
+                'orden': '1',
+                'imagen_url': 'https://ejemplo.test/banner-nuevo-2.jpg',
+            },
+            format='json',
+        )
+        self.assertEqual(respuesta.status_code, 201)
+        self.assertTrue(Banner.objects.filter(titulo='Con URL').exists())
