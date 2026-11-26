@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, Heart, Info, Loader2, Minus, Plus, ShoppingCart, Sparkles, X } from "lucide-react";
 import BookImage from "@/components/libros/BookImage";
 import ShopBookCard from "@/components/catalogos/ShopBookCard";
-import { CatalogoDecoracion, CatalogoSeasonBanner } from "@/components/catalogos/CatalogoDecoracion";
+import CatalogoNavbar from "@/components/catalogos/CatalogoNavbar";
+import { CatalogoDecoracion } from "@/components/catalogos/CatalogoDecoracion";
 import { fetchRecomendaciones, type LibroPublico } from "@/lib/catalogos";
 import { fetchDecoracionTema, normalizarTemaDecoracion, type TemaDecoracion } from "@/lib/decoracion";
 import { calcularPrecioConAcabados } from "@/lib/costos";
@@ -102,12 +103,16 @@ export default function CatalogoProductClient({ libro }: Props) {
 
   return (
     <div
-      className="relative min-h-screen overflow-x-hidden bg-slate-950"
+      className="relative min-h-screen overflow-x-clip bg-slate-950"
       style={{ backgroundImage: bgImage, backgroundRepeat: tema === "navidad" ? "repeat, no-repeat" : "no-repeat", backgroundSize: "cover" }}
     >
       <CatalogoDecoracion tema={tema} />
-      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-24 md:px-8 md:pt-28">
-        <div className="mb-6 flex justify-center"><CatalogoSeasonBanner tema={tema} /></div>
+      <CatalogoNavbar
+        seccion="catalogo"
+        favoritosCount={favoritos.length}
+        carritoCount={carritoCount}
+      />
+      <div className="relative z-10 mx-auto max-w-6xl px-4 pb-20 pt-8 md:px-8">
         <div className="mb-6 flex items-center justify-between gap-3">
           <Link
             href="/catalogo"
@@ -117,7 +122,7 @@ export default function CatalogoProductClient({ libro }: Props) {
             Volver a la tienda
           </Link>
           <Link
-            href="/catalogo/checkout"
+            href="/catalogo?tab=carrito"
             className="inline-flex items-center gap-2 rounded-full border border-amber-300/50 bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-500"
           >
             <ShoppingCart className="h-4 w-4" aria-hidden="true" />
@@ -127,7 +132,7 @@ export default function CatalogoProductClient({ libro }: Props) {
 
         <div className="rounded-2xl bg-white shadow-2xl">
           <div className="p-5 md:p-8">
-            <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(260px,1fr)]">
               <div>
                 <BookImage
                   libro={libro}
@@ -141,7 +146,8 @@ export default function CatalogoProductClient({ libro }: Props) {
                 {libro.descripcion ? <p className="mt-4 text-sm text-muted">{libro.descripcion}</p> : null}
               </div>
 
-              <div>
+              <aside className="lg:sticky lg:top-24 lg:self-start">
+                <div className="rounded-xl border border-line bg-slate-50 p-4 shadow-sm">
                 <p className="text-xs font-semibold uppercase tracking-wide text-brand">Detalle del libro</p>
                 <h1 className="mt-1 text-2xl font-extrabold text-ink md:text-3xl">{libro.titulo}</h1>
                 <p className="mt-1 text-sm text-muted">{libro.autor || "Autor desconocido"}</p>
@@ -268,7 +274,33 @@ export default function CatalogoProductClient({ libro }: Props) {
                     </Link>
                   </div>
                 ) : null}
-              </div>
+
+                <div className="mt-4 border-t border-line pt-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted">Tu carrito</p>
+                    <Link href="/catalogo?tab=carrito" className="text-xs font-bold text-brand underline decoration-brand/30 underline-offset-2 hover:text-brand-dark">
+                      Ver carrito ({carritoCount})
+                    </Link>
+                  </div>
+                  {carrito.length === 0 ? (
+                    <p className="mt-2 text-xs text-muted">Aún no agregas libros. Tu selección aparecerá aquí.</p>
+                  ) : (
+                    <ul className="mt-2 space-y-1.5">
+                      {carrito.slice(0, 3).map((item) => (
+                        <li key={`${item.libroId}-${item.esquineros}-${item.cantosPintados}`} className="flex items-center justify-between gap-2 text-xs text-ink">
+                          <span className="truncate">{item.libroId === libro.id ? libro.titulo : `Libro #${item.libroId}`}</span>
+                          <span className="shrink-0 font-semibold text-muted">x{item.cantidad}</span>
+                        </li>
+                      ))}
+                      {carrito.length > 3 ? <li className="text-xs text-muted">+{carrito.length - 3} libro(s) más</li> : null}
+                    </ul>
+                  )}
+                </div>
+                <p className="mt-3 rounded-lg bg-white p-2.5 text-[11px] leading-relaxed text-muted">
+                  El anticipo se confirma por WhatsApp. El saldo se paga en efectivo al entregar.
+                </p>
+                </div>
+              </aside>
             </div>
 
             <section className="mt-10">

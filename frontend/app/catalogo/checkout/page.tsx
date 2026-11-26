@@ -9,12 +9,13 @@ import {
   ShieldCheck,
   ShoppingCart,
 } from "lucide-react";
+import CatalogoNavbar from "@/components/catalogos/CatalogoNavbar";
 import { fetchCatalogoLibro, type LibroPublico } from "@/lib/catalogos";
 import { money } from "@/lib/format";
 import { PROVINCIAS, municipiosDe } from "@/lib/lugares";
 import { costoMensajeriaDe, setTarifasMensajeria } from "@/lib/mensajeria";
 import { apiFetch } from "@/lib/api";
-import { precioItemCup, precioItemUsd, useCarrito } from "@/lib/tienda";
+import { escribirCarrito, precioItemCup, precioItemUsd, useCarrito, useFavoritos } from "@/lib/tienda";
 
 const WHATSAPP_NUMERO = "5354545068";
 
@@ -38,6 +39,7 @@ const FORMULARIO_INICIAL: Formulario = {
 
 export default function CheckoutPage() {
   const items = useCarrito();
+  const favoritos = useFavoritos();
   const [libros, setLibros] = useState<Record<number, LibroPublico>>({});
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +51,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     const c = new AbortController();
-    apiFetch<{ tarifas: { municipio: string; costo: number }[] }>("configuracion/mensajeria", { signal: c.signal } as any)
+    apiFetch<{ tarifas: { municipio: string; costo: number }[] }>("configuracion/mensajeria", { signal: c.signal })
       .then((d) => { setTarifasMensajeria(d.tarifas || []); setTarifasVersion((v) => v + 1); })
       .catch(() => undefined);
     return () => c.abort();
@@ -254,10 +256,16 @@ export default function CheckoutPage() {
     )}`;
 
     window.open(url, "_blank", "noopener,noreferrer");
+    escribirCarrito([]);
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 md:px-8">
+    <>
+      <CatalogoNavbar
+        favoritosCount={favoritos.length}
+        carritoCount={items.reduce((total, item) => total + item.cantidad, 0)}
+      />
+      <div className="mx-auto max-w-6xl px-4 py-8 md:px-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/catalogo"
@@ -616,6 +624,7 @@ export default function CheckoutPage() {
           </section>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

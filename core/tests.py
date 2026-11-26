@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.db.models import Q
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -11,7 +12,8 @@ from rest_framework.test import APIClient
 from clientes.models import Cliente, EventoFidelidad, TarjetaFidelidad
 from clientes.services import ServicioFidelidad
 from core.api import obtener_dashboard_data
-from core.models import Parametro
+from core.busqueda import expresion_busqueda, normalizar_busqueda
+from core.models import Banner, Parametro
 from core.services import (
     dashboard_clientes,
     dashboard_fidelidad,
@@ -684,3 +686,81 @@ class DashboardClientesPeriodoTests(TestCase):
         self.assertEqual(kpis['clientes_unicos_total'], 2)
         self.assertEqual(kpis['clientes_nuevos'], 1)
         self.assertEqual(kpis['clientes_recurrentes'], 0)
+
+
+class BusquedaNormalizadaTests(TestCase):
+    def test_normalizar_busqueda_quita_tildes_y_minusculas(self):
+        self.assertEqual(normalizar_busqueda('ÁÑO ÉÍÓÚÜ'), 'ano eiouu')
+
+    def test_filtro_ignora_tildes_y_mayusculas(self):
+        Book.objects.create(
+            titulo='Álbum del ñandú',
+            autor='José Pérez',
+            paginas=10,
+        )
+        Book.objects.create(titulo='Otro libro', autor='Ana', paginas=10)
+
+        resultados = Book.objects.annotate(
+            busqueda_titulo=expresion_busqueda('titulo'),
+            busqueda_autor=expresion_busqueda('autor'),
+        ).filter(
+            Q(busqueda_titulo__contains=normalizar_busqueda('ALBUM nandu'))
+            | Q(busqueda_autor__contains=normalizar_busqueda('JOSE perez'))
+        )
+
+        self.assertEqual(
+            list(resultados.values_list('titulo', flat=True)),
+            ['Álbum del ñandú'],
+        )
+
+
+class ConfiguracionApiTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.usuario = get_user_model().objects.create_user(
+            username='admin-config',
+            password='clave-segura-123',
+        )
+
+    def test_parametros_requiere_autenticacion_y_guarda(self):
+        respuesta = self.client.put(
+            '/api/v1/configuracion/parametros/',
+            {'parametros': [{'clave': 'paginas_por_hoja', 'valor': '5'}]},
+            format='json',
+        )
+        self.assertEqual(respuesta.status_code, 401)
+
+        self.client.force_authenticate(self.usuario)
+        respuesta = self.client.put(
+            '/api/v1/configuracion/parametros/',
+            {'parametros': [{'clave': 'paginas_por_hoja', 'valor': '5'}]},
+            format='json',
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(Parametro.get('paginas_por_hoja'), Decimal('5'))
+
+    def test_banners_admin_lista_inactivos_y_edita(self):
+        banner = Banner.objects.create(titulo='Viejo', activo=False, orden=2)
+
+        respuesta = self.client.get('/api/v1/configuracion/banners/?todos=1')
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta.data['data']['banners'][0]['titulo'], 'Viejo')
+
+        respuesta = self.client.patch(
+            f'/api/v1/configuracion/banners/{banner.id}/',
+            {'titulo': 'Nuevo', 'activo': 'true', 'orden': '5'},
+            format='json',
+        )
+        self.assertEqual(respuesta.status_code, 401)
+
+        self.client.force_authenticate(self.usuario)
+        respuesta = self.client.patch(
+            f'/api/v1/configuracion/banners/{banner.id}/',
+            {'titulo': 'Nuevo', 'activo': 'true', 'orden': '5'},
+            format='json',
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        banner.refresh_from_db()
+        self.assertEqual(banner.titulo, 'Nuevo')
+        self.assertTrue(banner.activo)
+        self.assertEqual(banner.orden, 5)

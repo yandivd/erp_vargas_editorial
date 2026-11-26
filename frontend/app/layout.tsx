@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import AppShell from "@/components/AppShell";
+import CartPreviewSidebar from "@/components/catalogos/CartPreviewSidebar";
 import "./globals.css";
 
 const inter = Inter({
@@ -16,8 +17,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full bg-app text-ink">
+      <body className="min-h-full bg-app text-ink xl:pr-64">
         <AppShell>{children}</AppShell>
+        <CartPreviewSidebar />
       </body>
     </html>
   );

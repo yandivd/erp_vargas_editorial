@@ -17,6 +17,7 @@ from django import forms
 from weasyprint import HTML
 
 from config import settings
+from core.busqueda import expresion_busqueda, normalizar_busqueda
 from proveedores.models import Proveedor
 from .models import (
     CodigoDescuento, HistorialEstado, Pedido, ServicioExterno, 
@@ -179,10 +180,15 @@ def _obtener_pedidos_filtrados(request, solo_entregados=False):
     pago_status = request.GET.get('pago', '')
 
     if busqueda:
-        pedidos_list = pedidos_list.filter(
-            Q(libro__titulo__icontains=busqueda) |
-            Q(libro__autor__icontains=busqueda) |
-            Q(cliente__nombre__icontains=busqueda) |
+        termino = normalizar_busqueda(busqueda)
+        pedidos_list = pedidos_list.annotate(
+            busqueda_titulo=expresion_busqueda('libro__titulo'),
+            busqueda_autor=expresion_busqueda('libro__autor'),
+            busqueda_cliente=expresion_busqueda('cliente__nombre'),
+        ).filter(
+            Q(busqueda_titulo__contains=termino) |
+            Q(busqueda_autor__contains=termino) |
+            Q(busqueda_cliente__contains=termino) |
             Q(referencia_externa__icontains=busqueda)
         )
 
@@ -556,8 +562,13 @@ def lista_libros(request):
     libros_list = Book.objects.annotate(num_pedidos=Count('pedidos')).order_by('titulo')
     busqueda = request.GET.get('q', '').strip()
     if busqueda:
-        libros_list = libros_list.filter(
-            Q(titulo__icontains=busqueda) | Q(autor__icontains=busqueda)
+        termino = normalizar_busqueda(busqueda)
+        libros_list = libros_list.annotate(
+            busqueda_titulo=expresion_busqueda('titulo'),
+            busqueda_autor=expresion_busqueda('autor'),
+        ).filter(
+            Q(busqueda_titulo__contains=termino)
+            | Q(busqueda_autor__contains=termino)
         )
 
     return render(request, 'pedidos/libros_lista.html', {
@@ -571,8 +582,13 @@ def lista_libros_ajax(request):
     libros_list = Book.objects.annotate(num_pedidos=Count('pedidos')).order_by('titulo')
     busqueda = request.GET.get('q', '').strip()
     if busqueda:
-        libros_list = libros_list.filter(
-            Q(titulo__icontains=busqueda) | Q(autor__icontains=busqueda)
+        termino = normalizar_busqueda(busqueda)
+        libros_list = libros_list.annotate(
+            busqueda_titulo=expresion_busqueda('titulo'),
+            busqueda_autor=expresion_busqueda('autor'),
+        ).filter(
+            Q(busqueda_titulo__contains=termino)
+            | Q(busqueda_autor__contains=termino)
         )
 
     paginator = Paginator(libros_list, 10)

@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.shortcuts import redirect, render, get_object_or_404
 from django.db.models import Count
 from django.db.models import Q, Sum
+from core.busqueda import expresion_busqueda, normalizar_busqueda
 from .models import Cliente
 
 def lista_clientes(request):
@@ -24,7 +25,9 @@ def lista_clientes(request):
     deuda = request.GET.get('deuda', '')
 
     if nombre:
-        clientes_list = clientes_list.filter(nombre__icontains=nombre)
+        clientes_list = clientes_list.annotate(
+            busqueda_nombre=expresion_busqueda('nombre')
+        ).filter(busqueda_nombre__contains=normalizar_busqueda(nombre))
     if telefono:
         clientes_list = clientes_list.filter(telefono__icontains=telefono)
     if deuda:
