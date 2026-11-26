@@ -22,6 +22,21 @@ class Parametro(models.Model):
             return default
 
 
+class Banner(models.Model):
+    titulo = models.CharField(max_length=200, blank=True, verbose_name='Título')
+    imagen = models.ImageField(upload_to='banners/', verbose_name='Imagen')
+    activo = models.BooleanField(default=True, verbose_name='Activo')
+    orden = models.PositiveIntegerField(default=0, verbose_name='Orden')
+
+    class Meta:
+        verbose_name = 'Banner'
+        verbose_name_plural = 'Banners'
+        ordering = ['orden', 'id']
+
+    def __str__(self):
+        return self.titulo or f'Banner {self.id}'
+
+
 class TarifaMensajeria(models.Model):
     provincia = models.CharField(max_length=100)
     municipio = models.CharField(max_length=100)

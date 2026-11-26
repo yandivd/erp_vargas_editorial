@@ -34,7 +34,8 @@ from clientes.models import Cliente, Lead, TarjetaFidelidad
 from clientes.services import ServicioFidelidad, ServicioLeads
 from core.api import obtener_dashboard_data
 from core.api_utils import payload_paginacion
-from core.models import Parametro
+from core.busqueda import expresion_busqueda, normalizar_busqueda
+from core.models import Banner, Parametro
 from core.services import (
     CATEGORIA_VUELTO_CLIENTE,
     Q_NO_EGRESO_OPERATIVO,
@@ -412,8 +413,12 @@ def catalogo(request):
     libros = Book.objects.all()
     busqueda = request.query_params.get('q', '').strip()
     if busqueda:
-        libros = libros.filter(
-            Q(titulo__icontains=busqueda) | Q(autor__icontains=busqueda)
+        termino = normalizar_busqueda(busqueda)
+        libros = libros.annotate(
+            busqueda_titulo=expresion_busqueda('titulo'),
+            busqueda_autor=expresion_busqueda('autor'),
+        ).filter(
+            Q(busqueda_titulo__contains=termino) | Q(busqueda_autor__contains=termino)
         )
 
     ordering = request.query_params.get('ordering', '').strip()
@@ -552,6 +557,141 @@ def configuracion_decoracion(request):
         key = '1'
     tema = TEMA_DECORACION_MAP.get(key, 'navidad')
     return Response({'ok': True, 'data': {'tema': tema}})
+
+
+def _config_bool(valor, default=False):
+    if isinstance(valor, bool):
+        return valor
+    texto = str(valor or '').strip().lower()
+    if texto in ('1', 'true', 'si', 'sí', 'yes', 'on'):
+        return True
+    if texto in ('0', 'false', 'no', 'off'):
+        return False
+    return default
+
+
+def _banner_data(banner, request):
+    imagen = ''
+    if banner.imagen:
+        imagen = request.build_absolute_uri(banner.imagen.url)
+    return {
+        'id': banner.id,
+        'titulo': banner.titulo,
+        'imagen': imagen,
+        'activo': banner.activo,
+        'orden': banner.orden,
+    }
+
+
+@api_view(['GET', 'PUT'])
+@permission_classes([AllowAny])
+def configuracion_parametros(request):
+    if request.method == 'PUT':
+        if not request.user or not request.user.is_authenticated:
+            return Response({'ok': False, 'error': 'Autenticación requerida.'}, status=status.HTTP_401_UNAUTHORIZED)
+        if isinstance(request.data, list):
+            items = request.data
+        elif isinstance(request.data, dict):
+            items = request.data.get('parametros', [])
+        else:
+            items = []
+        if not isinstance(items, list):
+            return Response({'ok': False, 'error': 'Formato inválido.'}, status=status.HTTP_400_BAD_REQUEST)
+        guardados = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            clave = str(item.get('clave', '')).strip()[:100]
+            if not clave:
+                continue
+            try:
+                valor = Decimal(str(item.get('valor', 0)))
+            except (InvalidOperation, ValueError, TypeError):
+                return Response(
+                    {'ok': False, 'error': f'Valor inválido para {clave}.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            Parametro.objects.update_or_create(
+                clave=clave,
+                defaults={
+                    'valor': valor,
+                    'descripcion': str(item.get('descripcion', ''))[:300],
+                },
+            )
+            guardados.append(clave)
+        return Response({'ok': True, 'data': {'guardados': guardados}})
+
+    parametros = [
+        {
+            'clave': parametro.clave,
+            'valor': float(parametro.valor),
+            'descripcion': parametro.descripcion,
+            'fecha_actualizacion': parametro.fecha_actualizacion.isoformat(),
+        }
+        for parametro in Parametro.objects.all().order_by('clave')
+    ]
+    return Response({'ok': True, 'data': {'parametros': parametros}})
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def configuracion_banners(request):
+    if request.method == 'POST':
+        if not request.user or not request.user.is_authenticated:
+            return Response({'ok': False, 'error': 'Autenticación requerida.'}, status=status.HTTP_401_UNAUTHORIZED)
+        imagen = request.FILES.get('imagen')
+        if not imagen:
+            return Response({'ok': False, 'error': 'La imagen es obligatoria.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            orden = int(request.data.get('orden', 0) or 0)
+        except (ValueError, TypeError):
+            orden = 0
+        banner = Banner.objects.create(
+            titulo=str(request.data.get('titulo', ''))[:200],
+            activo=_config_bool(request.data.get('activo', True), True),
+            orden=max(0, orden),
+            imagen=imagen,
+        )
+        return Response(
+            {'ok': True, 'data': {'banner': _banner_data(banner, request)}},
+            status=status.HTTP_201_CREATED,
+        )
+
+    todos = _config_bool(request.query_params.get('todos', False))
+    banners = Banner.objects.all() if todos else Banner.objects.filter(activo=True)
+    data = []
+    for banner in banners:
+        if not todos and not banner.imagen:
+            continue
+        data.append(_banner_data(banner, request))
+    return Response({'ok': True, 'data': {'banners': data}})
+
+
+@api_view(['PUT', 'PATCH', 'DELETE'])
+@permission_classes([AllowAny])
+def configuracion_banner_detalle(request, pk):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'ok': False, 'error': 'Autenticación requerida.'}, status=status.HTTP_401_UNAUTHORIZED)
+    banner = get_object_or_404(Banner, pk=pk)
+
+    if request.method == 'DELETE':
+        banner.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    if 'titulo' in request.data:
+        banner.titulo = str(request.data.get('titulo', ''))[:200]
+    if 'activo' in request.data:
+        banner.activo = _config_bool(request.data.get('activo'), banner.activo)
+    if 'orden' in request.data:
+        try:
+            banner.orden = max(0, int(request.data.get('orden') or 0))
+        except (ValueError, TypeError):
+            pass
+    imagen = request.FILES.get('imagen')
+    if imagen:
+        banner.imagen = imagen
+    banner.save()
+    return Response({'ok': True, 'data': {'banner': _banner_data(banner, request)}})
 
 
 @api_view(['GET'])
@@ -1381,11 +1521,18 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
 
         search = self.request.query_params.get('search', '').strip()
         if search:
+            termino = normalizar_busqueda(search)
+            queryset = queryset.annotate(
+                busqueda_cliente=expresion_busqueda('cliente__nombre'),
+                busqueda_titulo=expresion_busqueda('libro__titulo'),
+                busqueda_autor=expresion_busqueda('libro__autor'),
+                busqueda_estado=expresion_busqueda('estado__nombre'),
+            )
             filtros = (
-                Q(cliente__nombre__icontains=search)
-                | Q(libro__titulo__icontains=search)
-                | Q(libro__autor__icontains=search)
-                | Q(estado__nombre__icontains=search)
+                Q(busqueda_cliente__contains=termino)
+                | Q(busqueda_titulo__contains=termino)
+                | Q(busqueda_autor__contains=termino)
+                | Q(busqueda_estado__contains=termino)
             )
             if search.isdigit():
                 filtros |= Q(id=int(search)) | Q(referencia_externa=int(search))
@@ -1959,7 +2106,9 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
         search = request.query_params.get('search', '').strip()
 
         if nombre:
-            queryset = queryset.filter(nombre__icontains=nombre)
+            queryset = queryset.annotate(
+                busqueda_nombre=expresion_busqueda('nombre')
+            ).filter(busqueda_nombre__contains=normalizar_busqueda(nombre))
         if telefono:
             queryset = queryset.filter(telefono__icontains=telefono)
         if deuda == 'con_deuda':
@@ -1967,7 +2116,9 @@ class ClienteViewSetV1(viewsets.ModelViewSet):
         elif deuda == 'al_dia':
             queryset = queryset.filter(saldo_pendiente_total_db=0)
         if search:
-            queryset = queryset.filter(nombre__icontains=search)
+            queryset = queryset.annotate(
+                busqueda_texto=expresion_busqueda('nombre')
+            ).filter(busqueda_texto__contains=normalizar_busqueda(search))
 
         return queryset.order_by(
             *self.ORDENES.get(orden, self.ORDENES['nombre_asc'])
@@ -2094,8 +2245,13 @@ class LibroViewSetV1(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         search = request.query_params.get('search', '').strip()
         if search:
-            queryset = queryset.filter(
-                Q(titulo__icontains=search) | Q(autor__icontains=search)
+            termino = normalizar_busqueda(search)
+            queryset = queryset.annotate(
+                busqueda_titulo=expresion_busqueda('titulo'),
+                busqueda_autor=expresion_busqueda('autor'),
+            ).filter(
+                Q(busqueda_titulo__contains=termino)
+                | Q(busqueda_autor__contains=termino)
             )
         serializer = self.get_serializer(queryset, many=True)
         return Response({'ok': True, 'data': serializer.data})

@@ -1,6 +1,14 @@
 "use client";
 import { useMemo, useState } from "react";
 
+function normalizarBusqueda(valor: string): string {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ñ/g, "n")
+    .toLowerCase();
+}
+
 export function useTable<T>(rows: T[], opts: {
   searchKeys: (row: T) => string[];
   filters?: Record<string, (row: T, value: string) => boolean>;
@@ -12,9 +20,9 @@ export function useTable<T>(rows: T[], opts: {
   const pageSize = opts.pageSize ?? 20;
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = normalizarBusqueda(search.trim());
     return rows.filter((row) => {
-      if (q && !opts.searchKeys(row).some((v) => String(v ?? "").toLowerCase().includes(q))) return false;
+      if (q && !opts.searchKeys(row).some((v) => normalizarBusqueda(String(v ?? "")).includes(q))) return false;
       for (const [k, v] of Object.entries(filters)) {
         if (!v) continue;
         const fn = opts.filters?.[k];

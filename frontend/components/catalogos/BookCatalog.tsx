@@ -18,6 +18,7 @@ type BookCatalogProps = {
   onBookClick?: (book: LibroPublico) => void;
   favoritos: Set<number>;
   onToggleFavorito: (book: LibroPublico) => void;
+  mostrarBuscador?: boolean;
 };
 
 function SkeletonGrid() {
@@ -50,6 +51,7 @@ export default function BookCatalog({
   onBookClick,
   favoritos,
   onToggleFavorito,
+  mostrarBuscador = true,
 }: BookCatalogProps) {
   const hasBooks = books.length > 0;
   const normalizedQuery = query.trim();
@@ -65,20 +67,22 @@ export default function BookCatalog({
             Explora el catálogo y descubre nuevas lecturas.
           </p>
         </div>
-        <div className="relative w-full sm:max-w-md">
-          <Search
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="Buscar por título o autor"
-            className="w-full rounded-lg border border-white/10 bg-slate-950/60 py-2 pl-10 pr-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-amber-300/70 focus:ring-2 focus:ring-amber-300/20"
-            aria-label="Buscar por título o autor"
-          />
-        </div>
+        {mostrarBuscador ? (
+          <div className="relative w-full sm:max-w-md">
+            <Search
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder="Buscar por título o autor"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 py-2 pl-10 pr-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-amber-300/70 focus:ring-2 focus:ring-amber-300/20"
+              aria-label="Buscar por título o autor"
+            />
+          </div>
+        ) : null}
       </div>
 
       {error && !hasBooks ? (

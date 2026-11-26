@@ -16,6 +16,7 @@ import {
   Menu,
   Package,
   Settings,
+  SlidersHorizontal,
   Store,
   Truck,
   UserRound,
@@ -86,7 +87,10 @@ const sections: NavSection[] = [
   },
   {
     label: "Sistema",
-    items: [{ href: adminHref, label: "Admin", icon: Settings }],
+    items: [
+      { href: "/configuracion", label: "Configuración", icon: SlidersHorizontal },
+      { href: adminHref, label: "Admin", icon: Settings },
+    ],
   },
 ];
 

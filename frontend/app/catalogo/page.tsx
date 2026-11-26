@@ -1,18 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { motion, useReducedMotion } from "framer-motion";
-import { Gift, Heart, Library, Loader2, Minus, Plus, Trash2 } from "lucide-react";
+import { Heart, Loader2 } from "lucide-react";
+import AutoCarousel from "@/components/catalogos/AutoCarousel";
 import BookCatalog from "@/components/catalogos/BookCatalog";
-import SantaIcon from "@/components/catalogos/SantaIcon";
+import CartDrawer from "@/components/catalogos/CartDrawer";
+import CatalogoBanners from "@/components/catalogos/CatalogoBanners";
+import CatalogoNavbar from "@/components/catalogos/CatalogoNavbar";
 import ShopBookCard from "@/components/catalogos/ShopBookCard";
-import { CatalogoDecoracion, CatalogoSeasonBanner } from "@/components/catalogos/CatalogoDecoracion";
+import { CatalogoDecoracion } from "@/components/catalogos/CatalogoDecoracion";
+import { fetchBanners, type BannerPublico } from "@/lib/banners";
 import { fetchCatalogoLibro, fetchCatalogoPage, fetchRecomendaciones, type LibroPublico } from "@/lib/catalogos";
 import { fetchDecoracionTema, normalizarTemaDecoracion, type TemaDecoracion } from "@/lib/decoracion";
-import { money } from "@/lib/format";
 import { escribirCarrito, escribirFavoritos, precioItem, useCarrito, useFavoritos, type CarritoItem } from "@/lib/tienda";
 
 const PER_PAGE = 20;
@@ -35,16 +36,23 @@ function getRandomSeed(): string {
 }
 
 export default function CatalogoPage() {
-  const reduceMotion = useReducedMotion();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const [tab, setTab] = useState<TabId>(tabParam === "favoritos" ? "favoritos" : "catalogo");
   const [carritoAbierto, setCarritoAbierto] = useState(tabParam === "carrito" || searchParams.get("carrito") === "1");
   const [tema, setTema] = useState<TemaDecoracion>("navidad");
+  const [banners, setBanners] = useState<BannerPublico[]>([]);
+  const [query, setQuery] = useState(searchParams.get("q") ?? "");
 
   useEffect(() => {
     const c = new AbortController();
     fetchDecoracionTema(c.signal).then((t) => setTema(normalizarTemaDecoracion(t)));
+    return () => c.abort();
+  }, []);
+
+  useEffect(() => {
+    const c = new AbortController();
+    fetchBanners(c.signal).then(setBanners);
     return () => c.abort();
   }, []);
 
@@ -57,6 +65,12 @@ export default function CatalogoPage() {
       if (nextTab) setTab((prev) => (prev === nextTab ? prev : nextTab));
       if (openCart) setCarritoAbierto(true);
     });
+  }, [searchParams]);
+
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q === null) return;
+    queueMicrotask(() => setQuery(q));
   }, [searchParams]);
 
   const favoritos = useFavoritos();
@@ -74,7 +88,6 @@ export default function CatalogoPage() {
 
   // Todos los libros (aleatorio + búsqueda + infinite scroll)
   const [books, setBooks] = useState<LibroPublico[]>([]);
-  const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(true);
@@ -265,7 +278,7 @@ export default function CatalogoPage() {
       setAppliedQuery(value.trim());
       setReloadKey((k) => k + 1);
     }, SEARCH_DEBOUNCE_MS);
-  }, []);
+  }, [setQuery]);
 
   const retry = useCallback(() => {
     requestIdRef.current += 1;
@@ -348,11 +361,6 @@ export default function CatalogoPage() {
     escribirCarrito([]);
   }
 
-  const tabs: { id: TabId; label: string; icon: typeof Library; badge: number }[] = [
-    { id: "catalogo", label: "Catálogo", icon: Library, badge: 0 },
-    { id: "favoritos", label: "Favoritos", icon: Heart, badge: favoritos.length },
-  ];
-
   const bgImage = tema === "halloween"
     ? "radial-gradient(circle at top, rgba(251,146,60,0.14), transparent 35%), linear-gradient(to bottom, #0b0614 0%, #1a1025 55%, #09040f 100%)"
     : tema === "ninguno"
@@ -362,44 +370,25 @@ export default function CatalogoPage() {
 
   return (
     <div
-      className="relative min-h-screen overflow-x-hidden bg-slate-950"
+      className="relative min-h-screen overflow-x-clip bg-slate-950"
       style={{ backgroundImage: bgImage, backgroundRepeat: tema === "navidad" ? "repeat, no-repeat" : "no-repeat", backgroundSize: "cover" }}
     >
       <CatalogoDecoracion tema={tema} />
-      <div className="relative z-10 mx-auto max-w-7xl px-4 pb-20 pt-28 md:px-8 md:pt-32">
-        <header className="mb-8 flex flex-col items-center text-center">
-          <div className="rounded-2xl border border-amber-300/40 bg-white/95 p-3 shadow-[0_0_50px_rgba(251,191,36,0.18)]">
-            <Image src="/img/logo.jpg" alt="Vargas Editorial" width={260} height={120} priority className="h-auto max-h-16 w-auto object-contain" />
-          </div>
-          <CatalogoSeasonBanner tema={tema} />
-          <h1 className={`mt-5 bg-gradient-to-r ${titleClass} bg-clip-text text-4xl font-black tracking-tight text-transparent drop-shadow-[0_2px_10px_rgba(251,191,36,0.25)] md:text-5xl`}>Vargas Editorial</h1>
+      <CatalogoNavbar
+        query={query}
+        onQueryChange={handleQueryChange}
+        seccion={tab}
+        onSeccionChange={setTab}
+        onCarritoClick={() => setCarritoAbierto(true)}
+        favoritosCount={favoritos.length}
+        carritoCount={carritoCount}
+      />
+      <CatalogoBanners banners={banners} />
+      <div className="relative z-10 mx-auto max-w-7xl px-4 pb-20 pt-8 md:px-8">
+        <header className="mb-8 text-center">
+          <h1 className={`bg-gradient-to-r ${titleClass} bg-clip-text text-4xl font-black tracking-tight text-transparent drop-shadow-[0_2px_10px_rgba(251,191,36,0.25)] md:text-5xl`}>Vargas Editorial</h1>
           <p className="mt-2 text-sm text-slate-300 md:text-base">Catálogo público de encuadernación y edición.</p>
         </header>
-
-        <nav id="catalogo-secciones" className="mb-6 flex flex-wrap items-center justify-center gap-2" aria-label="Secciones de la tienda">
-          {tabs.map((item) => {
-            const Icon = item.icon;
-            const activo = tab === item.id;
-            return (
-              <button key={item.id} type="button" onClick={() => setTab(item.id)} aria-pressed={activo}
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${activo ? "border-amber-300 bg-red-600 text-white shadow-lg shadow-red-900/40" : "border-white/15 bg-white/10 text-slate-100 backdrop-blur hover:bg-white/20"}`}>
-                <Icon className="h-4 w-4" aria-hidden="true" />
-                {item.label}
-                {item.badge > 0 ? <span className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${activo ? "bg-amber-300 text-red-950" : "bg-white/15 text-slate-100"}`}>{item.badge}</span> : null}
-              </button>
-            );
-          })}
-          <motion.button type="button" onClick={() => setCarritoAbierto(true)} aria-pressed={carritoAbierto}
-            whileHover={reduceMotion ? undefined : { scale: 1.05, rotate: 2 }} whileTap={reduceMotion ? undefined : { scale: 0.92, rotate: -8 }}
-            transition={{ type: "spring", stiffness: 400, damping: 15 }}
-            className={`relative inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${carritoAbierto ? "border-amber-300 bg-red-600 text-white shadow-lg shadow-red-900/40" : "border-white/15 bg-white/10 text-slate-100 backdrop-blur hover:bg-white/20"}`}>
-            <span className="relative inline-flex">
-              <SantaIcon className="h-5 w-5" />
-              {carritoCount > 0 ? <motion.span key={carritoCount} initial={{ scale: 0.6 }} animate={{ scale: 1 }} className="absolute -right-2 -top-2 inline-flex min-w-5 items-center justify-center rounded-full bg-amber-300 px-1.5 text-[10px] font-extrabold text-red-950 shadow">{carritoCount}</motion.span> : null}
-            </span>
-            Carrito
-          </motion.button>
-        </nav>
 
         {tab === "catalogo" ? (
           <div className="space-y-8">
@@ -414,7 +403,7 @@ export default function CatalogoPage() {
               {loadingRecs ? (
                 <div className="flex items-center gap-2 py-8 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" />Cargando recomendaciones...</div>
               ) : recomendados.length > 0 ? (
-                <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pb-2 snap-x snap-mandatory [scrollbar-width:thin]">
+                <AutoCarousel itemCount={recomendados.length} ariaLabel="Recomendaciones">
                   <div className="flex gap-3 sm:gap-4" style={{ minWidth: "max-content" }}>
                     {recomendados.map((libro) => (
                       <div key={libro.id} className="w-[220px] shrink-0 snap-start sm:w-[260px] lg:w-[280px]">
@@ -422,7 +411,7 @@ export default function CatalogoPage() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </AutoCarousel>
               ) : (
                 <p className="text-sm text-slate-400">Marca favoritos para recibir recomendaciones personalizadas.</p>
               )}
@@ -448,7 +437,7 @@ export default function CatalogoPage() {
               {loadingVendidos ? (
                 <div className="flex items-center gap-2 py-8 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" />Cargando más vendidos...</div>
               ) : masVendidos.length > 0 ? (
-                <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 pb-2 snap-x snap-mandatory [scrollbar-width:thin]">
+                <AutoCarousel itemCount={masVendidos.length} ariaLabel="Más vendidos">
                   <div className="flex gap-3 sm:gap-4" style={{ minWidth: "max-content" }}>
                     {masVendidos.map((libro) => (
                       <div key={libro.id} className="w-[220px] shrink-0 snap-start sm:w-[260px] lg:w-[280px]">
@@ -456,7 +445,7 @@ export default function CatalogoPage() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </AutoCarousel>
               ) : (
                 <p className="text-sm text-slate-400">Aún no hay datos de ventas.</p>
               )}
@@ -475,6 +464,7 @@ export default function CatalogoPage() {
               sentinelRef={sentinelRef}
               favoritos={favoritosSet}
               onToggleFavorito={handleToggleFavorito}
+              mostrarBuscador={false}
             />
           </div>
         ) : null}
@@ -504,80 +494,19 @@ export default function CatalogoPage() {
             )}
           </section>
         ) : null}
-
-        {carritoAbierto ? (
-          <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Carrito" onMouseDown={(e) => { if (e.target === e.currentTarget) setCarritoAbierto(false); }}>
-            <div className="h-full w-full max-w-xl overflow-y-auto border-l border-white/10 bg-slate-900/95 p-4 shadow-2xl md:p-6">
-              <div className="mb-6 flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-extrabold text-amber-100">Tu carrito</h2>
-                  <p className="mt-1 text-sm text-slate-400">Revisa los libros y acabados antes de confirmar tu pedido.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {carrito.length > 0 ? (
-                    <button type="button" onClick={vaciarCarrito} className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-950/30 px-3 py-2 text-sm font-semibold text-red-200 transition hover:bg-red-950/50">
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />Vaciar
-                    </button>
-                  ) : null}
-                  <button type="button" onClick={() => setCarritoAbierto(false)} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-slate-200 hover:bg-white/10">Cerrar</button>
-                </div>
-              </div>
-              {carrito.length === 0 ? (
-                <div className="px-4 py-12 text-center text-sm text-slate-400">
-                  <SantaIcon className="mx-auto mb-3 h-10 w-10" />
-                  <p className="font-semibold text-slate-200">Tu carrito está vacío.</p>
-                  <p className="mt-1">Explora el catálogo y agrega los libros que quieras comprar.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {carrito.map((item) => {
-                    const libro = carritoLibros[item.libroId];
-                    const precioUnitario = libro ? precioItem(libro, item) : 0;
-                    return (
-                      <div key={`${item.libroId}-${item.esquineros}-${item.cantosPintados}`} className="flex flex-col gap-4 rounded-xl border border-white/10 bg-slate-950/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-base font-bold text-slate-100">{libro ? libro.titulo : `Libro #${item.libroId}`}</p>
-                            {libro && !libro.disponible ? <span className="shrink-0 rounded-full border border-amber-400/30 bg-amber-950/40 px-2 py-0.5 text-[11px] font-semibold text-amber-200">Agotado</span> : null}
-                          </div>
-                          <p className="truncate text-sm text-slate-400">{libro ? libro.autor || "Autor desconocido" : "No disponible"}</p>
-                          <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                            {item.esquineros || item.cantosPintados ? <span className="rounded-full bg-white/10 px-2 py-1 font-semibold text-slate-300">Esquineros</span> : null}
-                            {item.cantosPintados ? <span className="rounded-full bg-white/10 px-2 py-1 font-semibold text-slate-300">Cantos pintados</span> : null}
-                          </div>
-                          <p className="mt-2 text-sm text-slate-400">{money(precioUnitario, "CUP")} por unidad</p>
-                        </div>
-                        <div className="flex items-center justify-between gap-4 sm:justify-end">
-                          <div className="flex items-center gap-2">
-                            <button type="button" onClick={() => actualizarCantidad(item, -1)} className="rounded-md border border-white/10 bg-slate-800 p-1.5 text-slate-100 transition hover:bg-slate-700" aria-label="Disminuir cantidad"><Minus className="h-4 w-4" aria-hidden="true" /></button>
-                            <span className="w-8 text-center text-sm font-bold text-slate-100">{item.cantidad}</span>
-                            <button type="button" onClick={() => actualizarCantidad(item, 1)} className="rounded-md border border-white/10 bg-slate-800 p-1.5 text-slate-100 transition hover:bg-slate-700" aria-label="Aumentar cantidad"><Plus className="h-4 w-4" aria-hidden="true" /></button>
-                          </div>
-                          <span className="min-w-24 text-right text-base font-extrabold text-amber-300">{money(precioUnitario * item.cantidad, "CUP")}</span>
-                          <button type="button" onClick={() => quitarDelCarrito(item)} className="rounded-md p-2 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400" aria-label="Quitar del carrito"><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div className="flex flex-col gap-4 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-slate-400">Total del carrito</p>
-                      <p className="text-2xl font-extrabold text-amber-300">{money(totalCarrito, "CUP")}</p>
-                      {cargandoCarrito ? <p className="mt-1 flex items-center gap-1 text-xs text-slate-400"><Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />Actualizando precios...</p> : null}
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <Link href="/catalogo/checkout" className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-300/50 bg-gradient-to-r from-red-600 to-red-700 px-5 py-2.5 text-sm font-bold text-amber-50 shadow-lg shadow-red-900/40 transition hover:from-red-500 hover:to-red-600">
-                        <Gift className="h-4 w-4" aria-hidden="true" />Ir a confirmar pedido
-                      </Link>
-                      <p className="max-w-xs text-right text-[11px] text-slate-400">El ANTICIPO puede ser depositado en efectivo o transferencia, pero el saldo restante debe ser pagado en efectivo junto con la mensajeria en caso de requerirla</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : null}
       </div>
+      <CartDrawer
+        abierto={carritoAbierto}
+        onClose={() => setCarritoAbierto(false)}
+        items={carrito}
+        libros={carritoLibros}
+        precioItem={precioItem}
+        total={totalCarrito}
+        cargando={cargandoCarrito}
+        onCantidad={actualizarCantidad}
+        onQuitar={quitarDelCarrito}
+        onVaciar={vaciarCarrito}
+      />
     </div>
   );
 }
