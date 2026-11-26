@@ -10,7 +10,7 @@ class ParametroAdmin(admin.ModelAdmin):
 
 @admin.register(Banner)
 class BannerAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'activo', 'orden', 'imagen')
+    list_display = ('titulo', 'activo', 'orden', 'imagen_url')
     list_editable = ('activo', 'orden')
     list_filter = ('activo',)
     search_fields = ('titulo',)

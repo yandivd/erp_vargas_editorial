@@ -17,8 +17,16 @@ export type BannerAdmin = {
   id: number;
   titulo: string;
   imagen: string;
+  imagen_url: string;
   activo: boolean;
   orden: number;
+};
+
+export type BannerInput = {
+  titulo: string;
+  imagen_url: string;
+  activo: boolean;
+  orden: string;
 };
 
 export type TemaCatalogo = "navidad" | "halloween" | "ninguno";
@@ -44,18 +52,20 @@ export async function fetchBannersAdmin(): Promise<BannerAdmin[]> {
   return data.banners ?? [];
 }
 
-export async function crearBanner(form: FormData): Promise<BannerAdmin> {
+export async function crearBanner(banner: BannerInput): Promise<BannerAdmin> {
   const data = await apiFetch<{ banner: BannerAdmin }>("configuracion/banners/", {
     method: "POST",
-    body: form,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(banner),
   });
   return data.banner;
 }
 
-export async function guardarBanner(id: number, form: FormData): Promise<BannerAdmin> {
+export async function guardarBanner(id: number, banner: BannerInput): Promise<BannerAdmin> {
   const data = await apiFetch<{ banner: BannerAdmin }>(`configuracion/banners/${id}/`, {
     method: "PATCH",
-    body: form,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(banner),
   });
   return data.banner;
 }
