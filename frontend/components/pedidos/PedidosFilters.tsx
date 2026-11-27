@@ -15,6 +15,7 @@ type PedidosFiltersProps = {
   initialEstado: string;
   enTaller: boolean;
   initialOrden: string;
+  estancados: boolean;
 };
 
 export default function PedidosFilters({
@@ -23,6 +24,7 @@ export default function PedidosFilters({
   initialEstado,
   enTaller,
   initialOrden,
+  estancados,
 }: PedidosFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -50,6 +52,9 @@ export default function PedidosFilters({
       params.set("estado", nextEstado);
     }
     params.set("en_taller", enTaller ? "true" : "false");
+    if (estancados) {
+      params.set("estancados", "true");
+    }
     if (nextOrden) {
       params.set("orden", nextOrden);
     }

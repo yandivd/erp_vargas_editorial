@@ -8,6 +8,7 @@ type PedidosPaginationProps = {
   estado: string;
   enTaller: boolean;
   orden: string;
+  estancados: boolean;
 };
 
 function hrefForPage(
@@ -16,6 +17,7 @@ function hrefForPage(
   estado: string,
   enTaller: boolean,
   orden: string,
+  estancados: boolean,
 ): string {
   const params = new URLSearchParams();
 
@@ -28,6 +30,9 @@ function hrefForPage(
   params.set("en_taller", enTaller ? "true" : "false");
   if (orden) {
     params.set("orden", orden);
+  }
+  if (estancados) {
+    params.set("estancados", "true");
   }
   if (page > 1) {
     params.set("page", String(page));
@@ -50,6 +55,7 @@ export default function PedidosPagination({
   estado,
   enTaller,
   orden,
+  estancados,
 }: PedidosPaginationProps) {
   if (pagination.num_pages <= 1) {
     return (
@@ -80,7 +86,14 @@ export default function PedidosPagination({
       >
         {pagination.has_previous ? (
           <Link
-            href={hrefForPage(pagination.page - 1, search, estado, enTaller, orden)}
+            href={hrefForPage(
+              pagination.page - 1,
+              search,
+              estado,
+              enTaller,
+              orden,
+              estancados,
+            )}
             className={linkClass}
             aria-label="Página anterior"
           >
@@ -105,7 +118,7 @@ export default function PedidosPagination({
                 </span>
               ) : (
                 <Link
-                  href={hrefForPage(page, search, estado, enTaller, orden)}
+                  href={hrefForPage(page, search, estado, enTaller, orden, estancados)}
                   className={linkClass}
                 >
                   {page}
@@ -117,7 +130,14 @@ export default function PedidosPagination({
 
         {pagination.has_next ? (
           <Link
-            href={hrefForPage(pagination.page + 1, search, estado, enTaller, orden)}
+            href={hrefForPage(
+              pagination.page + 1,
+              search,
+              estado,
+              enTaller,
+              orden,
+              estancados,
+            )}
             className={linkClass}
             aria-label="Página siguiente"
           >
