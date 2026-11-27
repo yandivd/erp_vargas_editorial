@@ -7,7 +7,16 @@ from django.utils import timezone
 from django.db import transaction
 from core.models import Parametro
 from core.ubicaciones import MUNICIPIOS_POR_PROVINCIA
-from .models import Book, Entrega, HistorialEstado, LoteServicio, Pedido, ServicioExterno, Estado
+from .models import (
+    Book,
+    Entrega,
+    HistorialEstado,
+    HistorialMedidaLomo,
+    LoteServicio,
+    Pedido,
+    ServicioExterno,
+    Estado,
+)
 from proveedores.models import Proveedor
 from datetime import date, timedelta
 from django.utils import timezone
@@ -15,6 +24,10 @@ from django.utils import timezone
 
 FECHA_CORTE_GANANCIA_PROMEDIO = date(2026, 8, 2)
 TASA_USD_RECOMENDADA = Decimal('930')
+MEDIDA_LOMO_INCREMENTO = Decimal('0.4')
+REGLA_LINEA_LOMO = re.compile(
+    r'^\s*(\d+)\s*-\s*(\d+(?:[.,]\d+)?)\s*(\*)?\s*$'
+)
 
 logger = logging.getLogger(__name__)
 
@@ -784,3 +797,106 @@ class ServicioCatalogo:
         contexto = ServicioCatalogo.obtener_contexto()
         html = render_to_string('pedidos/catalogo_pdf.html', contexto)
         return HTML(string=html).write_pdf()
+
+
+def _formatear_medida_lomo(valor):
+    texto = format(valor.normalize(), 'f')
+    if '.' in texto:
+        texto = texto.rstrip('0').rstrip('.')
+    return texto or '0'
+
+
+def procesar_medidas_lomo(texto, usuario=''):
+    lineas = []
+    originales = []
+    for original in str(texto or '').splitlines():
+        linea = original.strip()
+        if not linea:
+            continue
+        originales.append(linea)
+        coincidencia = REGLA_LINEA_LOMO.match(linea)
+        if not coincidencia:
+            continue
+
+        referencia = int(coincidencia.group(1))
+        medida = Decimal(coincidencia.group(2).replace(',', '.'))
+        nueva_medida = medida + MEDIDA_LOMO_INCREMENTO
+        lineas.append({
+            'original': linea,
+            'referencia': referencia,
+            'medida_original': _formatear_medida_lomo(medida),
+            'nueva_medida': _formatear_medida_lomo(nueva_medida),
+            'asterisco': coincidencia.group(3) or '',
+        })
+
+    pedidos = {}
+    referencias = [linea['referencia'] for linea in lineas]
+    if referencias:
+        pedidos = {
+            pedido.referencia_externa: pedido
+            for pedido in Pedido.objects.filter(referencia_externa__in=referencias)
+            .select_related('libro')
+        }
+
+    resultados = []
+    with transaction.atomic():
+        for linea in lineas:
+            pedido = pedidos.get(linea['referencia'])
+            titulo = pedido.libro.titulo if pedido and pedido.libro_id else 'No encontrado'
+            linea['titulo'] = titulo
+            linea['encontrado'] = bool(titulo)
+            linea['resultado'] = (
+                f"{linea['referencia']}-{titulo} "
+                f"({linea['nueva_medida']} cm){linea['asterisco']}"
+            )
+            resultados.append(linea['resultado'])
+
+            registro, creado = HistorialMedidaLomo.objects.get_or_create(
+                referencia_externa=linea['referencia'],
+                medida_original=Decimal(linea['medida_original']),
+                nueva_medida=Decimal(linea['nueva_medida']),
+                asterisco=bool(linea['asterisco']),
+                defaults={
+                    'pedido': pedido,
+                    'titulo': titulo,
+                    'usuario': usuario or '',
+                },
+            )
+            if not creado:
+                registro.veces += 1
+                registro.titulo = titulo
+                if usuario:
+                    registro.usuario = usuario
+                registro.save(
+                    update_fields=['veces', 'titulo', 'usuario', 'ultima_fecha']
+                )
+
+    return {
+        'lineas': lineas,
+        'resultado': '\n'.join(resultados),
+        'procesadas': len(lineas),
+        'omitidas': len(originales) - len(lineas),
+    }
+
+
+def obtener_historial_medidas_lomo():
+    registros = HistorialMedidaLomo.objects.select_related('pedido').order_by(
+        'referencia_externa', '-ultima_fecha'
+    )
+    return [
+        {
+            'id': registro.id,
+            'referencia_externa': registro.referencia_externa,
+            'titulo': registro.titulo or 'No encontrado',
+            'medida_original': _formatear_medida_lomo(registro.medida_original),
+            'nueva_medida': _formatear_medida_lomo(registro.nueva_medida),
+            'asterisco': bool(registro.asterisco),
+            'veces': registro.veces,
+            'fecha': timezone.localtime(registro.fecha).strftime('%d/%m/%Y %H:%M'),
+            'ultima_fecha': timezone.localtime(
+                registro.ultima_fecha
+            ).strftime('%d/%m/%Y %H:%M'),
+            'usuario': registro.usuario,
+        }
+        for registro in registros
+    ]

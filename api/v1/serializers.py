@@ -136,6 +136,10 @@ class CambiarEstadoMasivoSerializer(serializers.Serializer):
         return list(dict.fromkeys(value))
 
 
+class ProcesarLomosSerializer(serializers.Serializer):
+    texto = serializers.CharField(allow_blank=True)
+
+
 class RegistrarAnticipoSerializer(serializers.Serializer):
     monto = serializers.DecimalField(
         max_digits=10,

@@ -64,7 +64,9 @@ from pedidos.services import (
     ServicioPedido,
     costo_mensajeria_para_cliente,
     costo_mensajeria_para_municipio,
+    obtener_historial_medidas_lomo,
     precio_usd_recomendado,
+    procesar_medidas_lomo,
     provincia_para_municipio,
     redondear_cup_50,
     ubicacion_para_cliente,
@@ -98,6 +100,7 @@ from .serializers import (
     PedidoCreateSerializer,
     PedidoDetailV1Serializer,
     PedidoListV1Serializer,
+    ProcesarLomosSerializer,
     ProveedorV1Serializer,
     RegistrarAnticipoSerializer,
     RegistrarArqueoSerializer,
@@ -1997,6 +2000,27 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
                     'nombre': nuevo_estado.nombre,
                 },
                 'errores': errores,
+            },
+        })
+
+    @action(detail=False, methods=['post'], url_path='procesar-lomos')
+    def procesar_lomos(self, request):
+        serializer = ProcesarLomosSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response({
+            'ok': True,
+            'data': procesar_medidas_lomo(
+                serializer.validated_data['texto'],
+                usuario=getattr(request.user, 'username', ''),
+            ),
+        })
+
+    @action(detail=False, methods=['get'], url_path='historial-lomos')
+    def historial_lomos(self, request):
+        return Response({
+            'ok': True,
+            'data': {
+                'registros': obtener_historial_medidas_lomo(),
             },
         })
 
