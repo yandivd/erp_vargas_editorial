@@ -345,6 +345,39 @@ class HistorialEstado(models.Model):
         return f"{self.pedido} - {self.estado_nuevo.nombre}"
 
 
+class HistorialMedidaLomo(models.Model):
+    pedido = models.ForeignKey(
+        Pedido, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='medidas_lomo'
+    )
+    referencia_externa = models.PositiveIntegerField(
+        db_index=True, verbose_name='Referencia original'
+    )
+    titulo = models.CharField(max_length=200, blank=True, verbose_name='Título')
+    medida_original = models.DecimalField(
+        max_digits=6, decimal_places=2, verbose_name='Medida original (cm)'
+    )
+    nueva_medida = models.DecimalField(
+        max_digits=6, decimal_places=2, verbose_name='Medida final (cm)'
+    )
+    asterisco = models.BooleanField(default=False, verbose_name='Asterisco')
+    veces = models.PositiveIntegerField(default=1, verbose_name='Veces registrada')
+    fecha = models.DateTimeField(auto_now_add=True, verbose_name='Primera vez')
+    ultima_fecha = models.DateTimeField(auto_now=True, verbose_name='Última vez')
+    usuario = models.CharField(max_length=100, blank=True, verbose_name='Usuario')
+
+    class Meta:
+        verbose_name = 'Historial de medida de lomo'
+        verbose_name_plural = 'Historial de medidas de lomo'
+        ordering = ['referencia_externa', '-ultima_fecha']
+        unique_together = (
+            ('referencia_externa', 'medida_original', 'nueva_medida', 'asterisco'),
+        )
+
+    def __str__(self):
+        return f"{self.referencia_externa} - {self.nueva_medida} cm"
+
+
 # ============================================================
 # SERVICIOS EXTERNOS
 # ============================================================

@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   Package,
+  Ruler,
   Settings,
   SlidersHorizontal,
   Store,
@@ -70,6 +71,7 @@ const sections: NavSection[] = [
     label: "Operaciones",
     items: [
       { href: "/libros", label: "Libros", icon: BookOpen },
+      { href: "/pedidos/lomos", label: "Medidas de lomo", icon: Ruler },
       { href: "/inventario", label: "Inventario", icon: Package },
       { href: "/proveedores", label: "Proveedores", icon: Truck },
       { href: "/mensajerias", label: "Mensajerías", icon: Truck },
@@ -99,6 +101,10 @@ function isActive(pathname: string, href: string): boolean {
 
   if (hrefPath === "/") {
     return pathname === "/";
+  }
+
+  if (href.includes("?")) {
+    return pathname === hrefPath;
   }
 
   return pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
