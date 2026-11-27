@@ -789,3 +789,57 @@ class ConfiguracionApiTests(TestCase):
         )
         self.assertEqual(respuesta.status_code, 201)
         self.assertTrue(Banner.objects.filter(titulo='Con URL').exists())
+
+
+class CatalogoOcultoTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.visible = Book.objects.create(
+            titulo='Libro visible',
+            autor='Autor Visible',
+            paginas=120,
+            precio=Decimal('1000'),
+            imagen_base='https://ejemplo.test/visible.jpg',
+        )
+        self.oculto = Book.objects.create(
+            titulo='Libro oculto',
+            autor='Autor Oculto',
+            paginas=120,
+            precio=Decimal('1000'),
+            imagen_base='https://ejemplo.test/oculto.jpg',
+            oculto_catalogo=True,
+        )
+
+    def test_catalogo_publico_excluye_libros_ocultos(self):
+        respuesta = self.client.get('/api/v1/catalogo/')
+        self.assertEqual(respuesta.status_code, 200)
+        titulos = [libro['titulo'] for libro in respuesta.data['data']]
+        self.assertIn(self.visible.titulo, titulos)
+        self.assertNotIn(self.oculto.titulo, titulos)
+
+    def test_detalle_publico_de_libro_oculto_da_404(self):
+        respuesta = self.client.get(f'/api/v1/catalogo/libros/{self.oculto.id}/')
+        self.assertEqual(respuesta.status_code, 404)
+
+    def test_recomendaciones_excluyen_libros_ocultos(self):
+        respuesta = self.client.get(
+            f'/api/v1/catalogo/libros/{self.visible.id}/recomendaciones/'
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        titulos = [libro['titulo'] for libro in respuesta.data['data']]
+        self.assertNotIn(self.oculto.titulo, titulos)
+
+    def test_api_interna_puede_ocultar_libro(self):
+        usuario = get_user_model().objects.create_user(
+            username='admin-libros',
+            password='clave-segura-123',
+        )
+        self.client.force_authenticate(usuario)
+        respuesta = self.client.patch(
+            f'/api/v1/libros/{self.visible.id}/',
+            {'oculto_catalogo': 'true'},
+            format='json',
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        self.visible.refresh_from_db()
+        self.assertTrue(self.visible.oculto_catalogo)

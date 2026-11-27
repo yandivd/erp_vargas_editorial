@@ -760,7 +760,9 @@ class ServicioCatalogo:
 
     @staticmethod
     def obtener_contexto():
-        libros = list(Book.objects.all().order_by('titulo'))
+        libros = list(
+            Book.objects.filter(oculto_catalogo=False).order_by('titulo')
+        )
         return {
             'libros': [
                 {

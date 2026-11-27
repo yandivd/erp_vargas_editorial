@@ -61,6 +61,7 @@ class Book(models.Model):
     precio_usd = models.DecimalField(max_digits=10, decimal_places=1, default=0, verbose_name='Precio base USD')
     precio = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Precio base CUP (legacy)')
     disponible = models.BooleanField(default=True, verbose_name='Disponible')
+    oculto_catalogo = models.BooleanField(default=False, verbose_name='Oculto del catálogo')
     imagen = models.ImageField(upload_to='libros/', blank=True, null=True, verbose_name='Imagen')
     imagen_base = models.URLField(default='', verbose_name='Imagen base (URL)')
     imagen_con_esquineros = models.URLField(

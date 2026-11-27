@@ -624,6 +624,7 @@ def editar_libro(request, pk):
             libro.autor = autor
             libro.paginas = int(paginas)
             libro.precio = Decimal(precio)
+            libro.oculto_catalogo = request.POST.get('oculto_catalogo') == 'on'
             libro.save()
             messages.success(request, f'Libro "{libro.titulo}" actualizado correctamente.')
             return redirect('pedidos:lista_libros')
@@ -645,7 +646,8 @@ def crear_libro(request):
                 titulo=titulo,
                 autor=autor,
                 paginas=int(paginas),
-                precio=Decimal(precio) if precio else Decimal('0')
+                precio=Decimal(precio) if precio else Decimal('0'),
+                oculto_catalogo=request.POST.get('oculto_catalogo') == 'on',
             )
             messages.success(request, f'Libro "{titulo}" agregado al catálogo.')
         else:

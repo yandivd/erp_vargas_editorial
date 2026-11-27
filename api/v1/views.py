@@ -400,6 +400,7 @@ def _libros_comprados_junto_a(libro_ids, excluir_ids):
             pedidos__cliente_id__in=clientes,
             pedidos__cliente__isnull=False,
             disponible=True,
+            oculto_catalogo=False,
         )
         .exclude(id__in=excluir_ids)
         .annotate(compras=Count('pedidos__cliente', distinct=True))
@@ -410,7 +411,7 @@ def _libros_comprados_junto_a(libro_ids, excluir_ids):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def catalogo(request):
-    libros = Book.objects.all()
+    libros = Book.objects.filter(oculto_catalogo=False)
     busqueda = request.query_params.get('q', '').strip()
     if busqueda:
         termino = normalizar_busqueda(busqueda)
@@ -460,7 +461,7 @@ def catalogo(request):
         page_ids = list(page.object_list)
         libros_by_id = {
             libro.id: libro
-            for libro in Book.objects.filter(id__in=page_ids)
+            for libro in Book.objects.filter(id__in=page_ids, oculto_catalogo=False)
         }
         page_books = [libros_by_id[i] for i in page_ids if i in libros_by_id]
         data = [_libro_publico_data(libro, request) for libro in page_books]
@@ -491,7 +492,7 @@ def catalogo(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def catalogo_libro(request, pk):
-    libro = get_object_or_404(Book, pk=pk)
+    libro = get_object_or_404(Book, pk=pk, oculto_catalogo=False)
     return Response({'ok': True, 'data': _libro_publico_data(libro, request)})
 
 
@@ -704,7 +705,7 @@ def configuracion_banner_detalle(request, pk):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def catalogo_recomendaciones(request, pk):
-    libro = get_object_or_404(Book, pk=pk)
+    libro = get_object_or_404(Book, pk=pk, oculto_catalogo=False)
 
     favoritos_ids = []
     for valor in request.query_params.get('favoritos', '').split(','):
@@ -739,6 +740,7 @@ def catalogo_recomendaciones(request, pk):
             Book.objects.filter(
                 autor__iexact=libro.autor,
                 disponible=True,
+                oculto_catalogo=False,
             )
             .exclude(id__in=excluir_ids)
             .order_by('?')
@@ -750,6 +752,7 @@ def catalogo_recomendaciones(request, pk):
             Book.objects.filter(
                 categoria=categoria,
                 disponible=True,
+                oculto_catalogo=False,
             )
             .exclude(id__in=excluir_ids)
             .order_by('?')
@@ -757,7 +760,7 @@ def catalogo_recomendaciones(request, pk):
 
     if len(recomendados) < 3 and favoritos_ids:
         autores_favoritos = (
-            Book.objects.filter(id__in=favoritos_ids)
+            Book.objects.filter(id__in=favoritos_ids, oculto_catalogo=False)
             .exclude(autor='')
             .values_list('autor', flat=True)
         )
@@ -765,6 +768,7 @@ def catalogo_recomendaciones(request, pk):
             Book.objects.filter(
                 autor__in=autores_favoritos,
                 disponible=True,
+                oculto_catalogo=False,
             )
             .exclude(id__in=excluir_ids)
             .order_by('?')
@@ -772,7 +776,7 @@ def catalogo_recomendaciones(request, pk):
 
     if len(recomendados) < 3:
         agregar(
-            Book.objects.filter(disponible=True)
+            Book.objects.filter(disponible=True, oculto_catalogo=False)
             .exclude(id__in=excluir_ids)
             .order_by('?')
         )

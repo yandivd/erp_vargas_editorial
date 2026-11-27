@@ -56,6 +56,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
   const [parametros, setParametros] = useState<ParametrosCosto | null>(null);
   const [parametrosError, setParametrosError] = useState<string | null>(null);
   const [precioManual, setPrecioManual] = useState(false);
+  const [ocultoCatalogo, setOcultoCatalogo] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
@@ -148,6 +149,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
         : "",
     );
     setPrecioManual(esEdicion);
+    setOcultoCatalogo(Boolean(libro?.oculto_catalogo));
     setImagenFile(null);
     setImagenPreviewUrl(null);
     setImagenBase(libro?.imagen_base || libro?.imagen || "");
@@ -244,6 +246,7 @@ export default function LibroModal({ libro }: LibroModalProps) {
     formData.set("autor", autor.trim());
     formData.set("paginas", String(paginasValor));
     formData.set("precio_usd", String(precioValorUsd));
+    formData.set("oculto_catalogo", String(ocultoCatalogo));
     formData.set("imagen_base", imagenBase.trim());
     formData.set("imagen_con_esquineros", imagenEsquineros.trim());
     formData.set("imagen_con_cantos", imagenCantos.trim());
@@ -445,6 +448,26 @@ export default function LibroModal({ libro }: LibroModalProps) {
                       : "Se completa con el precio recomendado al escribir las páginas."}
                   </p>
                 </div>
+              </div>
+
+              <div className="rounded-lg border border-line bg-slate-50 px-3 py-2.5">
+                <label className="flex items-start gap-2.5 text-sm font-semibold text-ink">
+                  <input
+                    id="libro-oculto-catalogo"
+                    type="checkbox"
+                    checked={ocultoCatalogo}
+                    onChange={(event) => setOcultoCatalogo(event.target.checked)}
+                    disabled={guardando}
+                    className="mt-0.5 h-4 w-4 accent-brand"
+                  />
+                  <span>
+                    Ocultar del catálogo público
+                    <span className="mt-0.5 block text-xs font-normal text-muted">
+                      El libro seguirá disponible para pedidos internos, pero no
+                      aparecerá en la tienda ni en recomendaciones.
+                    </span>
+                  </span>
+                </label>
               </div>
 
                 <div>
