@@ -476,6 +476,26 @@ def pedidos_activos():
     ).exclude(estado__nombre__in=ESTADOS_PEDIDO_INACTIVO)
 
 
+def pedidos_estancados_queryset(ahora=None):
+    """Pedidos activos sin movimiento de estado en DIAS_ESTANCAMIENTO días."""
+    ahora = ahora or timezone.now()
+    limite_estancamiento = ahora - timedelta(days=DIAS_ESTANCAMIENTO)
+    ultimo_estado = (
+        HistorialEstado.objects.filter(pedido=OuterRef('pk'))
+        .order_by('-fecha')
+        .values('fecha')[:1]
+    )
+    return (
+        pedidos_activos()
+        .filter(es_historico=False)
+        .annotate(
+            fecha_ultimo_estado=Coalesce(Subquery(ultimo_estado), 'fecha_pedido')
+        )
+        .filter(fecha_ultimo_estado__lt=limite_estancamiento)
+        .select_related('libro', 'estado', 'cliente')
+    )
+
+
 def pasivos_operativos():
     activos = pedidos_activos()
     anticipos = activos.aggregate(t=Sum('anticipo_recibido'))['t'] or Decimal('0')
@@ -1587,20 +1607,9 @@ def dashboard_produccion(desde=None, hasta=None):
     )
 
     ahora = timezone.now()
-    limite_estancamiento = ahora - timedelta(days=DIAS_ESTANCAMIENTO)
-    ultimo_estado = (
-        HistorialEstado.objects.filter(pedido=OuterRef('pk'))
-        .order_by('-fecha')
-        .values('fecha')[:1]
-    )
-    estancados = (
-        pedidos_activos()
-        .filter(es_historico=False)
-        .annotate(fecha_ultimo_estado=Coalesce(Subquery(ultimo_estado), 'fecha_pedido'))
-        .filter(fecha_ultimo_estado__lt=limite_estancamiento)
-        .select_related('libro', 'estado', 'cliente')
-        .order_by('fecha_ultimo_estado')
-    )
+    estancados = pedidos_estancados_queryset(
+        ahora
+    ).order_by('fecha_ultimo_estado')
     pedidos_estancados_data = [
         {
             'id': pedido.id,

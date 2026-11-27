@@ -55,13 +55,14 @@ export default function ProduccionTab({ data }: { data: DashboardProduccion }) {
         <KpiCard
           label="Pedidos estancados"
           value={integer(data.kpis.pedidos_estancados ?? 0)}
-          sub="Más de 5 días sin avanzar"
+          sub="Más de 5 días sin avanzar · Ver detalle"
           tone={(data.kpis.pedidos_estancados ?? 0) > 0 ? "red" : "emerald"}
           valueClassName={
             (data.kpis.pedidos_estancados ?? 0) > 0
               ? "text-red-500"
               : "text-emerald-600"
           }
+          href="/pedidos?estancados=true&en_taller=false"
         />
         <KpiCard
           label="Capacidad del taller"

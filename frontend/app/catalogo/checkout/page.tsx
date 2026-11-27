@@ -18,6 +18,14 @@ import { apiFetch } from "@/lib/api";
 import { escribirCarrito, precioItemCup, precioItemUsd, useCarrito, useFavoritos } from "@/lib/tienda";
 
 const WHATSAPP_NUMERO = "5354545068";
+const DATOS_CLIENTE_KEY = "datos_cliente_vargas";
+const CAMPOS_CLIENTE = [
+  "nombre",
+  "telefono",
+  "provincia",
+  "municipio",
+  "direccion",
+] as const;
 
 type Formulario = {
   nombre: string;
@@ -28,6 +36,8 @@ type Formulario = {
   notas: string;
 };
 
+type DatosCliente = Pick<Formulario, (typeof CAMPOS_CLIENTE)[number]>;
+
 const FORMULARIO_INICIAL: Formulario = {
   nombre: "",
   telefono: "",
@@ -36,6 +46,44 @@ const FORMULARIO_INICIAL: Formulario = {
   direccion: "",
   notas: "",
 };
+
+function leerDatosCliente(): Partial<DatosCliente> {
+  try {
+    const guardados = window.localStorage.getItem(DATOS_CLIENTE_KEY);
+    if (!guardados) {
+      return {};
+    }
+
+    const datos = JSON.parse(guardados) as Partial<
+      Record<(typeof CAMPOS_CLIENTE)[number], unknown>
+    >;
+    const resultado: Partial<DatosCliente> = {};
+    CAMPOS_CLIENTE.forEach((campo) => {
+      if (typeof datos[campo] === "string") {
+        resultado[campo] = datos[campo] as string;
+      }
+    });
+    return resultado;
+  } catch {
+    return {};
+  }
+}
+
+function guardarDatosCliente(formulario: Formulario) {
+  const datos: DatosCliente = {
+    nombre: formulario.nombre.trim(),
+    telefono: formulario.telefono.trim(),
+    provincia: formulario.provincia,
+    municipio: formulario.municipio,
+    direccion: formulario.direccion.trim(),
+  };
+
+  try {
+    window.localStorage.setItem(DATOS_CLIENTE_KEY, JSON.stringify(datos));
+  } catch {
+    return;
+  }
+}
 
 export default function CheckoutPage() {
   const items = useCarrito();
@@ -48,6 +96,15 @@ export default function CheckoutPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [enviado, setEnviado] = useState(false);
   const [tarifasVersion, setTarifasVersion] = useState(0);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      const datos = leerDatosCliente();
+      if (Object.keys(datos).length > 0) {
+        setFormulario((actual) => ({ ...actual, ...datos }));
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const c = new AbortController();
@@ -248,6 +305,7 @@ export default function CheckoutPage() {
       return;
     }
 
+    guardarDatosCliente(formulario);
     setFormError(null);
     setEnviado(true);
 

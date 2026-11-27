@@ -26,6 +26,7 @@ type PageProps = {
     page?: string;
     en_taller?: string;
     orden?: string;
+    estancados?: string;
   }>;
 };
 
@@ -34,6 +35,7 @@ type PedidosContentProps = {
   estado: string;
   enTaller: boolean;
   orden: string;
+  estancados: boolean;
   page: number;
 };
 
@@ -41,8 +43,11 @@ export default async function PedidosPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const search = (params.search ?? "").trim();
   const estado = (params.estado ?? "").trim();
-  const enTaller =
-    params.en_taller !== "false" && params.en_taller !== "0";
+  const estancados =
+    params.estancados === "true" || params.estancados === "1";
+  const enTaller = params.en_taller
+    ? params.en_taller !== "false" && params.en_taller !== "0"
+    : !estancados;
   const orden = (params.orden ?? "").trim();
   const parsedPage = Number(params.page ?? "1");
   const page =
@@ -50,8 +55,26 @@ export default async function PedidosPage({ searchParams }: PageProps) {
 
   return (
     <div>
-      <PageHeader enTaller={enTaller} />
-      <ViewTabs enTaller={enTaller} search={search} orden={orden} />
+      <PageHeader enTaller={enTaller} estancados={estancados} />
+      <ViewTabs
+        enTaller={enTaller}
+        search={search}
+        orden={orden}
+        estancados={estancados}
+      />
+
+      {estancados ? (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <strong>Vista del dashboard: Pedidos estancados.</strong> Más de 5
+          días sin avanzar de estado.
+          <Link
+            href="/pedidos?en_taller=false"
+            className="ml-1 font-semibold text-red-700 underline"
+          >
+            Ver todos los pedidos
+          </Link>
+        </div>
+      ) : null}
 
       <Suspense fallback={<PedidosContentSkeleton />}>
         <PedidosContent
@@ -59,6 +82,7 @@ export default async function PedidosPage({ searchParams }: PageProps) {
           estado={estado}
           enTaller={enTaller}
           orden={orden}
+          estancados={estancados}
           page={page}
         />
       </Suspense>
@@ -71,6 +95,7 @@ async function PedidosContent({
   estado,
   enTaller,
   orden,
+  estancados,
   page,
 }: PedidosContentProps) {
   const query = new URLSearchParams();
@@ -84,6 +109,9 @@ async function PedidosContent({
   }
   if (enTaller) {
     query.set("en_taller", "true");
+  }
+  if (estancados) {
+    query.set("estancados", "true");
   }
   if (orden) {
     query.set("orden", orden);
@@ -126,7 +154,11 @@ async function PedidosContent({
         <div className="mb-4 flex justify-end">
           <div className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-muted">
             <span className="font-bold text-ink">{pagination.count}</span>{" "}
-            {enTaller ? "en taller" : `resultado${pagination.count === 1 ? "" : "s"}`}
+            {estancados
+              ? "pedidos estancados"
+              : enTaller
+                ? "en taller"
+                : `resultado${pagination.count === 1 ? "" : "s"}`}
           </div>
         </div>
       ) : null}
@@ -137,6 +169,7 @@ async function PedidosContent({
         initialEstado={estado}
         enTaller={enTaller}
         initialOrden={orden}
+        estancados={estancados}
       />
 
       <section className="rounded-xl border border-line bg-white p-4 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.02)] md:p-6">
@@ -144,14 +177,18 @@ async function PedidosContent({
           <div className="flex flex-col items-center justify-center px-4 py-12 text-center text-muted">
             <SearchX className="mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
             <p className="font-semibold text-ink">
-              {enTaller
-                ? "No hay pedidos en taller con estos filtros"
-                : "No encontramos pedidos"}
+              {estancados
+                ? "No hay pedidos estancados con estos filtros"
+                : enTaller
+                  ? "No hay pedidos en taller con estos filtros"
+                  : "No encontramos pedidos"}
             </p>
             <p className="mt-1 text-sm">
-              {enTaller
-                ? "Prueba con otro estado del taller o limpia la búsqueda."
-                : "Ajusta la búsqueda o el filtro de estado."}
+              {estancados
+                ? "Todos los pedidos activos han avanzado en los últimos 5 días."
+                : enTaller
+                  ? "Prueba con otro estado del taller o limpia la búsqueda."
+                  : "Ajusta la búsqueda o el filtro de estado."}
             </p>
           </div>
         ) : (
@@ -165,6 +202,7 @@ async function PedidosContent({
                 estado={estado}
                 enTaller={enTaller}
                 orden={orden}
+                estancados={estancados}
               />
             ) : null}
           </>
@@ -174,7 +212,13 @@ async function PedidosContent({
   );
 }
 
-function PageHeader({ enTaller = false }: { enTaller?: boolean }) {
+function PageHeader({
+  enTaller = false,
+  estancados = false,
+}: {
+  enTaller?: boolean;
+  estancados?: boolean;
+}) {
   return (
     <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div>
@@ -183,9 +227,11 @@ function PageHeader({ enTaller = false }: { enTaller?: boolean }) {
           Pedidos
         </h1>
         <p className="mt-1 text-sm text-muted">
-          {enTaller
-            ? "Pedidos activos en producción, desde impresión hasta encuadernado."
-            : "Órdenes del taller, anticipos y estado de producción."}
+          {estancados
+            ? "Pedidos activos con más de 5 días sin avanzar de estado."
+            : enTaller
+              ? "Pedidos activos en producción, desde impresión hasta encuadernado."
+              : "Órdenes del taller, anticipos y estado de producción."}
         </p>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -200,10 +246,12 @@ function ViewTabs({
   enTaller,
   search,
   orden,
+  estancados,
 }: {
   enTaller: boolean;
   search: string;
   orden: string;
+  estancados: boolean;
 }) {
   const params = new URLSearchParams();
   if (search) {
@@ -211,6 +259,9 @@ function ViewTabs({
   }
   if (orden) {
     params.set("orden", orden);
+  }
+  if (estancados) {
+    params.set("estancados", "true");
   }
 
   const tallerParams = new URLSearchParams(params);

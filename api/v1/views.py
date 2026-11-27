@@ -43,6 +43,7 @@ from core.services import (
     depreciacion_activos_mensual,
     movimientos_para_kpi,
     parse_fecha,
+    pedidos_estancados_queryset,
     total_para_kpi,
 )
 from empleados.models import Empleado, PagoNomina
@@ -1522,6 +1523,11 @@ class PedidoViewSetV1(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
+
+        if _es_verdadero(self.request.query_params.get('estancados', '')):
+            queryset = queryset.filter(
+                pk__in=pedidos_estancados_queryset().order_by().values('pk')
+            )
 
         if _es_verdadero(self.request.query_params.get('en_taller', '')):
             queryset = queryset.exclude(
