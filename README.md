@@ -39,6 +39,7 @@ Sistema ERP para la gestión de una editorial/encuadernación: catálogo de libr
   - [26. Matriz de permisos y acceso](#26-matriz-de-permisos-y-acceso)
   - [27. Casos borde](#27-casos-borde)
   - [28. Supuestos y puntos por confirmar](#28-supuestos-y-puntos-por-confirmar)
+  - [29. Cambios funcionales recientes](#29-cambios-funcionales-recientes)
 
 ---
 
@@ -307,6 +308,7 @@ classDiagram
 
 ### `core`
 - **`Parametro`** (`clave` PK, `valor`, `descripcion`, `fecha_actualizacion`): configuración clave-valor de negocio. Acceso típico `Parametro.get(clave, default)`.
+- **`Banner`** (`titulo`, `imagen_url`, `activo`, `orden`): banners del catálogo público. La imagen se configura por URL (no upload) y se normalizan enlaces de Google Drive/Dropbox en el frontend. Migración: `core/migrations/0006_banner_imagen_url.py`.
 - **Ubicaciones** (`core/ubicaciones.py`): provincias y municipios soportados.
 
 ### `clientes`
@@ -375,6 +377,11 @@ classDiagram
 - `GET /catalogo/` — admite `q`, `page`, `per_page`, `ordering=random|-ventas`, `seed` (para paginación aleatoria estable).
 - `GET /catalogo/libros/<id>/`, `GET /catalogo/libros/<id>/recomendaciones/`
 
+**Configuración (lectura pública, escritura autenticada)**
+- `GET|PUT /configuracion/parametros/` — parámetros editables desde el panel `/configuracion`.
+- `GET|POST /configuracion/banners/` — `GET ?todos=1` incluye inactivos; el público solo devuelve activos con URL.
+- `PUT|PATCH|DELETE /configuracion/banners/<id>/` — edición/eliminación de banners por URL.
+
 **Operación (autenticados, selección principal)**
 - **Pedidos:** viewset `/pedidos/` (+ acciones/endpoints definidos en `api/v1/views.py`).
 - **Clientes/Libros/Empleados/Proveedores:** viewsets registrados en router.
@@ -391,8 +398,8 @@ classDiagram
 ### Estructura de rutas (`frontend/app`)
 Incluye (entre otras):
 - Públicas: `/login`, `/catalogo`, `/catalogo/[id]`, `/catalogo/checkout`, `/fidelidad`, `/fidelidad/[token]`.
-- Privadas: `/` (dashboard), `/clientes`, `/pedidos`, `/libros`, `/tienda`, `/entregas`, `/inventario`, `/proveedores`, `/empleados`, `/finanzas/*` (caja, arqueos, activos, divisas), etc.
-- Rutas API Next: `/api/auth/login`, `/api/auth/logout`, `/api/bff/[...path]`, `/api/catalogo`, `/api/catalogo/[...path]`.
+- Privadas: `/` (dashboard), `/clientes`, `/pedidos`, `/libros`, `/tienda`, `/entregas`, `/inventario`, `/proveedores`, `/empleados`, `/finanzas/*` (caja, arqueos, activos, divisas), `/configuracion`, etc.
+- Rutas API Next: `/api/auth/login`, `/api/auth/logout`, `/api/bff/[...path]`, `/api/catalogo`, `/api/catalogo/[...path]`, `/api/catalogo/banners`, `/api/catalogo/decoracion`.
 
 ### BFF y autenticación frontend
 - **`middleware.ts`**: permite rutas públicas (`/login`, `/catalogo`, `/catalogo/*`, `/fidelidad/*`, `/api/*`); para el resto exige access token válido o intenta refresh con refresh token; redirige a `/login?next=...` si no hay sesión válida.
@@ -401,12 +408,16 @@ Incluye (entre otras):
 - **Cliente API (`lib/api.ts`)**: en browser llama al BFF (`/api/bff`), en server llama directo a `DJANGO_API_URL` con token de cookie; valida envoltorio `{ok,data}`.
 
 ### Catálogo storefront (frontend)
-- **`/catalogo`**: tienda organizada en recomendaciones personalizadas (favoritos en `localStorage` + endpoint de recomendaciones, fallback a populares), carrusel “Más vendidos” (top 10 por `ordering=-ventas`) y “Todos los libros” con carga infinita aleatoria estable por `seed` en `sessionStorage`.
-- **`/catalogo/[id]`**: detalle público del libro con metadata OG/Twitter (imagen del libro y descripción para compartir), aviso legal de producto artesanal, CTA “Volver a la tienda” y “Agregar al carrito”; incluye recomendaciones/favoritos.
-- **Componentes:** `ShopBookCard` navega al detalle (también soporta `onClick` cuando se requiere) y preserva la acción de favoritos; `BookCatalog` enlaza tarjetas al detalle.
+- **`/catalogo`**: navbar sticky con buscador modal en vivo, banner dinámico desde BD, recomendaciones personalizadas (favoritos en `localStorage` + endpoint de recomendaciones, fallback a populares), carrusel “Más vendidos” y “Todos los libros” con carga infinita aleatoria estable por `seed` en `sessionStorage`.
+- **Búsqueda:** al escribir en el navbar, el input se mueve al modal y muestra coincidencias por título/autor mientras se escribe; al elegir un libro aparece una pantalla de carga antes de abrir el detalle.
+- **Banners:** `CatalogoBanners` rota los banners activos cada 1.5 s, usa proporción `970x300` e imagen completa (`bg-contain`). El banner estático de respaldo se mantiene en su ubicación original y el banner dinámico solo se muestra en `/catalogo`, no en el detalle.
+- **Carrito:** `CartDrawer` es `fixed inset-0 z-[100]` y se renderiza fuera del contenedor `z-10` del catálogo para quedar siempre por encima del navbar (`z-40`). El checkout por WhatsApp limpia el carrito tras abrir el enlace.
+- **`/catalogo/[id]`**: detalle público con metadata OG/Twitter, aviso legal de producto artesanal, layout de dos columnas (75–80 % producto / 20–25 % sidebar) y cart sidebar tipo Amazon con `lg:sticky lg:top-24`; en móvil el sidebar pasa a ser un bloque normal debajo de la información. El botón de carrito del detalle abre el carrito, no el checkout.
+- **Componentes:** `ShopBookCard`, `BookCatalog`, `AutoCarousel` (flechas + autoplay con pausa al hover/foco), `CatalogoNavbar`, `CatalogoBanners`, `CartDrawer`.
 
-### Imágenes de libros
-- El frontend contempla imágenes remotas/URLs (`imagen_base`, `imagen_con_esquineros`, `imagen_con_cantos`) y normalización de enlaces (Drive/Dropbox) en utilidades/componentes (`frontend/lib/libros.ts`, `components/libros/BookImage.tsx`, `next.config.ts` remotePatterns) según implementación del proyecto.
+### Imágenes y configuración visual
+- **Libros:** imágenes remotas/URLs (`imagen_base`, `imagen_con_esquineros`, `imagen_con_cantos`) con normalización de enlaces Drive/Dropbox en `frontend/lib/libros.ts`, `components/libros/BookImage.tsx` y `next.config.ts`.
+- **Banners:** `core.Banner.imagen_url` usa el mismo criterio de URL pública y normalización que los libros; se administra desde `/configuracion` (pestaña “Banners”), sin depender del admin de Django.
 
 ## 11. Autenticación y autorización
 
@@ -434,8 +445,8 @@ En la raíz existen scripts y archivos de soporte (migración/corrección de dat
 - **Migración pendiente:** `pedidos/migrations/0019_book_imagenes_url.py` existe en el árbol pero puede no estar aplicada en la BD actual; faltaría aplicar migraciones y poblar `imagen_base` en libros existentes.
 - **Migraciones ignoradas en git (según AGENTS del repo):** `pedidos/migrations/0012_pedido_es_historico.py` y `finanzas/migrations/0012_alter_movimientocaja_categoria.py` pueden estar en `.gitignore` aunque el esquema/modelos dependan de ellas. Verificar en clones nuevos.
 - **Working tree sucio:** pueden existir cambios locales no confirmados y archivos CRLF reportados como modificados; evitar `git add -A`.
-- **Tests:** `manage.py test` no cubre comportamiento real de forma significativa (stubs).
-- **Calidad de código:** sin lint/typecheck/formateador configurados.
+- **Tests:** la suite todavía contiene stubs, pero hay cobertura real puntual de búsqueda flexible y endpoints de configuración (`core.tests`). Verificación reciente: 28 tests de `core` OK.
+- **Calidad de código:** backend sin lint/typecheck/formateador. Frontend tiene ESLint y TypeScript vía `npm run build`; `npm run lint` global arrastra errores preexistentes, por lo que se valida con ESLint dirigido a los archivos tocados.
 - **Dependencias backend incompletas en `requirements.txt`:** instalar/verificar paquetes reales del entorno.
 - **Consistencia de entornos frontend:** validar `DJANGO_API_URL` vs `NEXT_PUBLIC_DJANGO_URL` para exportaciones y descargas.
 - **API legacy `/api/pedidos/`:** revisar exposición/permisos efectivos en el entorno objetivo.
@@ -583,6 +594,12 @@ El costeador puede recibir `parametros` y `tasa_cambio` precargados; si no, cons
   - **Esquineros (sin cantos tintados):** +300 / +500 / +800.
 - Rangos (precio base): `< 5000`, `< 8000`, `>= 8000`.
 
+### Precio USD sugerido
+- `pedidos.services.precio_usd_recomendado` convierte el precio CUP sugerido a USD usando `Tasa_cambio` (fallback `930`) y redondea a `0.1` con `ROUND_HALF_UP`.
+- `LibroModal` muestra el precio USD guardado y ofrece “Usar precio USD sugerido”; en creación el campo se autocompleta al escribir páginas.
+- `NuevoPedidoModal` acepta `libro_precio_usd` y calcula el precio final en CUP con la tasa vigente.
+- Comando `python manage.py actualizar_precios [--dry-run] [--solo-usd]` para actualización masiva.
+
 ### Mensajería
 - Costos definidos por municipio/provincia en `pedidos/services.py`.
 - **Artemisa:** costo base 0 para municipios de Artemisa (según tabla).
@@ -668,6 +685,8 @@ El costeador puede recibir `parametros` y `tasa_cambio` precargados; si no, cons
 ### Cortes y referencias
 - **Corte financiero:** `FECHA_CORTE_FINANCIERO = 2026-08-02` (y referencia 487 en analítica financiera).
 - **Corte ganancia promedio (costeo/pedidos):** `FECHA_CORTE_GANANCIA_PROMEDIO = 2026-08-02`.
+- **Periodo por defecto:** año actual (`2026-01-01` → hoy). El selector “Período” permite `anual`/`global`; `modo=global` rompe el corte `FECHA_CORTE_FINANCIERO` para incluir todo el histórico disponible.
+- `incluir_historial` y `modo` forman parte del filtro cacheado del dashboard (`DASHBOARD_CACHE_VERSION = 16`).
 
 ### KPIs destacados (resumen)
 - **`deuda_clientes`:** suma de `Pedido.saldo_pendiente` con cliente, saldo > 0, excluyendo estados `Cancelado` y `Borrador`.
@@ -696,6 +715,8 @@ El costeador puede recibir `parametros` y `tasa_cambio` precargados; si no, cons
 - **Códigos de descuento:** vigencia por fechas, estado activo y límite de usos (cuando aplica).
 - **Fidelidad:** sellos acotados por meta; bono no negativo.
 - **Nombres de estado:** automatizaciones dependen de coincidencia exacta de `Estado.nombre`.
+- **Búsquedas:** los filtros de catálogo (API v1), pedidos/clientes legacy y tablas del frontend normalizan tildes, `ñ`/`ü` y mayúsculas (`core/busqueda.py`, `frontend/lib/useTable.ts`).
+- **Banners:** la URL de imagen es obligatoria al crear; el listado público excluye banners inactivos o sin URL.
 
 ## 26. Matriz de permisos y acceso
 
@@ -727,7 +748,7 @@ El costeador puede recibir `parametros` y `tasa_cambio` precargados; si no, cons
 
 ## 28. Supuestos y puntos por confirmar
 
-- ⚠️ **Migraciones pendientes/aplicación en BD:** aplicar `0019_book_imagenes_url.py` y completar `imagen_base` en libros existentes.
+- ⚠️ **Migraciones pendientes/aplicación en BD:** aplicar `pedidos/migrations/0019_book_imagenes_url.py` y completar `imagen_base` en libros existentes; aplicar también `core/migrations/0006_banner_imagen_url.py` para convertir banners anteriores a URLs.
 - ⚠️ **Migraciones ignoradas por git:** confirmar presencia de migraciones históricas requeridas en clones nuevos.
 - ⚠️ **Dependencias backend reales:** `requirements.txt` no refleja todas las librerías usadas (Django, DRF, SimpleJWT, corsheaders, dotenv, whitenoise, weasyprint, etc.).
 - ⚠️ **Permisos de endpoints legacy:** revisar decoradores/permisos efectivos en todas las vistas y APIs antiguas.
@@ -739,6 +760,30 @@ El costeador puede recibir `parametros` y `tasa_cambio` precargados; si no, cons
 
 ---
 
-*Documento generado a partir del análisis del código y configuración presentes en el repositorio. Ante discrepancias con la operación real, prevalece el comportamiento del código, las migraciones aplicadas y los datos/configuración del entorno en ejecución.*
+## 29. Cambios funcionales recientes
 
-<!-- SUGERENCIA: agregar changelog -->
+### Catálogo y tienda pública
+- **Navbar sticky y búsqueda en vivo:** `CatalogoNavbar` mantiene el header visible al scrollear. Al escribir, el cuadro de búsqueda se oculta en el navbar y reaparece dentro de un modal con resultados por título/autor; al elegir un resultado se muestra una pantalla de carga antes de abrir `/catalogo/[id]`.
+- **Búsqueda flexible:** normalización sin tildes, mayúsculas, `ñ`/`ü` y reemplazos comunes en `core/busqueda.py`, aplicada en API v1, vistas legacy de pedidos/clientes y tablas del frontend (`frontend/lib/useTable.ts`).
+- **Banners dinámicos:** modelo `core.Banner` con `imagen_url` (migración `0006_banner_imagen_url.py`), rotación automática cada 1.5 s, tamaño `970x300` y `bg-contain` para no recortar la imagen. Solo se muestran en `/catalogo`; el detalle del libro ya no los renderiza.
+- **Carruseles:** `AutoCarousel` incluye flechas, autoplay de un elemento cada 1.5 s, loop suave, scrollbar oculto y pausa al pasar el mouse o enfocar controles.
+- **Carrito por encima del navbar:** `CartDrawer` se renderiza como hijo directo del contenedor principal con `fixed inset-0 z-[100]`, separado del wrapper `relative z-10`, para que el backdrop y el panel tapen el header (`z-40`).
+- **Flujo de compra:** el botón de carrito en el detalle abre `/catalogo?tab=carrito` (no checkout) y, al confirmar el pedido por WhatsApp, se limpia `localStorage` del carrito.
+- **Detalle de producto:** layout de dos columnas en escritorio (75–80 % imagen/descripción, 20–25 % sidebar), con cart sidebar tipo Amazon; en móvil el sidebar aparece como bloque normal debajo del producto (no sticky).
+- **Preview de WhatsApp:** `generateMetadata` del detalle usa `imagen_base || imagen` con `normalizarUrlImagen` (Google Drive/Dropbox) para `og:image`/`twitter:image`; la imagen debe ser pública y accesible por URL absoluta.
+- **Ocultar libro del catálogo:** `Book.oculto_catalogo` (migración `pedidos/migrations/0021_book_oculto_catalogo.py`) se marca en “Editar libro”; el libro sigue disponible para pedidos internos, pero desaparece de `/catalogo`, del detalle público, de recomendaciones y del catálogo PDF.
+
+### Panel de configuración
+- Nueva ruta privada `/configuracion` con pestañas **Parámetros**, **Banners** y **Decoración**, accesible desde el menú “Sistema” del sidebar.
+- Los parámetros de negocio se editan sin entrar al admin de Django mediante `GET|PUT /api/v1/configuracion/parametros/`.
+- Los banners se crean/editan/eliminan por URL mediante `GET|POST /api/v1/configuracion/banners/` y `PUT|PATCH|DELETE /api/v1/configuracion/banners/<id>/`; `?todos=1` incluye inactivos para el panel.
+- Las solicitudes del panel usan JSON (ya no `FormData`/upload) y la vista previa aplica la misma normalización de URLs de libros (Google Drive/Dropbox).
+
+### Dashboard y precios
+- Dashboard con periodo **anual** por defecto y modo **global**; selector en `DashboardHeader`, recarga por `filters.modo` y `DASHBOARD_CACHE_VERSION = 16`.
+- `precio_usd_recomendado` en `pedidos/services.py`, botón “Usar precio USD sugerido” en `LibroModal`, autocompletado en `NuevoPedidoModal` y comando `actualizar_precios.py` con `--dry-run`/`--solo-usd`.
+- **Acabados en pedidos:** el recargo de esquineros/cantos se suma al precio CUP del pedido (+300/+500/+800 para esquineros, según base), igual que en el catálogo; el precio USD base del libro/pedido no se recalcula al marcar esquineros.
+
+### Verificación reciente
+- Backend: `manage.py check`, `makemigrations --check --dry-run` y 32 tests de `core` OK (con stub de `qrcode` en entornos Linux/WSL).
+- Frontend: ESLint dirigido a los archivos modificados sin errores y `npm run build` OK.

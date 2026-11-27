@@ -28,6 +28,10 @@ type ParametrosResponse = {
   parametros: ParametrosCosto;
 };
 
+type CostoDetalle = ReturnType<typeof calcularCostoPorUnidad> & {
+  costo_total_cup?: number;
+};
+
 export default async function LibroDetailPage({ params }: PageProps) {
   const { id } = await params;
 
@@ -60,7 +64,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
   }
 
   const libro = libroResult.libro;
-  const costo = parametrosResult
+  const costo: CostoDetalle | null = parametrosResult
     ? calcularCostoPorUnidad(
         libro.paginas,
         false,
@@ -69,7 +73,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
       )
     : null;
   const precioVenta = Number(libro.precio);
-  const gananciaNeta = costo ? precioVenta - ((costo as any).costo_total_cup ?? costo.costo_total) : null;
+  const gananciaNeta = costo ? precioVenta - (costo.costo_total_cup ?? costo.costo_total) : null;
 
   return (
     <div>
@@ -82,13 +86,21 @@ export default async function LibroDetailPage({ params }: PageProps) {
             className="aspect-[3/4] w-48 shrink-0 rounded-xl border border-line sm:w-56"
           />
           <div>
-            <h1 className="text-2xl font-extrabold text-ink">{libro.titulo}</h1>
+            <h1 className="text-2xl font-extrabold text-ink">
+              {libro.titulo}
+              {" "}
+              {libro.oculto_catalogo ? (
+                <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 align-middle text-xs font-semibold text-amber-800">
+                  Oculto del catálogo
+                </span>
+              ) : null}
+            </h1>
             <p className="mt-1 text-sm text-muted">
               {libro.autor || "Sin autor"}
             </p>
             <p className="mt-3 text-sm text-muted">
               {libro.paginas} páginas · Precio de venta{" "}
-              <strong className="text-ink">{money((libro as any).precio_usd ?? 0, "USD")}</strong> <span className="text-muted">({money((libro as any).precio_cup_referencia ?? libro.precio, "CUP")})</span>
+              <strong className="text-ink">{money(libro.precio_usd ?? 0, "USD")}</strong> <span className="text-muted">({money(libro.precio_cup_referencia ?? libro.precio, "CUP")})</span>
             </p>
           </div>
         </div>
@@ -106,7 +118,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
             <Info label="Título" value={libro.titulo} />
             <Info label="Autor" value={libro.autor || "—"} />
             <Info label="Páginas" value={String(libro.paginas)} />
-            <Info label="Precio de venta" value={`${money((libro as any).precio_usd ?? 0, "USD")} (${money((libro as any).precio_cup_referencia ?? libro.precio, "CUP")})`} />
+            <Info label="Precio de venta" value={`${money(libro.precio_usd ?? 0, "USD")} (${money(libro.precio_cup_referencia ?? libro.precio, "CUP")})`} />
           </dl>
 
           <div className="mt-6 border-t border-line pt-4">
@@ -129,7 +141,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
                   Costo total de producción
                 </div>
                 <div className="mt-1 text-xl font-extrabold text-ink">
-                  {costo ? money(((costo as any).costo_total_cup ?? costo.costo_total)) : "—"}
+                  {costo ? money((costo.costo_total_cup ?? costo.costo_total)) : "—"}
                 </div>
               </div>
             </div>
@@ -158,7 +170,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
                 Costo de producción por unidad
               </div>
               <div className="mt-1 text-xl font-extrabold text-ink">
-                {costo ? money(((costo as any).costo_total_cup ?? costo.costo_total)) : "—"}
+                {costo ? money((costo.costo_total_cup ?? costo.costo_total)) : "—"}
               </div>
             </div>
 
@@ -191,7 +203,7 @@ export default async function LibroDetailPage({ params }: PageProps) {
             </div>
 
             <dl className="grid grid-cols-1 gap-x-6 gap-y-4">
-              <Info label="Precio de venta" value={`${money((libro as any).precio_usd ?? 0, "USD")} (${money((libro as any).precio_cup_referencia ?? libro.precio, "CUP")})`} />
+              <Info label="Precio de venta" value={`${money(libro.precio_usd ?? 0, "USD")} (${money(libro.precio_cup_referencia ?? libro.precio, "CUP")})`} />
               <Info
                 label="Precio sugerido por unidad"
                 value={costo ? money(costo.precio_sugerido) : "—"}

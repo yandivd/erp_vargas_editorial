@@ -302,6 +302,40 @@ export default function NuevoPedidoModal() {
     );
   }, [parametros, paginas, llevaCantosTintados, llevaEsquineros]);
 
+  const esquinerosEfectivos = llevaEsquineros || llevaCantosTintados;
+
+  const incrementoAcabadosCup = (() => {
+    if (modoLibro === "nuevo") {
+      if (!parametros || !Number.isFinite(paginas) || paginas <= 0) {
+        return 0;
+      }
+      const base = calcularCostoPorUnidad(paginas, false, false, parametros);
+      const total = calcularCostoPorUnidad(
+        paginas,
+        llevaCantosTintados,
+        esquinerosEfectivos,
+        parametros,
+      );
+      return Math.max(0, total.precio_sugerido - base.precio_sugerido);
+    }
+
+    if (!libroSeleccionado) {
+      return 0;
+    }
+
+    const precioBase =
+      Number(libroSeleccionado.precio_cup ?? libroSeleccionado.precio ?? 0) ||
+      0;
+    return Math.max(
+      0,
+      calcularPrecioConAcabados(
+        precioBase,
+        llevaCantosTintados,
+        esquinerosEfectivos,
+      ) - precioBase,
+    );
+  })();
+
   const cantidadNum = Math.max(1, Number(cantidad) || 1);
   const esUsd = moneda === "USD";
   const esPrecioUsd = esUsd;
@@ -310,7 +344,7 @@ export default function NuevoPedidoModal() {
     tasaCambio !== null && Number.isFinite(tasaCambio) && tasaCambio > 0;
   const tasaPrecio = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
   const precioCupUnitario = esPrecioUsd
-    ? Math.round(Number(precioVenta || 0) * tasaPrecio)
+    ? Math.round(Number(precioVenta || 0) * tasaPrecio + incrementoAcabadosCup)
     : Math.max(0, Number(precioVenta || 0));
   const precio = precioCupUnitario * cantidadNum;
   const anticipo = Number(anticipoRequerido || 0);
@@ -322,12 +356,23 @@ export default function NuevoPedidoModal() {
   const costoTotalPedido = costo ? redondear2(costo.costo_total * cantidadNum) : 0;
   const ganancia = redondear2(precio - costoTotalPedido);
 
-  function anticipoSugeridoEnMoneda(montoCup: number): string {
-    if (esUsd) {
+  function anticipoSugeridoEnMoneda(
+    montoCup: number,
+    monedaObjetivo: MonedaAnticipo = moneda,
+  ): string {
+    if (monedaObjetivo === "USD") {
       const tasa = tasaCambio ?? 0;
       return tasa > 0 ? String(Math.floor(montoCup / tasa)) : "0";
     }
     return String(redondear2(montoCup));
+  }
+
+  function precioVisibleDesdeCup(precioCup: number): number {
+    if (!esPrecioUsd) {
+      return redondear2(precioCup);
+    }
+    const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
+    return Math.max(0, Math.round((precioCup - incrementoAcabadosCup) / tasa));
   }
 
   function precioUsdRecomendado(calculo: CostoCalculado): number {
@@ -335,25 +380,6 @@ export default function NuevoPedidoModal() {
       calculo.precio_sugerido_usd ??
       Math.round((calculo.precio_sugerido / 930) * 10) / 10
     );
-  }
-
-  function aplicarPrecioSugerido(
-    precioCup: number,
-    forzar = false,
-    precioUsd?: number,
-  ) {
-    if (forzar || !precioEditadoManualmente) {
-      if (esPrecioUsd) {
-        setPrecioVenta(
-          String(precioUsd ?? Math.round((precioCup / 930) * 10) / 10),
-        );
-      } else {
-        setPrecioVenta(String(redondear2(precioCup)));
-      }
-    }
-    if (forzar || !anticipoEditado) {
-      setAnticipoRequerido(anticipoSugeridoEnMoneda(precioCup / 2));
-    }
   }
 
   function calcularActual(
@@ -374,6 +400,97 @@ export default function NuevoPedidoModal() {
       esquineros,
       parametros,
     );
+  }
+
+  function precioUsdBaseLibro(): number | null {
+    if (modoLibro === "nuevo") {
+      const base = calcularActual(paginas, false, false);
+      if (!base) {
+        return null;
+      }
+      return precioUsdRecomendado(base);
+    }
+
+    const precioUsd = Number(libroSeleccionado?.precio_usd ?? 0) || 0;
+    return precioUsd > 0 ? Math.round(precioUsd * 10) / 10 : null;
+  }
+
+  function sugerenciaPrecio(
+    paginasCalculo: number,
+    cantosTintados: boolean,
+    esquineros: boolean,
+    libro?: Libro | null,
+  ): { precioMostrado: number; precioUsd?: number; precioCupFinal: number } {
+    const esquinerosFinales = esquineros || cantosTintados;
+
+    if (modoLibro === "nuevo") {
+      const base = calcularActual(paginasCalculo, false, false);
+      const total = calcularActual(
+        paginasCalculo,
+        cantosTintados,
+        esquinerosFinales,
+      );
+      if (!base || !total) {
+        return { precioMostrado: 0, precioCupFinal: 0 };
+      }
+      const precioUsdBase = precioUsdRecomendado(base);
+      return esPrecioUsd
+        ? {
+            precioMostrado: precioUsdBase,
+            precioUsd: precioUsdBase,
+            precioCupFinal: total.precio_sugerido,
+          }
+        : {
+            precioMostrado: total.precio_sugerido,
+            precioCupFinal: total.precio_sugerido,
+          };
+    }
+
+    const libroActual = libro ?? libroSeleccionado;
+    if (!libroActual) {
+      return { precioMostrado: 0, precioCupFinal: 0 };
+    }
+
+    const precioBaseCup =
+      Number(libroActual.precio_cup ?? libroActual.precio ?? 0) || 0;
+    const precioCupFinal = calcularPrecioConAcabados(
+      precioBaseCup,
+      cantosTintados,
+      esquinerosFinales,
+    );
+    if (esPrecioUsd) {
+      const precioUsdGuardado = Number(libroActual.precio_usd ?? 0) || 0;
+      const precioUsdBase =
+        precioUsdGuardado > 0
+          ? Math.round(precioUsdGuardado * 10) / 10
+          : Math.round((precioBaseCup / 930) * 10) / 10;
+      return {
+        precioMostrado: precioUsdBase,
+        precioUsd: precioUsdBase,
+        precioCupFinal,
+      };
+    }
+    return { precioMostrado: precioCupFinal, precioCupFinal };
+  }
+
+  function aplicarPrecioSugerido(
+    precioMostrado: number,
+    forzar = false,
+    precioUsd?: number,
+    precioCupParaAnticipo = precioMostrado,
+  ) {
+    if (forzar || !precioEditadoManualmente) {
+      if (esPrecioUsd) {
+        setPrecioVenta(
+          String(precioUsd ?? Math.round((precioMostrado / 930) * 10) / 10),
+        );
+      } else {
+        setPrecioVenta(String(redondear2(precioMostrado)));
+      }
+    }
+    if (forzar || !anticipoEditado) {
+      setAnticipoRequerido(anticipoSugeridoEnMoneda(precioCupParaAnticipo / 2));
+    }
   }
 
   function abrirModal() {
@@ -482,12 +599,18 @@ export default function NuevoPedidoModal() {
     }
 
     if (libro) {
-      const precio = calcularPrecioConAcabados(
-        Number(libro.precio_cup ?? libro.precio),
+      const sugerencia = sugerenciaPrecio(
+        Number(libro.paginas ?? 0),
         llevaCantosTintados,
-        llevaEsquineros || llevaCantosTintados,
+        llevaEsquineros,
+        libro,
       );
-      aplicarPrecioSugerido(precio, true);
+      aplicarPrecioSugerido(
+        sugerencia.precioMostrado,
+        true,
+        sugerencia.precioUsd,
+        sugerencia.precioCupFinal,
+      );
     } else {
       setPrecioVenta("0");
       setAnticipoRequerido("0");
@@ -507,12 +630,18 @@ export default function NuevoPedidoModal() {
     resetDescuento();
 
     if (libro) {
-      const precio = calcularPrecioConAcabados(
-        Number(libro.precio_cup ?? libro.precio),
+      const sugerencia = sugerenciaPrecio(
+        Number(libro.paginas ?? 0),
         llevaCantosTintados,
-        llevaEsquineros || llevaCantosTintados,
+        llevaEsquineros,
+        libro,
       );
-      aplicarPrecioSugerido(precio);
+      aplicarPrecioSugerido(
+        sugerencia.precioMostrado,
+        false,
+        sugerencia.precioUsd,
+        sugerencia.precioCupFinal,
+      );
     } else {
       setPrecioVenta("0");
       setAnticipoRequerido("0");
@@ -526,18 +655,17 @@ export default function NuevoPedidoModal() {
     setModoLibro("nuevo");
     resetDescuento();
 
-    const calculo = calcularActual(
+    const sugerencia = sugerenciaPrecio(
       Number(libroPaginas),
       llevaCantosTintados,
-      llevaEsquineros || llevaCantosTintados,
+      llevaEsquineros,
     );
-    if (calculo) {
-      aplicarPrecioSugerido(
-        calculo.precio_sugerido,
-        false,
-        precioUsdRecomendado(calculo),
-      );
-    }
+    aplicarPrecioSugerido(
+      sugerencia.precioMostrado,
+      false,
+      sugerencia.precioUsd,
+      sugerencia.precioCupFinal,
+    );
   }
 
   function handleLibroPaginasChange(value: string) {
@@ -545,49 +673,36 @@ export default function NuevoPedidoModal() {
     setLibroPaginas(value);
     resetDescuento();
 
-    const calculo = calcularActual(
+    const sugerencia = sugerenciaPrecio(
       Number(value),
       llevaCantosTintados,
-      llevaEsquineros || llevaCantosTintados,
+      llevaEsquineros,
     );
-    if (calculo) {
-      aplicarPrecioSugerido(
-        calculo.precio_sugerido,
-        false,
-        precioUsdRecomendado(calculo),
-      );
-    }
+    aplicarPrecioSugerido(
+      sugerencia.precioMostrado,
+      false,
+      sugerencia.precioUsd,
+      sugerencia.precioCupFinal,
+    );
   }
 
   function actualizarPrecioYAnticipo(
     cantosTintados: boolean,
     esquineros: boolean,
   ) {
-    if (modoLibro === "nuevo") {
-      const calculo = calcularActual(
-        Number(libroPaginas),
-        cantosTintados,
-        esquineros,
-      );
-      if (calculo) {
-        aplicarPrecioSugerido(
-          calculo.precio_sugerido,
-          false,
-          precioUsdRecomendado(calculo),
-        );
-      }
-      return;
-    }
-
-    if (libroSeleccionado) {
-      const precioBase = Number(libroSeleccionado.precio);
-      const nuevoPrecio = calcularPrecioConAcabados(
-        precioBase,
-        cantosTintados,
-        esquineros,
-      );
-      aplicarPrecioSugerido(nuevoPrecio);
-    }
+    const paginasActuales =
+      modoLibro === "nuevo" ? Number(libroPaginas) : paginas;
+    const sugerencia = sugerenciaPrecio(
+      paginasActuales,
+      cantosTintados,
+      esquineros,
+    );
+    aplicarPrecioSugerido(
+      sugerencia.precioMostrado,
+      false,
+      sugerencia.precioUsd,
+      sugerencia.precioCupFinal,
+    );
   }
 
   function handleCantosTintadosChange(checked: boolean) {
@@ -609,26 +724,26 @@ export default function NuevoPedidoModal() {
 
     if (!anticipoEditado) {
       const precioNum = Number(value || 0);
-      setAnticipoRequerido(
-        esUsd
-          ? String(Math.floor(precioNum / 2))
-          : String(redondear2(precioNum / 2)),
-      );
+      const precioCupEntrada = esUsd
+        ? Math.round(precioNum * tasaPrecio) + incrementoAcabadosCup
+        : Math.max(0, precioNum);
+      setAnticipoRequerido(anticipoSugeridoEnMoneda(precioCupEntrada / 2));
     }
   }
 
   function handleMonedaChange(next: MonedaAnticipo) {
     if (next === moneda) return;
-    const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
-    const precioActual = Number(precioVenta || 0);
-    const anticipoActual = Number(anticipoRequerido || 0);
+    const precioCupActual = precioCupUnitario;
+
     if (next === "USD") {
-      setPrecioVenta(String(Math.round(precioActual / tasa)));
-      setAnticipoRequerido(String(Math.round(anticipoActual / tasa)));
+      const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
+      setPrecioVenta(
+        String(Math.max(0, Math.round((precioCupActual - incrementoAcabadosCup) / tasa))),
+      );
     } else {
-      setPrecioVenta(String(Math.round(precioActual * tasa)));
-      setAnticipoRequerido(String(redondear2(anticipoActual * tasa)));
+      setPrecioVenta(String(redondear2(precioCupActual)));
     }
+    setAnticipoRequerido(anticipoSugeridoEnMoneda(precioCupActual / 2, next));
     setMoneda(next);
   }
 
@@ -672,12 +787,7 @@ export default function NuevoPedidoModal() {
     setBonoActivo(true);
     setPrecioOriginal(precioVenta);
     setAnticipoOriginal(anticipoRequerido);
-    if (esPrecioUsd) {
-      const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
-      setPrecioVenta(String(Math.round(nuevoPrecioCup / tasa)));
-    } else {
-      setPrecioVenta(String(nuevoPrecioCup));
-    }
+    setPrecioVenta(String(precioVisibleDesdeCup(nuevoPrecioCup)));
     setAnticipoRequerido(anticipoSugeridoEnMoneda(nuevoPrecioCup / 2));
     setBonoInfo(
       `Bono de fidelidad aplicado: ${money(monto)} — Precio final: ${money(
@@ -694,8 +804,8 @@ export default function NuevoPedidoModal() {
       return;
     }
 
-    const precioActual = Number(precioVenta || 0);
-    if (precioActual <= 0) {
+    const precioCupActual = precioCupUnitario;
+    if (precioCupActual <= 0) {
       setDescuentoError("El precio de venta debe ser mayor a 0.");
       return;
     }
@@ -707,7 +817,7 @@ export default function NuevoPedidoModal() {
 
     const params = new URLSearchParams({
       codigo: codigoDescuento,
-      precio: String(precioActual),
+      precio: String(precioCupActual),
     });
     if (modoLibro === "existente" && libroId) {
       params.set("libro_id", libroId);
@@ -723,12 +833,7 @@ export default function NuevoPedidoModal() {
       setDescuentoActivo(true);
       setPrecioOriginal(precioVenta);
       setAnticipoOriginal(anticipoRequerido);
-      if (esPrecioUsd) {
-        const tasa = tasaCambio && tasaCambio > 0 ? tasaCambio : 930;
-        setPrecioVenta(String(Math.round(nuevoPrecioCup / tasa)));
-      } else {
-        setPrecioVenta(String(nuevoPrecioCup));
-      }
+      setPrecioVenta(String(precioVisibleDesdeCup(nuevoPrecioCup)));
       setAnticipoRequerido(
         anticipoSugeridoEnMoneda(nuevoPrecioCup / 2),
       );
@@ -812,9 +917,7 @@ export default function NuevoPedidoModal() {
           libro_paginas:
             modoLibro === "nuevo" ? Number(libroPaginas) : null,
           libro_precio_usd:
-            modoLibro === "nuevo" && esPrecioUsd
-              ? Number(precioVenta || 0)
-              : null,
+            modoLibro === "nuevo" ? precioUsdBaseLibro() : null,
           cantidad: cantidadNum,
           lleva_cantos_tintados: llevaCantosTintados,
           lleva_esquineros: llevaEsquineros || llevaCantosTintados,

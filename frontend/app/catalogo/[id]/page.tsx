@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { normalizarUrlImagen } from "@/lib/libros";
 import CatalogoProductClient from "./CatalogoProductClient";
 
 type CatalogoEnvelope = {
@@ -59,7 +60,7 @@ async function fetchLibro(id: string): Promise<CatalogoEnvelope["data"] | null> 
 }
 
 function resolveImageUrl(libro: NonNullable<CatalogoEnvelope["data"]>, baseUrl: string): string {
-  const raw = libro.imagen_base || libro.imagen || "";
+  const raw = normalizarUrlImagen(libro.imagen_base || libro.imagen || "");
   if (!raw) return `${baseUrl}/img/catalogo-preview.jpg`;
   if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
   if (raw.startsWith("/")) return `${baseUrl}${raw}`;
@@ -78,7 +79,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const imageUrl = resolveImageUrl(libro, baseUrl);
-  const description = "Mira este asombroso libro disponible para encargar en Vargas Editorial";
+  const description = "Mira este increible libro para encargar con Vargas Editorial";
   const title = `${libro.titulo} - Vargas Editorial`;
   const url = `${baseUrl}/catalogo/${libro.id}`;
 

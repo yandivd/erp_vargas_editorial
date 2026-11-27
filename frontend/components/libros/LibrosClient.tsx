@@ -12,7 +12,10 @@ import type { Libro } from "@/lib/libros";
 export default function LibrosClient({ initialLibros }: { initialLibros: Libro[] }) {
   const t = useTable(initialLibros, {
     searchKeys: (l) => [l.titulo, l.autor, String(l.paginas)],
-    filters: { disponibilidad: (l, v) => v === "disponible" ? !!l.disponible : v === "no" ? !l.disponible : true },
+    filters: {
+      disponibilidad: (l, v) => v === "disponible" ? !!l.disponible : v === "no" ? !l.disponible : true,
+      catalogo: (l, v) => v === "visible" ? !l.oculto_catalogo : v === "oculto" ? !!l.oculto_catalogo : true,
+    },
   });
   return (
     <div>
@@ -28,7 +31,10 @@ export default function LibrosClient({ initialLibros }: { initialLibros: Libro[]
       </div>
       <section className="rounded-xl border border-line bg-white p-4 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.02)] md:p-6">
         <TableControls search={t.search} onSearch={t.setSearch} filters={t.filters} onFilter={t.setFilter}
-          filterDefs={[{ key: "disponibilidad", label: "Disponibilidad", options: [{ value: "disponible", label: "Disponible" }, { value: "no", label: "No disponible" }] }]}
+          filterDefs={[
+            { key: "disponibilidad", label: "Disponibilidad", options: [{ value: "disponible", label: "Disponible" }, { value: "no", label: "No disponible" }] },
+            { key: "catalogo", label: "Catálogo", options: [{ value: "visible", label: "Visible" }, { value: "oculto", label: "Oculto" }] },
+          ]}
           total={t.total} page={t.page} totalPages={t.totalPages} start={t.start} end={t.end} onPage={t.setPage} />
         {t.pageRows.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 py-12 text-center text-muted"><SearchX className="mb-3 h-10 w-10 text-slate-300" /><p className="font-semibold text-ink">No encontramos libros</p></div>
@@ -38,10 +44,10 @@ export default function LibrosClient({ initialLibros }: { initialLibros: Libro[]
           </tr></thead><tbody>{t.pageRows.map((libro) => (
             <tr key={libro.id} className={tableRowClass}>
               <td className={tdClass}><BookImage libro={libro} className="aspect-[3/4] w-20 rounded-md border border-line sm:w-24" /></td>
-              <td className={tdClass}><Link href={`/libros/${libro.id}`} className="font-semibold text-ink transition hover:text-brand">{libro.titulo}</Link><div className="text-[0.75rem] text-muted sm:hidden">{libro.autor || "Sin autor"}</div></td>
+              <td className={tdClass}><Link href={`/libros/${libro.id}`} className="font-semibold text-ink transition hover:text-brand">{libro.titulo}</Link>{libro.oculto_catalogo ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[0.7rem] font-semibold text-amber-800">Oculto del catálogo</span> : null}<div className="text-[0.75rem] text-muted sm:hidden">{libro.autor || "Sin autor"}</div></td>
               <td className={`${tdClass} hidden sm:table-cell`}>{libro.autor || "—"}</td>
               <td className={tdClass}>{libro.paginas}</td>
-              <td className={tdClass}><div>{money((libro as any).precio_usd ?? 0, "USD")}</div><div className="text-xs text-muted">{money((libro as any).precio_cup_referencia ?? libro.precio, "CUP")}</div></td>
+              <td className={tdClass}><div>{money(libro.precio_usd ?? 0, "USD")}</div><div className="text-xs text-muted">{money(libro.precio_cup_referencia ?? libro.precio, "CUP")}</div></td>
               <td className={`${tdClass} text-right`}><LibroModal libro={libro} /></td>
             </tr>
           ))}</tbody></table></div>

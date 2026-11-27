@@ -12,8 +12,8 @@ from clientes.services import ServicioFidelidad
 # ==========================================
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'autor', 'paginas', 'precio', 'disponible', 'imagen')
-    list_filter = ('disponible',)
+    list_display = ('titulo', 'autor', 'paginas', 'precio', 'disponible', 'oculto_catalogo', 'imagen')
+    list_filter = ('disponible', 'oculto_catalogo')
     search_fields = ('titulo', 'autor')
 
 

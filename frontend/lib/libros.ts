@@ -7,7 +7,9 @@ export type Libro = {
   paginas: number;
   precio: string;
   precio_usd?: string | number | null;
+  precio_cup_referencia?: string | number | null;
   disponible?: boolean;
+  oculto_catalogo?: boolean;
   imagen: string | null;
   imagen_base?: string | null;
   imagen_con_esquineros?: string | null;
